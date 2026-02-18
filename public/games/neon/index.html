@@ -1,29 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neon Jump - Hyper Casual</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; color: white; font-family: 'Courier New', Courier, monospace; }
-        canvas { display: block; }
-        #ui { position: absolute; top: 20px; left: 0; width: 100%; text-align: center; pointer-events: none; }
-        #score { font-size: 60px; font-weight: bold; color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
-        #game-over {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9); padding: 40px; border: 2px solid #00ffff;
-            box-shadow: 0 0 20px #00ffff; border-radius: 10px; text-align: center; display: none;
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #050505;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
         }
+
+        canvas {
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 60px;
+            font-weight: bold;
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 20px #00ffff;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+
         button {
-            background: #ff00ff; border: none; padding: 15px 30px; color: white;
-            font-family: inherit; font-size: 20px; cursor: pointer; margin-top: 20px;
+            background: #ff00ff;
+            border: none;
+            padding: 15px 30px;
+            color: white;
+            font-family: inherit;
+            font-size: 20px;
+            cursor: pointer;
+            margin-top: 20px;
             box-shadow: 0 0 10px #ff00ff;
         }
-        button:hover { background: #d400d4; box-shadow: 0 0 20px #ff00ff; }
+
+        button:hover {
+            background: #d400d4;
+            box-shadow: 0 0 20px #ff00ff;
+        }
     </style>
 </head>
+
 <body>
-    <div id="ui"><div id="score">0</div></div>
+    <div id="ui">
+        <div id="score">0</div>
+    </div>
     <div id="game-over">
         <h1 style="color: #00ffff; margin-top: 0;">TERMINATED</h1>
         <p>SCORE: <span id="final-score" style="color: #ff00ff;">0</span></p>
@@ -104,7 +151,7 @@
         }
 
         window.addEventListener('pointerdown', handleAction);
-        window.addEventListener('keydown', (e) => { if(e.code === 'Space' || e.code === 'ArrowUp') handleAction(); });
+        window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') handleAction(); });
 
         function createPipe() {
             const minHeight = 50;
@@ -163,11 +210,11 @@
             // Draw Background (Grid effect)
             ctx.strokeStyle = '#111';
             ctx.lineWidth = 1;
-            for(let i=0; i<canvas.width; i+=40) {
-                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
             }
-            for(let i=0; i<canvas.height; i+=40) {
-                ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            for (let i = 0; i < canvas.height; i += 40) {
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
             }
 
             // Draw Pipes
@@ -215,9 +262,10 @@
         }
 
         draw();
-        
+
         // Notify platform
         window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>
 </body>
+
 </html>

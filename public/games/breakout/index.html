@@ -1,29 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neon Breakout - Hyper Casual</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; color: white; font-family: 'Courier New', Courier, monospace; }
-        canvas { display: block; }
-        #ui { position: absolute; top: 20px; left: 0; width: 100%; text-align: center; pointer-events: none; }
-        #score { font-size: 50px; font-weight: bold; color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
-        #game-over {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9); padding: 40px; border: 2px solid #00ffff;
-            box-shadow: 0 0 20px #00ffff; border-radius: 10px; text-align: center; display: none;
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #050505;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
         }
+
+        canvas {
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 50px;
+            font-weight: bold;
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 20px #00ffff;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+
         button {
-            background: #ff00ff; border: none; padding: 15px 30px; color: white;
-            font-family: inherit; font-size: 20px; cursor: pointer; margin-top: 20px;
+            background: #ff00ff;
+            border: none;
+            padding: 15px 30px;
+            color: white;
+            font-family: inherit;
+            font-size: 20px;
+            cursor: pointer;
+            margin-top: 20px;
             box-shadow: 0 0 10px #ff00ff;
         }
-        button:hover { background: #d400d4; box-shadow: 0 0 20px #ff00ff; }
+
+        button:hover {
+            background: #d400d4;
+            box-shadow: 0 0 20px #ff00ff;
+        }
     </style>
 </head>
+
 <body>
-    <div id="ui"><div id="score">0</div></div>
+    <div id="ui">
+        <div id="score">0</div>
+    </div>
     <div id="game-over">
         <h1 style="color: #00ffff; margin-top: 0;">FADE OUT</h1>
         <p>SCORE: <span id="final-score" style="color: #ff00ff;">0</span></p>
@@ -164,11 +211,11 @@
                             b.status = 0;
                             score++;
                             scoreEl.textContent = score;
-                            createParticles(bx + brickWidth/2, by + brickHeight/2, b.color);
-                            spawnItem(bx + brickWidth/2, by + brickHeight/2);
+                            createParticles(bx + brickWidth / 2, by + brickHeight / 2, b.color);
+                            spawnItem(bx + brickWidth / 2, by + brickHeight / 2);
                             audio.playNote(400 + (r * 100), 'triangle', 0.1, 0.1);
                             window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
-                            
+
                             if (score === BRICK_ROWS * BRICK_COLS) {
                                 // Victory - just speed up for now
                                 dy *= 1.1; dx *= 1.1;
@@ -217,7 +264,7 @@
                 if (item.y + item.h > canvas.height - PADDLE_HEIGHT - 10 &&
                     item.x < paddleX + PADDLE_WIDTH &&
                     item.x + item.w > paddleX) {
-                    
+
                     if (item.type === 'WIDE') {
                         PADDLE_WIDTH = 200;
                         setTimeout(() => { PADDLE_WIDTH = 120; }, 8000);
@@ -269,7 +316,7 @@
                 ctx.fillStyle = '#00ff00';
                 ctx.font = '10px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText('WIDE', item.x + item.w/2, item.y + item.h/2 + 4);
+                ctx.fillText('WIDE', item.x + item.w / 2, item.y + item.h / 2 + 4);
             });
 
             // Paddle
@@ -328,4 +375,5 @@
         window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>
 </body>
+
 </html>
