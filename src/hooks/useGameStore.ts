@@ -42,32 +42,32 @@ export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       games: [
-            {
-              id: 'stack-tower',
-              title: 'Stack Tower',
-              description: 'Stack blocks as high as you can in this 3D hyper-casual game!',
-              thumbnailUrl: '/images/stack-tower-thumb.svg',
-              gameUrl: '/games/stack/index.html',
-              category: 'action',
-            },
-                    {
-                      id: 'neon-jump',
-                      title: 'Neon Jump',
-                      description: 'Navigate through a neon-lit cyberpunk world in this intense runner!',
-                      thumbnailUrl: '/images/neon-jump-thumb.svg',
-                      gameUrl: '/games/neon/index.html',
-                      category: 'action',
-                    },
-                    {
-                      id: 'neon-breakout',
-                      title: 'Neon Breakout',
-                      description: 'Classic brick-breaking action with high-octane neon visuals and particles!',
-                      thumbnailUrl: '/images/neon-breakout-thumb.svg',
-                      gameUrl: '/games/breakout/index.html',
-                      category: 'action',
-                    },
-                  ],
-            
+        {
+          id: 'stack-tower',
+          title: 'Stack Tower',
+          description: 'Stack blocks as high as you can in this 3D hyper-casual game!',
+          thumbnailUrl: 'images/stack-tower-thumb.svg',
+          gameUrl: 'games/stack/index.html',
+          category: 'action',
+        },
+        {
+          id: 'neon-jump',
+          title: 'Neon Jump',
+          description: 'Navigate through a neon-lit cyberpunk world in this intense runner!',
+          thumbnailUrl: 'images/neon-jump-thumb.svg',
+          gameUrl: 'games/neon/index.html',
+          category: 'action',
+        },
+        {
+          id: 'neon-breakout',
+          title: 'Neon Breakout',
+          description: 'Classic brick-breaking action with high-octane neon visuals and particles!',
+          thumbnailUrl: 'images/neon-breakout-thumb.svg',
+          gameUrl: 'games/breakout/index.html',
+          category: 'action',
+        },
+      ],
+
       currentGame: null,
       leaderboard: {},
       userProfile: {
@@ -78,16 +78,16 @@ export const useGameStore = create<GameState>()(
       setCurrentGame: (game) => set({ currentGame: game }),
       addScore: (gameId, score) => {
         const currentBoard = get().leaderboard[gameId] || [];
-        const newEntry: ScoreEntry = { 
-          userId: get().userProfile.nickname, 
-          score, 
-          date: Date.now() 
+        const newEntry: ScoreEntry = {
+          userId: get().userProfile.nickname,
+          score,
+          date: Date.now()
         };
-        
+
         const updatedBoard = [...currentBoard, newEntry]
           .sort((a, b) => b.score - a.score)
           .slice(0, 5); // Keep top 5
-          
+
         set((state) => ({
           leaderboard: {
             ...state.leaderboard,
@@ -108,9 +108,9 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'hyper-game-storage',
-      partialize: (state) => ({ 
+      partialize: (state) => ({
         leaderboard: state.leaderboard,
-        userProfile: state.userProfile 
+        userProfile: state.userProfile
       }),
     }
   )
