@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Jump - Hyper Casual</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; color: white; font-family: 'Courier New', Courier, monospace; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 20px; left: 0; width: 100%; text-align: center; pointer-events: none; }
+        #score { font-size: 60px; font-weight: bold; color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
+        #game-over {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); padding: 40px; border: 2px solid #00ffff;
+            box-shadow: 0 0 20px #00ffff; border-radius: 10px; text-align: center; display: none;
+        }
+        button {
+            background: #ff00ff; border: none; padding: 15px 30px; color: white;
+            font-family: inherit; font-size: 20px; cursor: pointer; margin-top: 20px;
+            box-shadow: 0 0 10px #ff00ff;
+        }
+        button:hover { background: #d400d4; box-shadow: 0 0 20px #ff00ff; }
+    </style>
+</head>
+<body>
+    <div id="ui"><div id="score">0</div></div>
+    <div id="game-over">
+        <h1 style="color: #00ffff; margin-top: 0;">TERMINATED</h1>
+        <p>SCORE: <span id="final-score" style="color: #ff00ff;">0</span></p>
+        <button onclick="location.reload()">START</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const gameOverEl = document.getElementById('game-over');
+        const finalScoreEl = document.getElementById('final-score');
+
+        // Audio Manager
+        class AudioManager {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            playNote(freq, type, duration, volume) {
+                if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                if (Array.isArray(freq)) {
+                    osc.frequency.setValueAtTime(freq[0], this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(freq[1], this.ctx.currentTime + duration);
+                } else {
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                }
+                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+        }
+        const audio = new AudioManager();
+
+        // Game Constants
+        const GRAVITY = 0.5;
+        const JUMP_FORCE = -8;
+        const PIPE_SPEED = 3.5;
+        const PIPE_SPAWN_RATE = 100; // frames
+        const PIPE_GAP = 180;
+
+        let player = { x: 50, y: 300, w: 30, h: 30, velocity: 0 };
+        let pipes = [];
+        let frames = 0;
+        let score = 0;
+        let isGameOver = false;
+        let isStarted = false;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (!isStarted) player.y = canvas.height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function handleAction() {
+            audio.init();
+            if (isGameOver) return;
+            if (!isStarted) {
+                isStarted = true;
+                return;
+            }
+            player.velocity = JUMP_FORCE;
+            audio.playNote(440, 'sine', 0.1, 0.1);
+        }
+
+        window.addEventListener('pointerdown', handleAction);
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space' || e.code === 'ArrowUp') handleAction(); });
+
+        function createPipe() {
+            const minHeight = 50;
+            const maxHeight = canvas.height - PIPE_GAP - minHeight;
+            const h = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+            pipes.push({ x: canvas.width, y: 0, w: 60, h: h, type: 'top', passed: false });
+            pipes.push({ x: canvas.width, y: h + PIPE_GAP, w: 60, h: canvas.height - h - PIPE_GAP, type: 'bottom', passed: false });
+        }
+
+        function update() {
+            if (isGameOver || !isStarted) return;
+
+            player.velocity += GRAVITY;
+            player.y += player.velocity;
+
+            // Boundary Check
+            if (player.y + player.h > canvas.height || player.y < 0) {
+                gameOver();
+            }
+
+            // Pipe Management
+            if (frames % PIPE_SPAWN_RATE === 0) createPipe();
+
+            pipes.forEach((pipe, index) => {
+                pipe.x -= PIPE_SPEED;
+
+                // Collision Detection
+                if (player.x < pipe.x + pipe.w &&
+                    player.x + player.w > pipe.x &&
+                    player.y < pipe.y + pipe.h &&
+                    player.y + player.h > pipe.y) {
+                    gameOver();
+                }
+
+                // Score Counting
+                if (!pipe.passed && pipe.type === 'top' && player.x > pipe.x + pipe.w) {
+                    pipe.passed = true;
+                    score++;
+                    scoreEl.textContent = score;
+                    audio.playNote([660, 880], 'square', 0.1, 0.05);
+                    window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                }
+
+                // Remove off-screen pipes
+                if (pipe.x + pipe.w < 0) {
+                    pipes.splice(index, 1);
+                }
+            });
+
+            frames++;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background (Grid effect)
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=40) {
+                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+            for(let i=0; i<canvas.height; i+=40) {
+                ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+
+            // Draw Pipes
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00ffff';
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 3;
+            pipes.forEach(pipe => {
+                ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
+                // Glow effect inside
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
+                ctx.fillRect(pipe.x, pipe.y, pipe.w, pipe.h);
+            });
+
+            // Draw Player
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ff00ff';
+            ctx.strokeStyle = '#ff00ff';
+            ctx.fillStyle = '#ff00ff';
+            ctx.strokeRect(player.x, player.y, player.w, player.h);
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            if (!isStarted) {
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = 'white';
+                ctx.font = '24px "Courier New"';
+                ctx.textAlign = 'center';
+                ctx.fillText('CLICK TO INITIATE', canvas.width / 2, canvas.height / 2 + 100);
+            }
+
+            requestAnimationFrame(() => {
+                update();
+                draw();
+            });
+        }
+
+        function gameOver() {
+            if (isGameOver) return;
+            isGameOver = true;
+            gameOverEl.style.display = 'block';
+            finalScoreEl.textContent = score;
+            audio.playNote([220, 55], 'sawtooth', 0.4, 0.2);
+            window.parent.postMessage({ type: 'GAME_OVER' }, '*');
+        }
+
+        draw();
+        
+        // Notify platform
+        window.parent.postMessage({ type: 'GAME_READY' }, '*');
+    </script>
+</body>
+</html>
