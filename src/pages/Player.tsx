@@ -11,7 +11,7 @@ const Player: React.FC = () => {
   const addScore = useGameStore((state) => state.addScore);
   const bestScore = useGameStore((state) => state.getBestScore(gameId || ''));
   const navigate = useNavigate();
-  
+
   const [score, setScore] = useState(0);
 
   // If page is refreshed, find the game from store
@@ -26,7 +26,7 @@ const Player: React.FC = () => {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const { type, payload } = event.data;
-      
+
       switch (type) {
         case 'SUBMIT_SCORE':
           setScore(payload.score);
@@ -48,11 +48,11 @@ const Player: React.FC = () => {
   if (!currentGame) return null;
 
   return (
-    <div className="flex flex-col h-screen w-full bg-black">
+    <div className="flex flex-col h-screen w-full bg-black overflow-hidden" style={{ overscrollBehavior: 'none', touchAction: 'none' }}>
       {/* Top Bar */}
       <div className="flex items-center justify-between px-6 py-4 bg-gray-900 border-b border-gray-800">
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={() => navigate('/')}
             className="p-2 hover:bg-gray-800 rounded-full transition-colors"
           >
@@ -66,7 +66,7 @@ const Player: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button className="p-2 hover:bg-gray-800 rounded-lg text-gray-400" title="Restart">
             <RotateCcw size={20} />
