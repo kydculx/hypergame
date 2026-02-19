@@ -51,6 +51,14 @@ export const useGameStore = create<GameState>()(
           category: 'action',
         },
         {
+          id: 'zigzag',
+          title: 'ZigZag',
+          description: 'Stay on the wall and do as many zigzags as you can!',
+          thumbnailUrl: 'images/zigzag-thumb.svg',
+          gameUrl: 'games/zigzag/index.html',
+          category: 'action',
+        },
+        {
           id: 'neon-jump',
           title: 'Neon Jump',
           description: 'Navigate through a neon-lit cyberpunk world in this intense runner!',
