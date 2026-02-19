@@ -559,7 +559,12 @@
                         audio.playNote(600, 'sine', 0.3, 0.2);
                     } else if (item.type === 'MULTI') {
                         const currentCount = balls.length;
+                        // Limit total balls to 100 to prevent performance issues and chaos
+                        const MAX_BALLS = 100;
+
                         for (let j = 0; j < currentCount; j++) {
+                            if (balls.length >= MAX_BALLS) break;
+
                             // Duplicate ball with slightly different angle
                             let b = balls[j];
                             balls.push({
