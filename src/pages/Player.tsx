@@ -29,14 +29,16 @@ const Player: React.FC = () => {
 
       switch (type) {
         case 'SUBMIT_SCORE':
-          setScore(payload.score);
-          if (gameId) addScore(gameId, payload.score);
+          // We still update the local display score, but don't call addScore here
+          if (payload?.score !== undefined) setScore(payload.score);
           break;
         case 'GAME_READY':
           console.log('Game is ready');
           break;
         case 'GAME_OVER':
-          if (gameId) addScore(gameId, payload.score || score);
+          const finalScore = payload?.score ?? score;
+          if (gameId) addScore(gameId, finalScore);
+          setScore(finalScore);
           break;
       }
     };

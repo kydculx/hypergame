@@ -346,7 +346,7 @@
                                 createParticles(bx + brickWidth / 2, by + brickHeight / 2, b.color);
                                 spawnItem(bx + brickWidth / 2, by + brickHeight / 2);
                                 audio.playNote(400 + (r * 100), 'triangle', 0.1, 0.1);
-                                window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                                // window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
 
                                 if (checkLevelComplete()) {
                                     level++;
@@ -620,7 +620,7 @@
             gameOverEl.style.display = 'block';
             finalScoreEl.textContent = score;
             audio.playNote([220, 50], 'sawtooth', 0.5, 0.2);
-            window.parent.postMessage({ type: 'GAME_OVER' }, '*');
+            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
         }
 
         resize();

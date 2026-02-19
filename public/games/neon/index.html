@@ -77,7 +77,7 @@
         <div id="score">0</div>
     </div>
     <div id="game-over">
-        <h1 style="color: #00ffff; margin-top: 0;">TERMINATED</h1>
+        <h1 style="color: #00ffff; margin-top: 0;">GAME OVER</h1>
         <p>SCORE: <span id="final-score" style="color: #ff00ff;">0</span></p>
         <button onclick="location.reload()">START</button>
     </div>
@@ -197,7 +197,7 @@
                     score++;
                     scoreEl.textContent = score;
                     audio.playNote([660, 880], 'square', 0.1, 0.05);
-                    window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                    // window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
                 }
 
                 // Remove off-screen pipes
@@ -263,7 +263,7 @@
             gameOverEl.style.display = 'block';
             finalScoreEl.textContent = score;
             audio.playNote([220, 55], 'sawtooth', 0.4, 0.2);
-            window.parent.postMessage({ type: 'GAME_OVER' }, '*');
+            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
         }
 
         draw();
