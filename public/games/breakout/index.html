@@ -77,7 +77,7 @@
         <div id="score">0</div>
     </div>
     <div id="game-over">
-        <h1 style="color: #00ffff; margin-top: 0;">FADE OUT</h1>
+        <h1 style="color: #00ffff; margin-top: 0;">GAME OVER</h1>
         <p>SCORE: <span id="final-score" style="color: #ff00ff;">0</span></p>
         <button onclick="location.reload()">START</button>
     </div>
@@ -142,6 +142,7 @@
         const BRICK_PADDING = 5;
         const BRICK_OFFSET_TOP = 100;
         const BRICK_COLORS = ['#f43f5e', '#ec4899', '#d946ef', '#a855f7', '#6366f1', '#3b82f6', '#0ea5e9', '#06b6d4'];
+        const PADDLE_OFFSET_BOTTOM = 100;
 
         let score = 0;
         let isGameOver = false;
@@ -240,7 +241,7 @@
             const angle = Math.PI / 4; // 45 degrees
             balls = [{
                 x: canvas.width / 2,
-                y: canvas.height - 100,
+                y: canvas.height - PADDLE_OFFSET_BOTTOM - PADDLE_HEIGHT - 50,
                 dx: speed * Math.sin(angle),
                 dy: -speed * Math.cos(angle)
             }];
@@ -408,9 +409,9 @@
                 if (ball.y + ball.dy < BALL_RADIUS) {
                     ball.dy = -ball.dy;
                     audio.playNote(300, 'sine', 0.05, 0.05);
-                } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS - PADDLE_HEIGHT - 50) {
+                } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM) {
                     // Paddle Check
-                    if (ball.y < canvas.height - PADDLE_HEIGHT - 50 && ball.dy > 0 &&
+                    if (ball.y < canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM && ball.dy > 0 &&
                         ball.x + BALL_RADIUS > paddleX && ball.x - BALL_RADIUS < paddleX + PADDLE_WIDTH) {
 
                         // Calculate hit position (-1 to 1)
@@ -425,7 +426,7 @@
                         ball.dy = -currentLevelSpeed * Math.cos(theta);
 
                         // Prevent stuck
-                        ball.y = canvas.height - PADDLE_HEIGHT - 50 - BALL_RADIUS - 1;
+                        ball.y = canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS - 1;
                         combo = 0;
                         audio.playNote(200, 'square', 0.1, 0.1);
                     } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS) {
@@ -462,7 +463,7 @@
                 item.y += item.vy;
 
                 // Collect Item
-                if (item.y + item.h > canvas.height - PADDLE_HEIGHT - 50 &&
+                if (item.y + item.h > canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM &&
                     item.x < paddleX + PADDLE_WIDTH &&
                     item.x + item.w > paddleX) {
 
@@ -578,9 +579,9 @@
             ctx.shadowColor = '#00ffff';
             ctx.strokeStyle = '#00ffff';
             ctx.lineWidth = 3;
-            ctx.strokeRect(paddleX, canvas.height - PADDLE_HEIGHT - 50, PADDLE_WIDTH, PADDLE_HEIGHT);
+            ctx.strokeRect(paddleX, canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM, PADDLE_WIDTH, PADDLE_HEIGHT);
             ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
-            ctx.fillRect(paddleX, canvas.height - PADDLE_HEIGHT - 50, PADDLE_WIDTH, PADDLE_HEIGHT);
+            ctx.fillRect(paddleX, canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM, PADDLE_WIDTH, PADDLE_HEIGHT);
 
             // Balls
             ctx.shadowBlur = 15;
