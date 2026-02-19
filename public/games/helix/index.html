@@ -282,17 +282,17 @@
                         // Check angle alignment
                         // Ball is at angle 90 deg (PI/2) typically if placed at Z+
                         // Wait, ball at (0, y, R). atan2(z, x) -> atan2(R, 0) = PI/2.
-
                         // Platform rotation: p.rotation.y + pole.rotation.y
                         // Gap is centered at 0 in local space of P (Geometry defined from startAngle to endAngle)
                         // Actually geometry is from GAP/2 to 2PI-GAP/2. Gap is roughly at angle 0.
 
-                        // We need the angle of the ball relative to the PLATFORM's coordinate system
-                        // Ball World Angle = PI/2
-                        // Platform World Rotation = pole.rotation.y + p.rotation.y;
+                        // We need the angle of the ball RELATIVE TO THE POLE's current rotation.
+                        // Ball World Position (0, ballY, R) maps to Local Shape Position (0, -R) due to mesh.rotation.x = -PI/2
+                        // Local Angle = atan2(-R, 0) = -PI/2 (or 270 degrees)
+                        const ballAngle = -Math.PI / 2;
 
-                        // Relative Angle = BallWorldAngle - PlatformWorldRotation
-                        let relAngle = (Math.PI / 2) - (pole.rotation.y + p.rotation.y);
+                        // Relative Angle = BallAngle - PlatformTotalRotation
+                        let relAngle = ballAngle - (pole.rotation.y + p.rotation.y);
 
                         // Normalize 0 to 2PI
                         relAngle = relAngle % (Math.PI * 2);
