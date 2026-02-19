@@ -169,7 +169,7 @@
             window.addEventListener('pointermove', e => {
                 if (!isDrag || gameState !== 'PLAYING') return;
                 const x = e.clientX || e.touches[0].clientX;
-                pole.rotation.y -= (x - lastX) * 0.01;
+                pole.rotation.y += (x - lastX) * 0.01;
                 lastX = x;
             });
             window.addEventListener('resize', () => {
