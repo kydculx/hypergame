@@ -251,65 +251,44 @@
                     camera.position.y = ballY + 4;
                 }
 
-                // Collision
-                // Ball is at fixed Z relative to camera/world origin (0, y, r)
-                // We check if the floor at current Ball Y is colliding
-
-                // Current Floor Index ball is "in"
-                // Floors are at -0, -4, -8...
-                // Ball Y is +2 initially.
-
-                // Check local floor
-                // Ball radius ~0.4. Platform Y is discrete.
-                // Check if ball crosses a platform Y
+                // Collision (Continuous / Swept)
+                const prevY = ballY - ballDy; // Position before this frame's movement
 
                 platforms.forEach(p => {
-                    // World Y of platform = p.position.y (relative to pole) + pole.position.y (0)
                     const py = p.position.y;
 
-                    // Check pass through score
-                    if (ballY < py && !p.userData.passed) {
-                        p.userData.passed = true;
-                        score++;
-                        document.getElementById('score').textContent = score;
-                        playTone(600, 'sine');
-                        window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
-                        // Change color?
-                    }
+                    // Check if we CROSSED the platform height this frame (falling down)
+                    // Condition: Was above (or at) platform, now below platform.
+                    // And ball is falling (ballDy < 0)
+                    // We treat the platform as a thin plane for crossing check, 
+                    // but we also want to respect the ball radius.
+                    // Contact point is BallY - Radius.
 
-                    // Check Bounce Collision (from above)
-                    if (ballY - BALL_RADIUS <= py && ballY + BALL_RADIUS >= py && ballDy < 0) {
-                        // Check angle alignment
-                        // Ball is at angle 90 deg (PI/2) typically if placed at Z+
-                        // Wait, ball at (0, y, R). atan2(z, x) -> atan2(R, 0) = PI/2.
-                        // Platform rotation: p.rotation.y + pole.rotation.y
-                        // Gap is centered at 0 in local space of P (Geometry defined from startAngle to endAngle)
-                        // Actually geometry is from GAP/2 to 2PI-GAP/2. Gap is roughly at angle 0.
+                    const contactY_Prev = prevY - BALL_RADIUS;
+                    const contactY_Curr = ballY - BALL_RADIUS;
 
-                        // We need the angle of the ball RELATIVE TO THE POLE's current rotation.
-                        // Ball World Position (0, ballY, R) maps to Local Shape Position (0, -R) due to mesh.rotation.x = -PI/2
-                        // Local Angle = atan2(-R, 0) = -PI/2 (or 270 degrees)
+                    // If we crossed the platform plane
+                    if (contactY_Prev >= py && contactY_Curr <= py && ballDy < 0) {
+
+                        // We think we hit. Now check angle.
+                        // Calculate interpolated rotation? 
+                        // For simplicity, use current frame rotation (high framerate assumes small change)
+
                         const ballAngle = -Math.PI / 2;
-
-                        // Relative Angle = BallAngle - PlatformTotalRotation
                         let relAngle = ballAngle - (pole.rotation.y + p.rotation.y);
 
-                        // Normalize 0 to 2PI
                         relAngle = relAngle % (Math.PI * 2);
                         if (relAngle < 0) relAngle += Math.PI * 2;
 
-                        // Gap is at 0 (approx). 
-                        // Our geometry construction: NO geometry between -GAP/2 and +GAP/2.
-                        // Wait, previous code: startAngle = gap/2, end = 2pi - gap/2.
-                        // So Gap is indeed around angle 0 (from -gap/2 to +gap/2).
-
-                        // So if relAngle > start && relAngle < end -> HIT
+                        // Gap Check
                         const start = GAP_SIZE / 2;
                         const end = Math.PI * 2 - GAP_SIZE / 2;
 
+                        // In Solid Area?
                         if (relAngle > start && relAngle < end) {
-                            // HIT! 
-                            // Check isDanger
+                            // Hit Solid!
+
+                            // Check Danger
                             const childMesh = p.children[0];
                             if (childMesh.userData.isDanger) {
                                 gameOver();
@@ -318,9 +297,17 @@
 
                             // Bounce
                             ballDy = BOUNCE_FORCE;
+                            ballY = py + BALL_RADIUS; // Snap to surface to prevent sinking
                             playTone(300, 'triangle');
-
-                            // Visual splash?
+                        } else {
+                            // Hit Gap! Pass through.
+                            if (!p.userData.passed) {
+                                p.userData.passed = true;
+                                score++;
+                                document.getElementById('score').textContent = score;
+                                playTone(600, 'sine');
+                                window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                            }
                         }
                     }
                 });
