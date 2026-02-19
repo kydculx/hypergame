@@ -432,18 +432,31 @@
 
                                 if (checkLevelComplete()) {
                                     level++;
-                                    const speedMultiplier = 1.2;
+                                    const speedMultiplier = 1.1; // Slightly lower speed increase per level for continuous play
 
-                                    ctx.fillStyle = 'white';
-                                    ctx.font = '40px monospace';
-                                    ctx.fillText('LEVEL ' + level, canvas.width / 2 - 80, canvas.height / 2);
+                                    // Create flash effect
+                                    const flash = document.createElement('div');
+                                    flash.style.position = 'absolute';
+                                    flash.style.top = '0';
+                                    flash.style.left = '0';
+                                    flash.style.width = '100%';
+                                    flash.style.height = '100%';
+                                    flash.style.background = 'white';
+                                    flash.style.opacity = '0.5';
+                                    flash.style.transition = 'opacity 0.5s';
+                                    document.body.appendChild(flash);
+                                    setTimeout(() => flash.style.opacity = '0', 50);
+                                    setTimeout(() => flash.remove(), 500);
 
-                                    resetBall();
-                                    // Apply speed multiplier to the new ball
-                                    if (balls.length > 0) {
-                                        balls[0].dx *= Math.pow(speedMultiplier, level - 1);
-                                        balls[0].dy *= Math.pow(speedMultiplier, level - 1);
-                                    }
+                                    // Speed up existing balls instead of resetting
+                                    balls.forEach(b => {
+                                        b.dx *= speedMultiplier;
+                                        b.dy *= speedMultiplier;
+                                        // Ensure they don't get stuck horizontally
+                                        if (Math.abs(b.dy) < 1) b.dy = b.dy > 0 ? 1 : -1;
+                                    });
+
+                                    audio.playNote([400, 800, 1200], 'square', 0.5, 0.3);
 
                                     initBricks();
                                     return; // Stop processing collision for this frame
@@ -469,7 +482,7 @@
             }
 
             // Update all balls
-            const currentLevelSpeed = 4 + (level * 0.5); // Baseline speed
+            const currentLevelSpeed = 4 + (level * 0.7); // Increased scaling for continuous mode (was 0.5)
 
             for (let i = balls.length - 1; i >= 0; i--) {
                 let ball = balls[i];
@@ -588,7 +601,8 @@
             ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
             ctx.font = '14px monospace';
             ctx.textAlign = 'left';
-            ctx.fillText('LEVEL: ' + level, 20, 30);
+            // Level display removed for continuous feel
+            // ctx.fillText('LEVEL: ' + level, 20, 30);
 
             if (combo > 1) {
                 ctx.fillStyle = '#ffff00';
