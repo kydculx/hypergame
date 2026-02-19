@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Geometry Dash - Hyper Casual</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #2c3e50;
+            font-family: sans-serif;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #score {
+            font-size: 64px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 20;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            color: #333;
+        }
+
+        button {
+            background: #e74c3c;
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #c0392b;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0</div>
+    </div>
+    <div id="game-over">
+        <h1>GAME OVER</h1>
+        <p>Score: <span id="final-score">0</span></p>
+        <button onclick="restartGame()">RETRY</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- Constants ---
+        const PLAYER_SIZE = 1;
+        const JUMP_FORCE = 0.35;
+        const GRAVITY = 0.018;
+        const GAME_SPEED_BASE = 0.18;
+
+        const COLORS = {
+            bg: 0x1a1a2e,
+            player: 0xf1c40f,
+            ground: 0x16213e,
+            spike: 0xe94560,
+            block: 0x0f3460
+        };
+
+        let scene, camera, renderer;
+        let player;
+        let obstacles = [];
+        let particles = [];
+        let score = 0;
+        let gameState = 'START';
+
+        // Physics
+        let velocityY = 0;
+        let isGrounded = true;
+        let currentSpeed = GAME_SPEED_BASE;
+        let rotationZ = 0;
+        let groundY = -2;
+
+        // Audio
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration = 0.1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.value = freq;
+            osc.type = type;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        init();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(COLORS.bg);
+            scene.fog = new THREE.Fog(COLORS.bg, 10, 30);
+
+            // Side View Orthographic
+            const aspect = window.innerWidth / window.innerHeight;
+            const d = 10;
+            camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 100);
+            camera.position.set(0, 0, 20); // Side view
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Light
+            const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+            dl.position.set(5, 10, 10);
+            scene.add(dl);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+            // Ground (Infinite scrolling visual)
+            const groundGeo = new THREE.BoxGeometry(100, 5, 10);
+            const groundMat = new THREE.MeshLambertMaterial({ color: COLORS.ground });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.position.set(0, groundY - 2.5, 0);
+            scene.add(ground);
+
+            // Player
+            player = new THREE.Mesh(
+                new THREE.BoxGeometry(PLAYER_SIZE, PLAYER_SIZE, PLAYER_SIZE),
+                new THREE.MeshPhongMaterial({ color: COLORS.player, emissive: 0xaa8800 })
+            );
+            player.position.set(-6, groundY + PLAYER_SIZE / 2, 0);
+            scene.add(player);
+
+            // Trail
+
+            // Initial Obstacles
+            spawnObstacle(10);
+
+            // Listeners
+            window.addEventListener('pointerdown', jump);
+            window.addEventListener('keydown', e => { if (e.code === 'Space') jump(); });
+            window.addEventListener('resize', () => {
+                const aspect = window.innerWidth / window.innerHeight;
+                camera.left = -10 * aspect;
+                camera.right = 10 * aspect;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Start
+            gameState = 'PLAYING';
+            animate();
+            window.parent.postMessage({ type: 'GAME_READY' }, '*');
+        }
+
+        function jump() {
+            if (gameState !== 'PLAYING') return;
+            if (isGrounded) {
+                velocityY = JUMP_FORCE;
+                isGrounded = false;
+                playTone(400, 'square');
+
+                // Rotate visual logic start
+                // We want to rotate 180 degrees per jump?
+            }
+        }
+
+        function spawnObstacle(xOffset) {
+            // Random pattern
+            const type = Math.random() < 0.7 ? 'SPIKE' : 'BLOCK';
+            let mesh;
+
+            if (type === 'SPIKE') {
+                const geo = new THREE.ConeGeometry(0.5, 1, 4);
+                const mat = new THREE.MeshLambertMaterial({ color: COLORS.spike });
+                mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(xOffset, groundY + 0.5, 0);
+                mesh.userData = { type: 'SPIKE', width: 0.5, height: 0.5 }; // Hitbox size (half-extents)
+            } else {
+                // Block
+                // Can be low or high? 
+                // Simple block on ground
+                const height = Math.random() < 0.5 ? 1 : 1.5;
+                const geo = new THREE.BoxGeometry(1, height, 1);
+                const mat = new THREE.MeshLambertMaterial({ color: COLORS.block });
+                mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(xOffset, groundY + height / 2, 0);
+                mesh.userData = { type: 'BLOCK', width: 0.5, height: height / 2 };
+            }
+
+            scene.add(mesh);
+            obstacles.push(mesh);
+        }
+
+        function spawnParticles(x, y, color) {
+            for (let i = 0; i < 5; i++) {
+                const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                const mat = new THREE.MeshBasicMaterial({ color: color });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(x, y, 0);
+                scene.add(mesh);
+                particles.push({
+                    mesh,
+                    vx: (Math.random() - 0.5) * 0.2,
+                    vy: (Math.random() - 0.5) * 0.2,
+                    life: 1.0
+                });
+            }
+        }
+
+        function gameOver() {
+            gameState = 'OVER';
+            document.getElementById('game-over').style.display = 'block';
+            document.getElementById('final-score').textContent = Math.floor(score);
+            playTone(100, 'sawtooth', 0.5);
+            spawnParticles(player.position.x, player.position.y, COLORS.player);
+            player.visible = false;
+            window.parent.postMessage({ type: 'GAME_OVER', payload: { score: Math.floor(score) } }, '*');
+        }
+
+        function restartGame() {
+            location.reload();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (gameState === 'PLAYING') {
+                // Physics
+                velocityY -= GRAVITY;
+                player.position.y += velocityY;
+
+                // Ground Collision
+                if (player.position.y <= groundY + PLAYER_SIZE / 2) {
+                    player.position.y = groundY + PLAYER_SIZE / 2;
+                    velocityY = 0;
+                    isGrounded = true;
+
+                    // Snap rotation
+                    const nearest90 = Math.round(player.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
+                    player.rotation.z += (nearest90 - player.rotation.z) * 0.2;
+                } else {
+                    // Rotate while jumping
+                    player.rotation.z -= 0.1;
+                }
+
+                // Move Obstacles (Player moves visually, but conceptually we move world left)
+                // Actually easier to keep player at X and move obstacles left
+                const speed = currentSpeed;
+                score += speed * 10;
+                document.getElementById('score').textContent = Math.floor(score);
+
+                // Update Obstacles
+                if (obstacles.length > 0) {
+                    const lastObs = obstacles[obstacles.length - 1];
+                    if (lastObs.position.x < 15) { // Spawn ahead
+                        // Gap needed
+                        const gap = 5 + Math.random() * 5;
+                        spawnObstacle(lastObs.position.x + gap);
+                    }
+                }
+
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    const obs = obstacles[i];
+                    obs.position.x -= speed;
+
+                    // Cleanup
+                    if (obs.position.x < -15) {
+                        scene.remove(obs);
+                        obstacles.splice(i, 1);
+                        continue;
+                    }
+
+                    // Collision Detection (AABB)
+                    // Player AABB
+                    const pHalf = PLAYER_SIZE / 2 * 0.8; // slightly smaller box forgiving
+                    const px = player.position.x;
+                    const py = player.position.y;
+
+                    const oWidth = obs.userData.width;
+                    const oHeight = obs.userData.height;
+                    const ox = obs.position.x;
+                    const oy = obs.position.y;
+
+                    if (Math.abs(px - ox) < pHalf + oWidth &&
+                        Math.abs(py - oy) < pHalf + oHeight) {
+                        gameOver();
+                    }
+                }
+
+                // Speed up
+                currentSpeed += 0.00005;
+
+                // Color Pulse background
+                const time = Date.now() * 0.001;
+                scene.background.setHSL(0.6 + Math.sin(time) * 0.1, 0.5, 0.1);
+            }
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.mesh.position.x += p.vx;
+                p.mesh.position.y += p.vy;
+                p.mesh.scale.multiplyScalar(0.9);
+                p.life -= 0.05;
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    particles.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+
+</html>
