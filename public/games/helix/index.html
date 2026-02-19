@@ -45,15 +45,32 @@
             background: white;
             padding: 40px;
             border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
             display: none;
+            cursor: default;
             z-index: 20;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            min-width: 200px;
+            pointer-events: auto;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         h1 {
-            margin: 0 0 10px;
             color: #333;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        p {
+            color: #666;
+            margin: 0 0 20px 0;
+            font-size: 16px;
+        }
+
+        #final-score {
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 24px;
         }
 
         button {
@@ -65,6 +82,14 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #c0392b;
+            margin-top: 0;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: none;
         }
 
         button:hover {

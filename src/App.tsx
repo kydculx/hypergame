@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import Lobby from './pages/Lobby';
+import Home from './pages/Home';
 import Player from './pages/Player';
 
 function App() {
@@ -7,7 +7,7 @@ function App() {
     <Router>
       <div className="w-full min-h-screen">
         <Routes>
-          <Route path="/" element={<Lobby />} />
+          <Route path="/" element={<Home />} />
           <Route path="/play/:gameId" element={<Player />} />
         </Routes>
       </div>

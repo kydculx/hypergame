@@ -39,35 +39,62 @@
             text-shadow: 0 0 10px #ff00ff;
         }
 
+        button:hover {
+            background: #d400d4;
+            box-shadow: 0 0 20px #ff00ff;
+        }
+
         #game-over {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: white;
             padding: 40px;
-            border: 2px solid #00ffff;
-            box-shadow: 0 0 20px #00ffff;
-            border-radius: 10px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
             display: none;
+            z-index: 20;
+            min-width: 200px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        p {
+            color: #666;
+            margin: 0 0 20px 0;
+            font-size: 16px;
+        }
+
+        #final-score {
+            color: #ff00ff;
+            font-weight: bold;
+            font-size: 24px;
         }
 
         button {
             background: #ff00ff;
             border: none;
-            padding: 15px 30px;
+            padding: 15px 40px;
             color: white;
-            font-family: inherit;
-            font-size: 20px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
             cursor: pointer;
-            margin-top: 20px;
-            box-shadow: 0 0 10px #ff00ff;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #cc00cc;
+            margin-top: 5px;
         }
 
-        button:hover {
-            background: #d400d4;
-            box-shadow: 0 0 20px #ff00ff;
+        button:active {
+            transform: translateY(4px);
+            box-shadow: none;
         }
     </style>
 </head>
@@ -77,8 +104,8 @@
         <div id="score">0</div>
     </div>
     <div id="game-over">
-        <h1 style="color: #00ffff; margin-top: 0;">GAME OVER</h1>
-        <p>SCORE: <span id="final-score" style="color: #ff00ff;">0</span></p>
+        <h1>GAME OVER</h1>
+        <p>SCORE: <span id="final-score">0</span></p>
         <button onclick="location.reload()">RETRY</button>
     </div>
 

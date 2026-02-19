@@ -39,35 +39,62 @@
             text-shadow: 0 0 10px #ff00ff;
         }
 
+        button:hover {
+            background: #d400d4;
+            box-shadow: 0 0 20px #ff00ff;
+        }
+
         #game-over {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: white;
             padding: 40px;
-            border: 2px solid #00ffff;
-            box-shadow: 0 0 20px #00ffff;
-            border-radius: 10px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
             display: none;
+            z-index: 20;
+            min-width: 200px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        p {
+            color: #666;
+            margin: 0 0 20px 0;
+            font-size: 16px;
+        }
+
+        #final-score {
+            color: #ff00ff;
+            font-weight: bold;
+            font-size: 24px;
         }
 
         button {
             background: #ff00ff;
             border: none;
-            padding: 15px 30px;
+            padding: 15px 40px;
             color: white;
-            font-family: inherit;
-            font-size: 20px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
             cursor: pointer;
-            margin-top: 20px;
-            box-shadow: 0 0 10px #ff00ff;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #cc00cc;
+            margin-top: 5px;
         }
 
-        button:hover {
-            background: #d400d4;
-            box-shadow: 0 0 20px #ff00ff;
+        button:active {
+            transform: translateY(4px);
+            box-shadow: none;
         }
     </style>
 </head>
@@ -77,9 +104,9 @@
         <div id="score">0</div>
     </div>
     <div id="game-over">
-        <h1 style="color: #00ffff; margin-top: 0;">GAME OVER</h1>
-        <p>SCORE: <span id="final-score" style="color: #ff00ff;">0</span></p>
-        <button onclick="location.reload()">START</button>
+        <h1>GAME OVER</h1>
+        <p>SCORE: <span id="final-score">0</span></p>
+        <button onclick="location.reload()">RETRY</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -153,7 +180,7 @@
         let particles = [];
         let items = [];
         let level = 1;
-        let lives = 3;
+        // let lives = 3; // Removed
         let combo = 0;
         let shake = 0;
         let glowPulse = 0; // New: for brick animation
@@ -496,17 +523,9 @@
 
             if (shake > 0) shake *= 0.9; // Decay shake
 
-            // Life check
+            // Life check - Instant Game Over
             if (balls.length === 0) {
-                lives--;
-                combo = 0; // Reset combo
-                if (lives > 0) {
-                    audio.playNote([150, 100], 'sawtooth', 0.3, 0.2);
-                    resetBall();
-                    isStarted = false;
-                } else {
-                    gameOver();
-                }
+                gameOver();
             }
 
             collisionDetection();
@@ -576,11 +595,7 @@
                 ctx.fillText('COMBO X' + combo, 20, 60);
             }
 
-            ctx.textAlign = 'right';
-            let livesStr = '';
-            for (let i = 0; i < lives; i++) livesStr += '♥';
-            ctx.fillStyle = '#ff00ff';
-            ctx.fillText('LIVES: ' + livesStr, canvas.width - 20, 30);
+            // Lives display removed
 
             // Bricks
             const brickWidth = (canvas.width - (BRICK_COLS + 1) * BRICK_PADDING) / BRICK_COLS;
@@ -656,9 +671,9 @@
                 if (level > 1) {
                     ctx.fillText('LEVEL ' + level + ' READY', canvas.width / 2, canvas.height / 2 + 50);
                     ctx.font = '16px "Courier New"';
-                    ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2 + 80);
+                    ctx.fillText('MOVE TO START', canvas.width / 2, canvas.height / 2 + 80);
                 } else {
-                    ctx.fillText('MOVE TO INITIATE', canvas.width / 2, canvas.height / 2 + 50);
+                    ctx.fillText('MOVE TO START', canvas.width / 2, canvas.height / 2 + 50);
                 }
             }
 

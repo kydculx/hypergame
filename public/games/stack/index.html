@@ -45,24 +45,52 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 30px;
-            border-radius: 15px;
-            color: white;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
             display: none;
             pointer-events: auto;
+            z-index: 20;
+            min-width: 200px;
+        }
+
+        h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        p {
+            color: #666;
+            margin: 0 0 20px 0;
+            font-size: 16px;
+        }
+
+        #final-score {
+            color: #646cff;
+            font-weight: bold;
+            font-size: 24px;
         }
 
         button {
             background: #646cff;
             border: none;
-            padding: 12px 24px;
+            padding: 15px 40px;
             color: white;
-            border-radius: 8px;
+            border-radius: 30px;
             font-size: 18px;
+            font-weight: bold;
             cursor: pointer;
-            margin-top: 20px;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #4b51bf;
+            margin-top: 5px;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: none;
         }
 
         button:hover {
@@ -78,7 +106,7 @@
     </div>
 
     <div id="game-over">
-        <h1 style="margin-top:0">GAME OVER</h1>
+        <h1>GAME OVER</h1>
         <p>Your Score: <span id="final-score">0</span></p>
         <button onclick="restartGame()">RETRY</button>
     </div>
