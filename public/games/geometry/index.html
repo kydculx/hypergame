@@ -169,18 +169,29 @@
             // Listeners
             window.addEventListener('pointerdown', jump);
             window.addEventListener('keydown', e => { if (e.code === 'Space') jump(); });
-            window.addEventListener('resize', () => {
-                const aspect = window.innerWidth / window.innerHeight;
-                camera.left = -10 * aspect;
-                camera.right = 10 * aspect;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
+            window.addEventListener('resize', updateLayout);
 
             // Start
             gameState = 'PLAYING';
+            updateLayout(); // Initial layout set
             animate();
             window.parent.postMessage({ type: 'GAME_READY' }, '*');
+        }
+
+        function updateLayout() {
+            const aspect = window.innerWidth / window.innerHeight;
+            const d = 10;
+
+            // Update Camera
+            camera.left = -d * aspect;
+            camera.right = d * aspect;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Update Player X to be visible
+            // Standard target is -6, but must be at least 2 units from left edge
+            const safeLeft = camera.left + 3;
+            player.position.x = Math.max(-6, safeLeft);
         }
 
         function jump() {
@@ -294,8 +305,9 @@
                     const obs = obstacles[i];
                     obs.position.x -= speed;
 
-                    // Cleanup
-                    if (obs.position.x < -15) {
+                    // Cleanup - dynamic based on camera
+                    // Safely remove when clearly off screen to the left
+                    if (obs.position.x < camera.left - 5) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
                         continue;
