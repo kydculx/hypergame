@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Helix Jump - Hyper Casual</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #2c3e50;
+            font-family: sans-serif;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #score {
+            font-size: 64px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        #level {
+            font-size: 24px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 20;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            color: #333;
+        }
+
+        button {
+            background: #e74c3c;
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #c0392b;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0</div>
+        <div id="level">Level 1</div>
+    </div>
+    <div id="game-over">
+        <h1>GAME OVER</h1>
+        <p>Score: <span id="final-score">0</span></p>
+        <button onclick="restartGame()">RETRY</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- Constants ---
+        const BALL_RADIUS = 0.35;
+        const POLE_RADIUS = 1.2;
+        const PLATFORM_WIDTH = 2;
+        const FLOOR_HEIGHT = 4;
+        const GRAVITY = 0.015;
+        const BOUNCE_FORCE = 0.4;
+        const GAP_SIZE = 1.2; // Radians
+
+        const COLORS = {
+            bg: 0x222222,
+            pole: 0xffffff,
+            ball: 0xff0055,
+            safe: 0x00aaff,
+            danger: 0xff3300
+        };
+
+        let scene, camera, renderer;
+        let ball, pole;
+        let platforms = [];
+        let score = 0;
+        let gameState = 'START';
+
+        let ballY = 2;
+        let ballDy = 0;
+        let poleY = 0; // Move pole up to simulate ball falling
+
+        // Input
+        let lastX;
+        let isDrag = false;
+
+        // Audio
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.value = freq;
+            osc.type = type;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        init();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(COLORS.bg);
+            scene.fog = new THREE.Fog(COLORS.bg, 10, 30);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 1, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Light
+            const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+            dl.position.set(5, 10, 5);
+            scene.add(dl);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+            // Objects
+            ball = new THREE.Mesh(
+                new THREE.SphereGeometry(BALL_RADIUS, 16, 16),
+                new THREE.MeshPhongMaterial({ color: COLORS.ball })
+            );
+            ball.position.set(0, ballY, POLE_RADIUS + PLATFORM_WIDTH / 2);
+            scene.add(ball);
+
+            createPole();
+
+            // Listeners
+            window.addEventListener('pointerdown', e => { isDrag = true; lastX = e.clientX || e.touches[0].clientX; });
+            window.addEventListener('pointerup', () => isDrag = false);
+            window.addEventListener('pointermove', e => {
+                if (!isDrag || gameState !== 'PLAYING') return;
+                const x = e.clientX || e.touches[0].clientX;
+                pole.rotation.y -= (x - lastX) * 0.01;
+                lastX = x;
+            });
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Start
+            gameState = 'PLAYING';
+            animate();
+            window.parent.postMessage({ type: 'GAME_READY' }, '*');
+        }
+
+        function createPole() {
+            pole = new THREE.Group();
+            scene.add(pole);
+
+            // Core Cylinder
+            const cyl = new THREE.Mesh(
+                new THREE.CylinderGeometry(POLE_RADIUS, POLE_RADIUS, 200, 32),
+                new THREE.MeshLambertMaterial({ color: COLORS.pole })
+            );
+            cyl.position.y = -90; // Extend down
+            pole.add(cyl);
+
+            // Platforms
+            for (let i = 0; i < 30; i++) {
+                createFloor(i);
+            }
+        }
+
+        function createFloor(index) {
+            const y = -index * FLOOR_HEIGHT;
+            const group = new THREE.Group();
+            group.position.y = y;
+            group.rotation.y = Math.random() * Math.PI * 2;
+            group.userData = { id: index, passed: false };
+
+            // Gap
+            const gapAngle = GAP_SIZE;
+            // We create a torus arc? No, Extrude arc.
+            // Create full circle minus gap
+            const shape = new THREE.Shape();
+            const segments = 20;
+            const startAngle = gapAngle / 2;
+            const endAngle = Math.PI * 2 - gapAngle / 2;
+
+            // Draw arc
+            shape.absarc(0, 0, POLE_RADIUS + PLATFORM_WIDTH, startAngle, endAngle, false);
+            shape.absarc(0, 0, POLE_RADIUS, endAngle, startAngle, true); // Inner hole
+
+            const isDanger = index > 0 && Math.random() < 0.3;
+            const mat = new THREE.MeshLambertMaterial({ color: isDanger ? COLORS.danger : COLORS.safe });
+            const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: false });
+
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.userData = { isDanger };
+
+            group.add(mesh);
+            pole.add(group);
+            platforms.push(group);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (gameState === 'PLAYING') {
+                // Ball Physics
+                ballDy -= GRAVITY;
+                ballY += ballDy;
+
+                // Camera Follow logic: 
+                // Keep ball visible. Move POLE up instead of Ball down for rendering relative?
+                // Or standard: Ball goes down, Camera follows.
+                // Let's implement Camera Follow.
+                if (ballY < camera.position.y - 4) {
+                    camera.position.y = ballY + 4;
+                }
+
+                // Collision
+                // Ball is at fixed Z relative to camera/world origin (0, y, r)
+                // We check if the floor at current Ball Y is colliding
+
+                // Current Floor Index ball is "in"
+                // Floors are at -0, -4, -8...
+                // Ball Y is +2 initially.
+
+                // Check local floor
+                // Ball radius ~0.4. Platform Y is discrete.
+                // Check if ball crosses a platform Y
+
+                platforms.forEach(p => {
+                    // World Y of platform = p.position.y (relative to pole) + pole.position.y (0)
+                    const py = p.position.y;
+
+                    // Check pass through score
+                    if (ballY < py && !p.userData.passed) {
+                        p.userData.passed = true;
+                        score++;
+                        document.getElementById('score').textContent = score;
+                        playTone(600, 'sine');
+                        window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                        // Change color?
+                    }
+
+                    // Check Bounce Collision (from above)
+                    if (ballY - BALL_RADIUS <= py && ballY + BALL_RADIUS >= py && ballDy < 0) {
+                        // Check angle alignment
+                        // Ball is at angle 90 deg (PI/2) typically if placed at Z+
+                        // Wait, ball at (0, y, R). atan2(z, x) -> atan2(R, 0) = PI/2.
+
+                        // Platform rotation: p.rotation.y + pole.rotation.y
+                        // Gap is centered at 0 in local space of P (Geometry defined from startAngle to endAngle)
+                        // Actually geometry is from GAP/2 to 2PI-GAP/2. Gap is roughly at angle 0.
+
+                        // We need the angle of the ball relative to the PLATFORM's coordinate system
+                        // Ball World Angle = PI/2
+                        // Platform World Rotation = pole.rotation.y + p.rotation.y;
+
+                        // Relative Angle = BallWorldAngle - PlatformWorldRotation
+                        let relAngle = (Math.PI / 2) - (pole.rotation.y + p.rotation.y);
+
+                        // Normalize 0 to 2PI
+                        relAngle = relAngle % (Math.PI * 2);
+                        if (relAngle < 0) relAngle += Math.PI * 2;
+
+                        // Gap is at 0 (approx). 
+                        // Our geometry construction: NO geometry between -GAP/2 and +GAP/2.
+                        // Wait, previous code: startAngle = gap/2, end = 2pi - gap/2.
+                        // So Gap is indeed around angle 0 (from -gap/2 to +gap/2).
+
+                        // So if relAngle > start && relAngle < end -> HIT
+                        const start = GAP_SIZE / 2;
+                        const end = Math.PI * 2 - GAP_SIZE / 2;
+
+                        if (relAngle > start && relAngle < end) {
+                            // HIT! 
+                            // Check isDanger
+                            const childMesh = p.children[0];
+                            if (childMesh.userData.isDanger) {
+                                gameOver();
+                                return;
+                            }
+
+                            // Bounce
+                            ballDy = BOUNCE_FORCE;
+                            playTone(300, 'triangle');
+
+                            // Visual splash?
+                        }
+                    }
+                });
+
+                ball.position.y = ballY;
+                if (ballY < -120) gameOver(); // Fall off world
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function gameOver() {
+            gameState = 'OVER';
+            document.getElementById('game-over').style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            playTone(150, 'sawtooth');
+            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+        }
+
+        function restartGame() {
+            location.reload();
+        }
+    </script>
+</body>
+
+</html>
