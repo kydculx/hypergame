@@ -82,6 +82,14 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/helix/index.html',
           category: 'action',
         },
+        {
+          id: 'geometry',
+          title: 'Geometry Dash',
+          description: 'Jump and fly through danger in this rhythm-based action platformer!',
+          thumbnailUrl: 'images/geometry-thumb.svg',
+          gameUrl: 'games/geometry/index.html',
+          category: 'action',
+        },
       ],
 
       currentGame: null,
