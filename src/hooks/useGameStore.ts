@@ -74,6 +74,14 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/breakout/index.html',
           category: 'action',
         },
+        {
+          id: 'helix',
+          title: 'Helix Jump',
+          description: 'Rotate the tower and guide the bouncing ball to the bottom!',
+          thumbnailUrl: 'images/helix-thumb.svg',
+          gameUrl: 'games/helix/index.html',
+          category: 'action',
+        },
       ],
 
       currentGame: null,
