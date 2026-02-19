@@ -251,7 +251,7 @@
             stack.push(activeBlock);
             score++;
             document.getElementById('score').textContent = score;
-            // window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+            window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
 
             // Increase speed slightly
             speed += 0.002;

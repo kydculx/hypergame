@@ -346,7 +346,7 @@
                                 createParticles(bx + brickWidth / 2, by + brickHeight / 2, b.color);
                                 spawnItem(bx + brickWidth / 2, by + brickHeight / 2);
                                 audio.playNote(400 + (r * 100), 'triangle', 0.1, 0.1);
-                                // window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                                window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
 
                                 if (checkLevelComplete()) {
                                     level++;

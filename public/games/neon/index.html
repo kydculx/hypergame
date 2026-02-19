@@ -197,7 +197,7 @@
                     score++;
                     scoreEl.textContent = score;
                     audio.playNote([660, 880], 'square', 0.1, 0.05);
-                    // window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                    window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
                 }
 
                 // Remove off-screen pipes
