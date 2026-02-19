@@ -180,7 +180,8 @@
             // Pipe Management
             if (frames % PIPE_SPAWN_RATE === 0) createPipe();
 
-            pipes.forEach((pipe, index) => {
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const pipe = pipes[i];
                 pipe.x -= PIPE_SPEED;
 
                 // Collision Detection
@@ -202,9 +203,9 @@
 
                 // Remove off-screen pipes
                 if (pipe.x + pipe.w < 0) {
-                    pipes.splice(index, 1);
+                    pipes.splice(i, 1);
                 }
-            });
+            }
 
             frames++;
         }
