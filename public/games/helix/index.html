@@ -243,9 +243,11 @@
                 ballDy -= GRAVITY;
                 ballY += ballDy;
 
-                // Camera Follow logic: 
+                // Camera Follow logic: Only down
                 const targetCamY = ballY + 4;
-                camera.position.y += (targetCamY - camera.position.y) * 0.1;
+                if (targetCamY < camera.position.y) {
+                    camera.position.y += (targetCamY - camera.position.y) * 0.1;
+                }
 
                 // Collision (Continuous / Swept)
                 const prevY = ballY - ballDy; // Position before this frame's movement
