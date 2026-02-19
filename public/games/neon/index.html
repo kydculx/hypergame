@@ -79,7 +79,7 @@
     <div id="game-over">
         <h1 style="color: #00ffff; margin-top: 0;">GAME OVER</h1>
         <p>SCORE: <span id="final-score" style="color: #ff00ff;">0</span></p>
-        <button onclick="location.reload()">START</button>
+        <button onclick="location.reload()">RETRY</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -249,7 +249,7 @@
                 ctx.fillStyle = 'white';
                 ctx.font = '24px "Courier New"';
                 ctx.textAlign = 'center';
-                ctx.fillText('CLICK TO INITIATE', canvas.width / 2, canvas.height / 2 + 100);
+                ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2 + 100);
             }
 
             requestAnimationFrame(() => {
