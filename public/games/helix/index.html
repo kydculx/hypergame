@@ -244,12 +244,8 @@
                 ballY += ballDy;
 
                 // Camera Follow logic: 
-                // Keep ball visible. Move POLE up instead of Ball down for rendering relative?
-                // Or standard: Ball goes down, Camera follows.
-                // Let's implement Camera Follow.
-                if (ballY < camera.position.y - 4) {
-                    camera.position.y = ballY + 4;
-                }
+                const targetCamY = ballY + 4;
+                camera.position.y += (targetCamY - camera.position.y) * 0.1;
 
                 // Collision (Continuous / Swept)
                 const prevY = ballY - ballDy; // Position before this frame's movement
