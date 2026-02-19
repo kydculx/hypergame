@@ -105,7 +105,7 @@
     <script>
         // --- Constants ---
         const PLAYER_SIZE = 1;
-        const JUMP_FORCE = 0.35;
+        const JUMP_FORCE = 0.32; // Reduced from 0.35
         const GRAVITY = 0.018;
         const GAME_SPEED_BASE = 0.18;
 
@@ -319,8 +319,15 @@
                 if (obstacles.length > 0) {
                     const lastObs = obstacles[obstacles.length - 1];
                     if (lastObs.position.x < 15) { // Spawn ahead
-                        // Gap needed
-                        const gap = 5 + Math.random() * 5;
+                        // Dynamic Gap Logic
+                        // Initial gap: 15-25 (Sparse)
+                        // Final gap: 6-11 (Dense)
+                        // Reaches max density at score 3000 (~30 seconds)
+                        const progress = Math.min(1.0, score / 3000);
+                        const minGap = 15 - (9 * progress); // Linear decay from 15 to 6
+                        const variance = 10 - (5 * progress); // Linear decay from 10 to 5
+
+                        const gap = minGap + Math.random() * variance;
                         spawnObstacle(lastObs.position.x + gap);
                     }
                 }
