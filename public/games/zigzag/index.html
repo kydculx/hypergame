@@ -292,7 +292,13 @@
 
         function spawnNextPlatform() {
             frames++;
-            const isX = Math.random() > 0.5;
+            let isX = Math.random() > 0.5;
+
+            // Force straight path for first 15 blocks to align with initial ball direction
+            if (platforms.length < 15) {
+                isX = true;
+            }
+
             const newX = lastPlatformPos.x + (isX ? PLATFORM_SIZE : 0);
             const newZ = lastPlatformPos.z + (isX ? 0 : -PLATFORM_SIZE); // Move -Z (forward/right visually)
 
