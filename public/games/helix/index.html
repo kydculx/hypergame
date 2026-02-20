@@ -116,8 +116,8 @@
         const POLE_RADIUS = 1.2;
         const PLATFORM_WIDTH = 2;
         const FLOOR_HEIGHT = 4;
-        const GRAVITY = 0.015;
-        const BOUNCE_FORCE = 0.3;
+        const GRAVITY = 0.018;
+        const BOUNCE_FORCE = 0.35;
         const GAP_SIZE = 1.2; // Radians
 
         const COLORS = {
@@ -125,14 +125,17 @@
             pole: 0xffffff,
             ball: 0xff0055,
             safe: 0x00aaff,
-            danger: 0xff3300
+            danger: 0xff3300,
+            splat: 0xff0055
         };
 
         let scene, camera, renderer;
         let ball, pole;
         let platforms = [];
+        let splats = [];
         let score = 0;
         let gameState = 'START';
+        let comboCount = 0;
 
         let ballY = 2;
         let ballDy = 0;
@@ -260,6 +263,25 @@
             platforms.push(group);
         }
 
+        function createSplat(y, radiusFromCenter) {
+            const geo = new THREE.CircleGeometry(BALL_RADIUS * 1.5, 16);
+            const mat = new THREE.MeshBasicMaterial({ color: COLORS.splat, transparent: true, opacity: 0.8, depthWrite: false });
+            const splat = new THREE.Mesh(geo, mat);
+            splat.rotation.x = -Math.PI / 2;
+
+            // Calculate position on the pole relative to global rotation
+            const angle = -pole.rotation.y;
+            splat.position.set(Math.sin(angle) * radiusFromCenter, y + 0.11, Math.cos(angle) * radiusFromCenter);
+
+            pole.add(splat);
+            splats.push(splat);
+
+            if (splats.length > 20) {
+                const old = splats.shift();
+                pole.remove(old);
+            }
+        }
+
         function animate() {
             requestAnimationFrame(animate);
 
@@ -268,10 +290,12 @@
                 ballDy -= GRAVITY;
                 ballY += ballDy;
 
-                // Camera Follow logic: Only down
+                // Camera Follow logic: Spring tension
                 const targetCamY = ballY + 4;
-                if (targetCamY < camera.position.y) {
-                    camera.position.y += (targetCamY - camera.position.y) * 0.1;
+                if (camera.position.y > targetCamY) {
+                    camera.position.y += (targetCamY - camera.position.y) * 0.15; // Fast follow down
+                } else {
+                    camera.position.y += (targetCamY - camera.position.y) * 0.05; // Slow spring up
                 }
 
                 // Collision (Continuous / Swept)
@@ -318,21 +342,37 @@
                                 return;
                             }
 
+                            // Splat Decal
+                            createSplat(py, POLE_RADIUS + PLATFORM_WIDTH / 2);
+
                             // Bounce
                             ballDy = BOUNCE_FORCE;
                             ballY = py + BALL_RADIUS; // Snap to surface to prevent sinking
-                            playTone(300, 'triangle');
+
+                            // Screen Shake on big drop
+                            if (comboCount > 1) {
+                                // Break sound
+                                playTone(400, 'square');
+                            } else {
+                                playTone(300, 'triangle');
+                            }
+                            comboCount = 0;
                         } else {
                             // Hit Gap! Pass through.
                             if (!p.userData.passed) {
                                 p.userData.passed = true;
                                 score++;
+                                comboCount++;
                                 document.getElementById('score').textContent = score;
-                                playTone(600, 'sine');
+                                playTone(500 + comboCount * 100, 'sine');
                                 window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
                             }
                         }
                     }
+                });
+
+                splats.forEach(s => {
+                    s.material.opacity = Math.max(0, s.material.opacity - 0.005); // Slowly fade
                 });
 
                 ball.position.y = ballY;
@@ -354,6 +394,19 @@
             location.reload();
         }
     </script>
+    <!-- Google Ads Container -->
+    <div id="ad-container"
+        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+        <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+            crossorigin="anonymous"></script>
+        <!-- Horizontal Banner -->
+        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
+            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
 </body>
 
 </html>

@@ -158,10 +158,12 @@
 
         let player = { x: 50, y: 300, w: 30, h: 30, velocity: 0 };
         let pipes = [];
+        let ghosts = []; // Player jump trails
         let frames = 0;
         let score = 0;
         let isGameOver = false;
         let isStarted = false;
+        let bgScrollX = 0; // Scrolling grid
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -199,6 +201,15 @@
             player.velocity += GRAVITY;
             player.y += player.velocity;
 
+            // Background Scroll
+            bgScrollX -= PIPE_SPEED * 0.5;
+            if (bgScrollX <= -60) bgScrollX = 0;
+
+            // Ghost Trail
+            if (frames % 3 === 0 && player.velocity < 5 && player.velocity > -10) {
+                ghosts.push({ x: player.x, y: player.y, w: player.w, h: player.h, life: 1.0 });
+            }
+
             // Boundary Check
             if (player.y + player.h > canvas.height || player.y < 0) {
                 gameOver();
@@ -211,11 +222,12 @@
                 const pipe = pipes[i];
                 pipe.x -= PIPE_SPEED;
 
-                // Collision Detection
-                if (player.x < pipe.x + pipe.w &&
-                    player.x + player.w > pipe.x &&
-                    player.y < pipe.y + pipe.h &&
-                    player.y + player.h > pipe.y) {
+                // Collision Detection (Forgiving Hitbox)
+                const PADDING = 6;
+                if (player.x + PADDING < pipe.x + pipe.w &&
+                    player.x + player.w - PADDING > pipe.x &&
+                    player.y + PADDING < pipe.y + pipe.h &&
+                    player.y + player.h - PADDING > pipe.y) {
                     gameOver();
                 }
 
@@ -240,14 +252,27 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Background (Grid effect)
-            ctx.strokeStyle = '#111';
+            // Draw Background (Scrolling Grid)
+            ctx.strokeStyle = '#1a1a1a';
             ctx.lineWidth = 1;
-            for (let i = 0; i < canvas.width; i += 40) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            ctx.beginPath();
+            for (let i = bgScrollX; i < canvas.width; i += 60) {
+                ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height);
             }
-            for (let i = 0; i < canvas.height; i += 40) {
-                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            for (let i = 0; i < canvas.height; i += 60) {
+                ctx.moveTo(0, i); ctx.lineTo(canvas.width, i);
+            }
+            ctx.stroke();
+
+            // Draw Ghosts
+            ctx.shadowBlur = 0;
+            for (let i = ghosts.length - 1; i >= 0; i--) {
+                const g = ghosts[i];
+                ctx.fillStyle = `rgba(255, 0, 255, ${g.life * 0.4})`;
+                ctx.fillRect(g.x, g.y, g.w, g.h);
+                g.life -= 0.04;
+                g.x -= PIPE_SPEED;
+                if (g.life <= 0) ghosts.splice(i, 1);
             }
 
             // Draw Pipes
@@ -299,6 +324,19 @@
         // Notify platform
         window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>
+    <!-- Google Ads Container -->
+    <div id="ad-container"
+        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+        <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+            crossorigin="anonymous"></script>
+        <!-- Horizontal Banner -->
+        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
+            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
 </body>
 
 </html>

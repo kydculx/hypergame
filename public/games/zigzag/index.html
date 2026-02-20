@@ -124,7 +124,8 @@
         const COLORS = {
             background: 0xa9cce3,
             ball: 0xe74c3c,
-            platform: 0xffffff,
+            platform: 0xe5e8e8, // Off-white
+            platformHighlight: 0xffffff, // Pure white
             shadow: 0xd6eaf8,
             crystal: 0xf1c40f
         };
@@ -133,6 +134,7 @@
         let ball;
         let platforms = [];
         let crystals = [];
+        let clouds = [];
         let score = 0;
         let gameState = 'START'; // START, PLAYING, OVER
         let direction = 'x'; // 'x' or 'z'
@@ -221,6 +223,7 @@
             scene.add(dirLight);
 
             // Init Game Objects
+            initClouds();
             createBall();
 
             // Initial Platform Generation
@@ -250,6 +253,21 @@
             ball.position.set(0, BALL_RADIUS + PLATFORM_SIZE / 2, 0); // Sit on top of platform
             ball.castShadow = true;
             scene.add(ball);
+        }
+
+        function initClouds() {
+            for (let i = 0; i < 60; i++) {
+                const geo = new THREE.DodecahedronGeometry(Math.random() * 0.8 + 0.2, 1);
+                const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, flatShading: true });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(
+                    (Math.random() - 0.5) * 120,
+                    Math.random() * 30 - 15,
+                    (Math.random() - 0.5) * 120
+                );
+                scene.add(mesh);
+                clouds.push({ mesh, speed: Math.random() * 0.05 + 0.01 });
+            }
         }
 
         function createPlatform(x, y, z) {
@@ -359,28 +377,39 @@
                 // Camera Follow (Smooth)
                 camera.position.x += (targetCameraPos.x - camera.position.x) * 0.1;
                 camera.position.z += (targetCameraPos.z - camera.position.z) * 0.1;
-                // Keep Y constant relative to ball but lookAt 0,0,0 ?? No, look relative.
-                // Actually Orthographic camera needs to move rigidly
+
+                // Cloud movement
+                clouds.forEach(c => {
+                    c.mesh.position.x += c.speed;
+                    if (c.mesh.position.x > ball.position.x + 60) c.mesh.position.x = ball.position.x - 60;
+                });
+
+                // Lerp platform colors back
+                platforms.forEach(p => {
+                    if (p.userData.highlighted) {
+                        p.material.color.lerp(new THREE.Color(COLORS.platform), 0.05);
+                    }
+                });
 
                 // Collision Detection (Fall off)
+                const forgivingTolerance = PLATFORM_SIZE / 2 + BALL_RADIUS * 0.4;
                 const currentPlatform = platforms.find(p =>
-                    Math.abs(p.position.x - ball.position.x) < PLATFORM_SIZE / 2 &&
-                    Math.abs(p.position.z - ball.position.z) < PLATFORM_SIZE / 2
+                    Math.abs(p.position.x - ball.position.x) < forgivingTolerance &&
+                    Math.abs(p.position.z - ball.position.z) < forgivingTolerance
                 );
 
                 if (!currentPlatform) {
-                    // Check if we are transitioning between blocks (allow small overlap)
-                    // Simple check: if we are far from any block center
-                    // Heuristic: Check distance to ALL blocks nearby (too slow)
-                    // Optimization: We only interact with the tail of platforms array usually
-                    // Or actually, simplistic check is: if not on 'current' active tiles.
-
                     // Fall logic
                     ball.position.y -= 0.5;
+                    ball.position.x += (direction === 'x' ? moveSpeed : 0);
+                    ball.position.z -= (direction === 'z' ? moveSpeed : 0);
                     if (ball.position.y < -10) {
                         gameOver();
                     }
                 } else {
+                    // Highlight platform
+                    currentPlatform.material.color.setHex(COLORS.platformHighlight);
+                    currentPlatform.userData.highlighted = true;
                     // Check Crystals
                     for (let i = crystals.length - 1; i >= 0; i--) {
                         const c = crystals[i];
@@ -423,15 +452,32 @@
                     if (oldP.userData.shadow) scene.remove(oldP.userData.shadow);
                 }
             } else if (gameState === 'OVER') {
+                clouds.forEach(c => c.mesh.position.x += c.speed);
+
                 // Fall animation continue
-                if (ball.position.y > -20) {
+                if (ball.position.y > -50) {
                     ball.position.y -= 0.5;
+                    // Camera looks down slightly to watch fall
+                    camera.position.y += (CAMERA_OFFSET.y + 10 - camera.position.y) * 0.05;
                 }
             }
 
             renderer.render(scene, camera);
         }
     </script>
+    <!-- Google Ads Container -->
+    <div id="ad-container"
+        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+        <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+            crossorigin="anonymous"></script>
+        <!-- Horizontal Banner -->
+        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
+            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
 </body>
 
 </html>

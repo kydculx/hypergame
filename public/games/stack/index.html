@@ -126,6 +126,10 @@
         let speed = 0.15;
         let gameState = 'START'; // START, PLAYING, OVER
         let score = 0;
+        let targetCameraY = 10;
+        let targetCameraZoom = 1; // For game over zoom out
+        let currentCameraZoom = 1;
+        let backgroundParticles = [];
 
         // Audio Manager
         class AudioManager {
@@ -169,15 +173,29 @@
 
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x242424);
+            scene.background = new THREE.Color(0x1a0b2e);
+            scene.fog = new THREE.FogExp2(0x1a0b2e, 0.04);
 
             // Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-            dirLight.position.set(10, 20, 0);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
             scene.add(dirLight);
+
+            // Background Particles
+            const particleGeo = new THREE.BufferGeometry();
+            const particleCount = 300;
+            const posArray = new Float32Array(particleCount * 3);
+            for (let i = 0; i < particleCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 60;
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particleMat = new THREE.PointsMaterial({ size: 0.2, color: 0x88ccff, transparent: true, opacity: 0.6 });
+            const particleMesh = new THREE.Points(particleGeo, particleMat);
+            scene.add(particleMesh);
+            backgroundParticles.push(particleMesh);
 
             // Camera (Orthographic for that classic stack look)
             const aspect = window.innerWidth / window.innerHeight;
@@ -246,6 +264,7 @@
             const baseFreq = 220 + (score * 20);
             if (isPerfect) {
                 audio.playNote(baseFreq * 1.5, 'sine', 0.2, 0.3);
+                createPerfectFlash(activeBlock.mesh.position.x, activeBlock.mesh.position.y, activeBlock.mesh.position.z, activeBlock.width, activeBlock.depth);
             } else {
                 audio.playNote(baseFreq, 'triangle', 0.1, 0.3);
             }
@@ -256,8 +275,10 @@
             const newX = direction === 'x' ? topBlock.mesh.position.x + diff / 2 : activeBlock.mesh.position.x;
             const newZ = direction === 'z' ? topBlock.mesh.position.z + diff / 2 : activeBlock.mesh.position.z;
 
-            // Update active block to represent the overlap
-            activeBlock.mesh.scale[direction] = overlap / activeBlock[dimension];
+            // Recreate geometry instead of scale to maintain correct world sizing for next block
+            activeBlock.mesh.geometry.dispose();
+            activeBlock.mesh.geometry = new THREE.BoxGeometry(newWidth, BOX_HEIGHT, newDepth);
+
             activeBlock.mesh.position[direction] = newX;
             if (direction === 'z') activeBlock.mesh.position.z = newZ;
 
@@ -281,33 +302,49 @@
             document.getElementById('score').textContent = score;
             window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
 
-            // Increase speed slightly
-            speed += 0.002;
+            // Increase speed slightly, always reset direction to positive for next spawn
+            speed = Math.abs(speed) + 0.002;
 
             startNewRound();
+        }
+
+        function createPerfectFlash(x, y, z, w, d) {
+            const geo = new THREE.BoxGeometry(w + 0.5, BOX_HEIGHT + 0.5, d + 0.5);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            debris.push({ mesh, velocity: { y: 0, r: 0 }, isFlash: true, life: 1.0 });
         }
 
         function startNewRound() {
             const topBlock = stack[stack.length - 1];
             direction = direction === 'x' ? 'z' : 'x';
 
-            const x = direction === 'x' ? -10 : topBlock.mesh.position.x;
-            const z = direction === 'z' ? -10 : topBlock.mesh.position.z;
+            const x = direction === 'x' ? -15 : topBlock.mesh.position.x;
+            const z = direction === 'z' ? -15 : topBlock.mesh.position.z;
             const y = stack.length * BOX_HEIGHT;
 
             addBlock(x, y, z, topBlock.width, topBlock.depth, true);
 
-            // Move camera up
-            const targetY = stack.length + 10;
-            new TWEEN_Simple(camera.position, { y: targetY }, 500);
+            // Move camera up via Lerp
+            targetCameraY = stack.length * BOX_HEIGHT + 10;
         }
 
         function gameOver() {
             gameState = 'OVER';
             audio.playNote([440, 110], 'sawtooth', 0.5, 0.3);
-            document.getElementById('game-over').style.display = 'block';
-            document.getElementById('final-score').textContent = score;
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+
+            // Set zoom out target based on tower height
+            targetCameraZoom = Math.max(0.2, 10 / (stack.length * BOX_HEIGHT + 10)); // Calculate needed zoom to see whole tower
+            targetCameraY = (stack.length * BOX_HEIGHT) / 2; // Center camera on the tower
+
+            // Delay UI popup to let player see the tower
+            setTimeout(() => {
+                document.getElementById('game-over').style.display = 'block';
+                document.getElementById('final-score').textContent = score;
+                window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+            }, 1500);
         }
 
         function restartGame() {
@@ -339,44 +376,66 @@
 
             if (gameState === 'PLAYING' && activeBlock) {
                 activeBlock.mesh.position[direction] += speed;
-                if (Math.abs(activeBlock.mesh.position[direction]) > 10) {
+                if (Math.abs(activeBlock.mesh.position[direction]) > 15) {
                     speed *= -1;
                 }
+            }
+
+            // Smooth Camera Y & Zoom
+            camera.position.y += (targetCameraY - camera.position.y) * 0.1;
+
+            if (gameState === 'OVER') {
+                currentCameraZoom += (targetCameraZoom - currentCameraZoom) * 0.05;
+                camera.zoom = currentCameraZoom;
+                camera.updateProjectionMatrix();
+            }
+
+            // Background particles parallax
+            if (backgroundParticles.length > 0) {
+                backgroundParticles[0].position.y = camera.position.y * 0.5;
+                backgroundParticles[0].rotation.y += 0.0005;
             }
 
             // Debris physics
             for (let i = debris.length - 1; i >= 0; i--) {
                 const d = debris[i];
-                d.velocity.y -= 0.02; // Gravity
-                d.mesh.position.y += d.velocity.y;
-                d.mesh.rotation.x += d.velocity.r;
-                d.mesh.rotation.z += d.velocity.r;
+                if (d.isFlash) {
+                    d.life -= 0.05;
+                    d.mesh.scale.multiplyScalar(1.05);
+                    d.mesh.material.opacity = d.life;
+                    if (d.life <= 0) {
+                        scene.remove(d.mesh);
+                        debris.splice(i, 1);
+                    }
+                } else {
+                    d.velocity.y -= 0.02; // Gravity
+                    d.mesh.position.y += d.velocity.y;
+                    d.mesh.rotation.x += d.velocity.r;
+                    d.mesh.rotation.z += d.velocity.r;
 
-                if (d.mesh.position.y < -10) {
-                    scene.remove(d.mesh);
-                    debris.splice(i, 1);
+                    if (d.mesh.position.y < targetCameraY - 20) {
+                        scene.remove(d.mesh);
+                        debris.splice(i, 1);
+                    }
                 }
             }
 
             renderer.render(scene, camera);
         }
-
-        // Minimal TWEEN helper for camera
-        function TWEEN_Simple(obj, target, duration) {
-            const start = { ...obj };
-            const startTime = performance.now();
-
-            function update() {
-                const now = performance.now();
-                const progress = Math.min((now - startTime) / duration, 1);
-                for (const key in target) {
-                    obj[key] = start[key] + (target[key] - start[key]) * progress;
-                }
-                if (progress < 1) requestAnimationFrame(update);
-            }
-            update();
-        }
     </script>
+    <!-- Google Ads Container -->
+    <div id="ad-container"
+        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+        <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+            crossorigin="anonymous"></script>
+        <!-- Horizontal Banner -->
+        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
+            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
 </body>
 
 </html>

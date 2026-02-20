@@ -90,6 +90,7 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/geometry/index.html',
           category: 'action',
         },
+
       ],
 
       currentGame: null,

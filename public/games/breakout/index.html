@@ -184,6 +184,7 @@
         let combo = 0;
         let shake = 0;
         let glowPulse = 0; // New: for brick animation
+        let stars = []; // New: for background
 
         // Brick Patterns (1: brick, 0: empty)
         const patterns = [
@@ -337,6 +338,17 @@
             paddleX = (canvas.width - PADDLE_WIDTH) / 2;
             initBricks();
             resetBall();
+
+            // Initialize Stars
+            stars = [];
+            for (let i = 0; i < 100; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 0.5,
+                    speed: Math.random() * 0.5 + 0.1
+                });
+            }
         }
         window.addEventListener('resize', resize);
 
@@ -560,7 +572,7 @@
                     } else if (item.type === 'MULTI') {
                         const currentCount = balls.length;
                         // Limit total balls to 100 to prevent performance issues and chaos
-                        const MAX_BALLS = 100;
+                        const MAX_BALLS = 20;
 
                         for (let j = 0; j < currentCount; j++) {
                             if (balls.length >= MAX_BALLS) break;
@@ -585,13 +597,30 @@
                 const p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.life -= 0.02;
+                p.life -= 0.012; // Lasts longer
                 if (p.life <= 0) particles.splice(i, 1);
             }
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Trail Effect
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Stars Background
+            ctx.fillStyle = '#ffffff';
+            stars.forEach(star => {
+                ctx.globalAlpha = star.speed; // Parallax effect: slower stars are dimmer (farther away)
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+                star.y += star.speed;
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+            });
+            ctx.globalAlpha = 1.0;
 
             // Apply screen shake
             if (shake > 0.5) {
@@ -715,6 +744,19 @@
         draw();
         window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>
+    <!-- Google Ads Container -->
+    <div id="ad-container"
+        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+        <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+            crossorigin="anonymous"></script>
+        <!-- Horizontal Banner -->
+        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
+            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
 </body>
 
 </html>

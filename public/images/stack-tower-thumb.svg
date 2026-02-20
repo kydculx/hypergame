@@ -1,10 +1,40 @@
-<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100%" height="100%" fill="#1e293b"/>
-  <!-- Stack Blocks -->
-  <rect x="250" y="300" width="100" height="40" fill="#f43f5e" rx="4"/>
-  <rect x="250" y="250" width="100" height="40" fill="#ec4899" rx="4"/>
-  <rect x="230" y="200" width="100" height="40" fill="#d946ef" rx="4"/>
-  <rect x="250" y="150" width="80" height="40" fill="#a855f7" rx="4"/>
-  <!-- Text -->
-  <text x="50%" y="80" font-family="sans-serif" font-size="40" font-weight="bold" fill="white" text-anchor="middle">Stack Tower</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <!-- Background: #242424 -->
+  <rect width="400" height="300" fill="#242424" />
+
+  <!-- A simplified isometric grid effect or clean look -->
+  <g transform="translate(200, 200) scale(1.5)">
+    <!-- Base block (hsl(200, 70%, 60%)) -->
+    <g transform="translate(0, 0)">
+      <!-- Top -->
+      <polygon points="0,-15 30,0 0,15 -30,0" fill="#5cb8e6" />
+      <!-- Left side -->
+      <polygon points="-30,0 0,15 0,35 -30,20" fill="#3a8bb6" />
+      <!-- Right side -->
+      <polygon points="0,15 30,0 30,20 0,35" fill="#4faae0" />
+    </g>
+
+    <!-- Block 2 (hsl(210, 70%, 60%)) -->
+    <g transform="translate(0, -20)">
+      <polygon points="0,-15 30,0 0,15 -30,0" fill="#5c9be6" />
+      <polygon points="-30,0 0,15 0,35 -30,20" fill="#3a6cb6" />
+      <polygon points="0,15 30,0 30,20 0,35" fill="#4f8ee0" />
+    </g>
+
+    <!-- Block 3 (hsl(220, 70%, 60%)) -->
+    <g transform="translate(0, -40)">
+      <polygon points="0,-15 30,0 0,15 -30,0" fill="#5c7ee6" />
+      <polygon points="-30,0 0,15 0,35 -30,20" fill="#3a4eb6" />
+      <polygon points="0,15 30,0 30,20 0,35" fill="#4f71e0" />
+    </g>
+
+    <!-- Moving Block (hsl(230, 70%, 60%)) -->
+    <g>
+      <!-- Horizontal animation matching isometric X/Z axis -->
+      <animateTransform attributeName="transform" type="translate" values="-40,-50; 40,-90; -40,-50" dur="2s" repeatCount="indefinite" />
+      <polygon points="0,-15 30,0 0,15 -30,0" fill="#655ce6" />
+      <polygon points="-30,0 0,15 0,35 -30,20" fill="#2d24b6" />
+      <polygon points="0,15 30,0 30,20 0,35" fill="#574fe0" />
+    </g>
+  </g>
 </svg>

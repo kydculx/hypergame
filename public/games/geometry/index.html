@@ -105,8 +105,8 @@
     <script>
         // --- Constants ---
         const PLAYER_SIZE = 1;
-        const JUMP_FORCE = 0.32; // Reduced from 0.35
-        const GRAVITY = 0.018;
+        const JUMP_FORCE = 0.36; // Increased from 0.32
+        const GRAVITY = 0.016; // Decreased from 0.018 for floatier jump
         const GAME_SPEED_BASE = 0.18;
 
         const COLORS = {
@@ -121,6 +121,7 @@
         let player;
         let obstacles = [];
         let particles = [];
+        let parallaxObjects = [];
         let score = 0;
         let gameState = 'START';
 
@@ -185,7 +186,30 @@
             player.position.set(-6, groundY + PLAYER_SIZE / 2, 0);
             scene.add(player);
 
-            // Trail
+            // Background Parallax Objects
+            for (let i = 0; i < 15; i++) {
+                const size = Math.random() * 3 + 1;
+                const geo = new THREE.BoxGeometry(size, size, size);
+                const mat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.03 + Math.random() * 0.05,
+                    wireframe: Math.random() > 0.5
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(
+                    (Math.random() - 0.5) * 80,
+                    Math.random() * 20 - 5,
+                    -10 - Math.random() * 20
+                );
+                mesh.userData = {
+                    speed: Math.random() * 0.8 + 0.2, // relative speed multiplier to game speed
+                    rotSpeedX: (Math.random() - 0.5) * 0.02,
+                    rotSpeedY: (Math.random() - 0.5) * 0.02
+                };
+                scene.add(mesh);
+                parallaxObjects.push(mesh);
+            }
 
             // Initial Obstacles
             spawnObstacle(10);
@@ -257,17 +281,18 @@
             obstacles.push(mesh);
         }
 
-        function spawnParticles(x, y, color) {
-            for (let i = 0; i < 5; i++) {
-                const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+        function spawnParticles(x, y, color, count = 5) {
+            for (let i = 0; i < count; i++) {
+                const size = Math.random() * 0.3 + 0.1;
+                const geo = new THREE.BoxGeometry(size, size, size);
                 const mat = new THREE.MeshBasicMaterial({ color: color });
                 const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(x, y, 0);
+                mesh.position.set(x + (Math.random() - 0.5), y + (Math.random() - 0.5), 0);
                 scene.add(mesh);
                 particles.push({
                     mesh,
-                    vx: (Math.random() - 0.5) * 0.2,
-                    vy: (Math.random() - 0.5) * 0.2,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: Math.random() * 0.3,
                     life: 1.0
                 });
             }
@@ -297,16 +322,20 @@
 
                 // Ground Collision
                 if (player.position.y <= groundY + PLAYER_SIZE / 2) {
+                    if (!isGrounded) {
+                        // Just landed
+                        spawnParticles(player.position.x, groundY + 0.5, COLORS.ground, 10);
+                    }
                     player.position.y = groundY + PLAYER_SIZE / 2;
                     velocityY = 0;
                     isGrounded = true;
 
-                    // Snap rotation
+                    // Smooth snap rotation
                     const nearest90 = Math.round(player.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
-                    player.rotation.z += (nearest90 - player.rotation.z) * 0.2;
+                    player.rotation.z += (nearest90 - player.rotation.z) * 0.25; // Smooth lerp
                 } else {
                     // Rotate while jumping
-                    player.rotation.z -= 0.1;
+                    player.rotation.z -= 0.15;
                 }
 
                 // Move Obstacles (Player moves visually, but conceptually we move world left)
@@ -366,7 +395,19 @@
 
                 // Color Pulse background
                 const time = Date.now() * 0.001;
-                scene.background.setHSL(0.6 + Math.sin(time) * 0.1, 0.5, 0.1);
+                scene.background.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
+                scene.fog.color.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
+
+                // Update Parallax
+                parallaxObjects.forEach(p => {
+                    p.position.x -= speed * p.userData.speed;
+                    p.rotation.x += p.userData.rotSpeedX;
+                    p.rotation.y += p.userData.rotSpeedY;
+                    if (p.position.x < camera.left - 10) {
+                        p.position.x = camera.right + 10;
+                        p.position.y = Math.random() * 20 - 5;
+                    }
+                });
             }
 
             // Particles
@@ -385,6 +426,19 @@
             renderer.render(scene, camera);
         }
     </script>
+    <!-- Google Ads Container -->
+    <div id="ad-container"
+        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+        <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+            crossorigin="anonymous"></script>
+        <!-- Horizontal Banner -->
+        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
+            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
 </body>
 
 </html>

@@ -1,7 +1,33 @@
-<svg width="400" height="225" viewBox="0 0 400 225" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="400" height="225" fill="#1a1a2e"/>
-<rect x="0" y="180" width="400" height="45" fill="#16213e"/>
-<rect x="50" y="130" width="50" height="50" fill="#f1c40f" stroke="#aa8800" stroke-width="4"/>
-<path d="M150 180 L175 130 L200 180 Z" fill="#e94560"/>
-<rect x="250" y="150" width="50" height="30" fill="#0f3460"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <!-- Background: #1a1a2e -->
+  <rect width="400" height="300" fill="#1a1a2e" />
+
+  <!-- Ground: #16213e -->
+  <rect x="0" y="240" width="400" height="60" fill="#16213e" />
+  <rect x="0" y="235" width="400" height="5" fill="#ffffff" opacity="0.2" />
+
+  <!-- Moving Obstacles (simulating forward speed) -->
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="400,0; -100,0" dur="2s" repeatCount="indefinite" />
+
+    <!-- Spike (#e94560) -->
+    <polygon points="150,235 170,180 190,235" fill="#e94560" />
+    
+    <!-- Block (#0f3460) -->
+    <rect x="300" y="195" width="40" height="40" fill="#0f3460" />
+    <rect x="305" y="200" width="30" height="30" fill="#16213e" /> <!-- Inner detail -->
+  </g>
+
+  <!-- Player Cube (#f1c40f) -->
+  <g transform="translate(80, 215)">
+    <!-- Jump Animation -->
+    <animateTransform attributeName="transform" type="translate" values="80,215; 80,100; 80,215" dur="1s" repeatCount="indefinite" calcMode="spline" keySplines="0.25 0.1 0.25 1; 0.42 0 1 1" />
+    
+    <!-- Cube Rotation Animation -->
+    <g>
+      <animateTransform attributeName="transform" type="rotate" values="0 0 0; 180 0 0; 360 0 0" dur="1s" repeatCount="indefinite" />
+      <rect x="-20" y="-20" width="40" height="40" fill="#f1c40f" stroke="#fff" stroke-width="2" />
+      <rect x="-10" y="-10" width="10" height="10" fill="#fff" opacity="0.5" />
+    </g>
+  </g>
 </svg>
