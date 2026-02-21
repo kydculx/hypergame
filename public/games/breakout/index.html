@@ -123,10 +123,14 @@
             constructor() { this.ctx = null; }
 
             init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.ctx) return;
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) this.ctx = new AudioContextClass();
+                } catch (e) {
+                    console.warn("AudioContext failed:", e);
                 }
-                if (this.ctx.state === 'suspended') {
+                if (this.ctx && this.ctx.state === 'suspended') {
                     this.ctx.resume().catch(e => console.log(e));
                 }
             }
@@ -754,7 +758,11 @@
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
         <script>
-            (adsbygoogle = window.adsbygoogle || []).push({});
+            try {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (e) {
+                console.warn("AdSense blocked by client, ignoring.");
+            }
         </script>
     </div>
 </body>

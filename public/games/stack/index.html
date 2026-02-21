@@ -138,7 +138,12 @@
             }
             init() {
                 if (this.ctx) return;
-                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) this.ctx = new AudioContextClass();
+                } catch (e) {
+                    console.warn("AudioContext failed:", e);
+                }
             }
             playNote(freq, type, duration, volume) {
                 if (!this.ctx) return;
@@ -433,7 +438,11 @@
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
         <script>
-            (adsbygoogle = window.adsbygoogle || []).push({});
+            try {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (e) {
+                console.warn("AdSense blocked by client, ignoring.");
+            }
         </script>
     </div>
 </body>

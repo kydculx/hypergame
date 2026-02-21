@@ -133,8 +133,19 @@
         let groundY = -2;
 
         // Audio
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let audioCtx = null;
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) audioCtx = new AudioContextClass();
+            } catch (e) {
+                console.warn("AudioContext failed:", e);
+            }
+        }
         function playTone(freq, type, duration = 0.1) {
+            initAudio();
+            if (!audioCtx) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -215,8 +226,15 @@
             spawnObstacle(10);
 
             // Listeners
-            window.addEventListener('pointerdown', jump);
-            window.addEventListener('keydown', e => { if (e.code === 'Space') jump(); });
+            const jumpHandler = (e) => {
+                if (e && e.cancelable) e.preventDefault();
+                initAudio();
+                jump();
+            };
+            const options = { passive: false };
+            window.addEventListener('pointerdown', jumpHandler, options);
+            window.addEventListener('touchstart', jumpHandler, options);
+            window.addEventListener('keydown', e => { if (e.code === 'Space') jumpHandler(e); });
             window.addEventListener('resize', updateLayout);
 
             // Start
@@ -436,7 +454,11 @@
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
         <script>
-            (adsbygoogle = window.adsbygoogle || []).push({});
+            try {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (e) {
+                console.warn("AdSense blocked by client, ignoring.");
+            }
         </script>
     </div>
 </body>

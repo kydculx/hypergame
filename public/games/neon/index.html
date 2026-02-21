@@ -125,7 +125,14 @@
             }
             init() {
                 if (this.ctx) return;
-                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) {
+                        this.ctx = new AudioContextClass();
+                    }
+                } catch (e) {
+                    console.warn("AudioContext could not be initialized:", e);
+                }
             }
             playNote(freq, type, duration, volume) {
                 if (!this.ctx) return;
@@ -173,7 +180,8 @@
         window.addEventListener('resize', resize);
         resize();
 
-        function handleAction() {
+        function handleAction(e) {
+            if (e && e.cancelable) e.preventDefault(); // Prevent iOS zoom/scroll
             audio.init();
             if (isGameOver) return;
             if (!isStarted) {
@@ -184,8 +192,12 @@
             audio.playNote(440, 'sine', 0.1, 0.1);
         }
 
-        window.addEventListener('pointerdown', handleAction);
-        window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') handleAction(); });
+        const options = { passive: false };
+        window.addEventListener('pointerdown', handleAction, options);
+        window.addEventListener('touchstart', handleAction, options);
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') handleAction(e);
+        });
 
         function createPipe() {
             const minHeight = 50;
@@ -334,7 +346,11 @@
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
         <script>
-            (adsbygoogle = window.adsbygoogle || []).push({});
+            try {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (e) {
+                console.warn("AdSense blocked by client, ignoring.");
+            }
         </script>
     </div>
 </body>
