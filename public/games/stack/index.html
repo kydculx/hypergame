@@ -208,8 +208,6 @@
             scene.add(dirLight);
 
             // Camera (Orthographic for that classic stack look)
-
-            // Camera (Orthographic for that classic stack look)
             const aspect = window.innerWidth / window.innerHeight;
             const d = 10;
             camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 0.1, 1000);
@@ -321,43 +319,47 @@
             // Sound feedback
             const isPerfect = Math.abs(diff) < 0.15;
             const baseFreq = 220 + (score * 20);
+
             if (isPerfect) {
+                // Snapping logic: No slicing, no debris
+                activeBlock.mesh.position[direction] = topBlock.mesh.position[direction];
+
                 audio.playNote(baseFreq * 1.5, 'sine', 0.2, 0.3);
                 createPerfectFlash(activeBlock.mesh.position.x, activeBlock.mesh.position.y, activeBlock.mesh.position.z, activeBlock.width, activeBlock.depth);
             } else {
                 audio.playNote(baseFreq, 'triangle', 0.1, 0.3);
+
+                // Slice block logic
+                const originalWidth = activeBlock.width;
+                const originalDepth = activeBlock.depth;
+
+                const newWidth = direction === 'x' ? overlap : originalWidth;
+                const newDepth = direction === 'z' ? overlap : originalDepth;
+                const newX = direction === 'x' ? topBlock.mesh.position.x + diff / 2 : activeBlock.mesh.position.x;
+                const newZ = direction === 'z' ? topBlock.mesh.position.z + diff / 2 : activeBlock.mesh.position.z;
+
+                // Recreate geometry instead of scale to maintain correct world sizing for next block
+                activeBlock.mesh.geometry.dispose();
+                activeBlock.mesh.geometry = new THREE.BoxGeometry(newWidth, BOX_HEIGHT, newDepth);
+
+                activeBlock.mesh.position.x = newX;
+                activeBlock.mesh.position.z = newZ;
+
+                activeBlock.width = newWidth;
+                activeBlock.depth = newDepth;
+
+                // Add debris (falling part)
+                const debrisWidth = direction === 'x' ? originalWidth - newWidth : newWidth;
+                const debrisDepth = direction === 'z' ? originalDepth - new Depth : newDepth;
+                const debrisX = direction === 'x'
+                    ? (diff > 0 ? newX + newWidth / 2 + debrisWidth / 2 : newX - newWidth / 2 - debrisWidth / 2)
+                    : newX;
+                const debrisZ = direction === 'z'
+                    ? (diff > 0 ? newZ + newDepth / 2 + debrisDepth / 2 : newZ - newDepth / 2 - debrisDepth / 2)
+                    : newZ;
+
+                addDebris(debrisX, activeBlock.mesh.position.y, debrisZ, debrisWidth, debrisDepth, activeBlock.mesh.material.color, diff);
             }
-
-            // Slice block logic
-            const originalWidth = activeBlock.width;
-            const originalDepth = activeBlock.depth;
-
-            const newWidth = direction === 'x' ? overlap : originalWidth;
-            const newDepth = direction === 'z' ? overlap : originalDepth;
-            const newX = direction === 'x' ? topBlock.mesh.position.x + diff / 2 : activeBlock.mesh.position.x;
-            const newZ = direction === 'z' ? topBlock.mesh.position.z + diff / 2 : activeBlock.mesh.position.z;
-
-            // Recreate geometry instead of scale to maintain correct world sizing for next block
-            activeBlock.mesh.geometry.dispose();
-            activeBlock.mesh.geometry = new THREE.BoxGeometry(newWidth, BOX_HEIGHT, newDepth);
-
-            activeBlock.mesh.position.x = newX;
-            activeBlock.mesh.position.z = newZ;
-
-            activeBlock.width = newWidth;
-            activeBlock.depth = newDepth;
-
-            // Add debris (falling part)
-            const debrisWidth = direction === 'x' ? originalWidth - newWidth : newWidth;
-            const debrisDepth = direction === 'z' ? originalDepth - newDepth : newDepth;
-            const debrisX = direction === 'x'
-                ? (diff > 0 ? newX + newWidth / 2 + debrisWidth / 2 : newX - newWidth / 2 - debrisWidth / 2)
-                : newX;
-            const debrisZ = direction === 'z'
-                ? (diff > 0 ? newZ + newDepth / 2 + debrisDepth / 2 : newZ - newDepth / 2 - debrisDepth / 2)
-                : newZ;
-
-            addDebris(debrisX, activeBlock.mesh.position.y, debrisZ, debrisWidth, debrisDepth, activeBlock.mesh.material.color, diff);
 
             stack.push(activeBlock);
             score++;
