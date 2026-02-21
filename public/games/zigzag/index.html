@@ -146,12 +146,16 @@
         // Audio System
         let audioCtx = null;
         function initAudio() {
-            if (audioCtx) return;
-            try {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                if (AudioContextClass) audioCtx = new AudioContextClass();
-            } catch (e) {
-                console.warn("AudioContext failed:", e);
+            if (!audioCtx) {
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) audioCtx = new AudioContextClass();
+                } catch (e) {
+                    console.warn("AudioContext failed:", e);
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(e => console.log(e));
             }
         }
         function playTone(freq, type) {
@@ -172,7 +176,8 @@
         init();
 
         function playSound(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            initAudio();
+            if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
@@ -354,7 +359,7 @@
                 // Give a small delay before first switch to prevent accidental double-tap start
                 setTimeout(() => {
                     if (document.getElementById('instructions')) {
-                         document.getElementById('instructions').style.display = 'none';
+                        document.getElementById('instructions').style.display = 'none';
                     }
                 }, 500);
                 return;

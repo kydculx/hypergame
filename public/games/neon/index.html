@@ -124,19 +124,23 @@
                 this.ctx = null;
             }
             init() {
-                if (this.ctx) return;
-                try {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    if (AudioContextClass) {
-                        this.ctx = new AudioContextClass();
+                if (!this.ctx) {
+                    try {
+                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContextClass) {
+                            this.ctx = new AudioContextClass();
+                        }
+                    } catch (e) {
+                        console.warn("AudioContext could not be initialized:", e);
                     }
-                } catch (e) {
-                    console.warn("AudioContext could not be initialized:", e);
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume().catch(e => console.log(e));
                 }
             }
             playNote(freq, type, duration, volume) {
+                this.init();
                 if (!this.ctx) return;
-                if (this.ctx.state === 'suspended') this.ctx.resume();
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = type;

@@ -123,12 +123,13 @@
             constructor() { this.ctx = null; }
 
             init() {
-                if (this.ctx) return;
-                try {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    if (AudioContextClass) this.ctx = new AudioContextClass();
-                } catch (e) {
-                    console.warn("AudioContext failed:", e);
+                if (!this.ctx) {
+                    try {
+                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContextClass) this.ctx = new AudioContextClass();
+                    } catch (e) {
+                        console.warn("AudioContext failed:", e);
+                    }
                 }
                 if (this.ctx && this.ctx.state === 'suspended') {
                     this.ctx.resume().catch(e => console.log(e));
@@ -136,13 +137,8 @@
             }
 
             playNote(freq, type, duration, volume) {
+                this.init();
                 if (!this.ctx) return;
-
-                // Try resume if suspended (though init should handle it)
-                if (this.ctx.state === 'suspended') {
-                    this.ctx.resume().catch(() => { });
-                    return; // Skip this note if not ready
-                }
 
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
