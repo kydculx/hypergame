@@ -129,9 +129,6 @@
         let targetCameraY = 10;
         let targetCameraZoom = 1; // For game over zoom out
         let currentCameraZoom = 1;
-        let backgroundParticles = [];
-        let floatingElements = [];
-        let bgCanvas, bgContext, bgTexture;
 
         // Audio Manager
         class AudioManager {
@@ -176,67 +173,8 @@
         function init() {
             scene = new THREE.Scene();
 
-            // Create robust gradient background via CanvasTexture
-            bgCanvas = document.createElement('canvas');
-            bgCanvas.width = 2;
-            bgCanvas.height = 512;
-            bgContext = bgCanvas.getContext('2d');
-            bgTexture = new THREE.CanvasTexture(bgCanvas);
-            scene.background = bgTexture;
-            scene.fog = new THREE.FogExp2(0x050208, 0.035);
-
-            // Background Particles
-            const particleGeo = new THREE.BufferGeometry();
-            const particleCount = 300;
-            const posArray = new Float32Array(particleCount * 3);
-            for (let i = 0; i < particleCount * 3; i++) {
-                posArray[i] = (Math.random() - 0.5) * 60;
-            }
-            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            const particleMat = new THREE.PointsMaterial({ size: 0.2, color: 0xccccff, transparent: true, opacity: 0.7 });
-            const particleMesh = new THREE.Points(particleGeo, particleMat);
-            scene.add(particleMesh);
-            backgroundParticles.push(particleMesh);
-
-            // Ambient Ethereal Blocks
-            const floatCount = 8;
-            for (let i = 0; i < floatCount; i++) {
-                const size = 15 + Math.random() * 15;
-                const geometry = new THREE.BoxGeometry(size, size, size);
-                const material = new THREE.MeshBasicMaterial({
-                    color: 0xbbccff,
-                    wireframe: true,
-                    transparent: true,
-                    opacity: 0.12,
-                    side: THREE.DoubleSide
-                });
-                const mesh = new THREE.Mesh(geometry, material);
-
-                // Position brought much closer for Orthographic frustum (d=10)
-                const angle = Math.random() * Math.PI * 2;
-                const radius = 8 + Math.random() * 12;
-                mesh.position.set(
-                    Math.cos(angle) * radius,
-                    (Math.random() - 0.5) * 50,
-                    Math.sin(angle) * radius
-                );
-                mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-                scene.add(mesh);
-
-                floatingElements.push({
-                    mesh,
-                    baseY: mesh.position.y,
-                    rotationSpeed: {
-                        x: (Math.random() - 0.5) * 0.001,
-                        y: (Math.random() - 0.5) * 0.001,
-                        z: (Math.random() - 0.5) * 0.001
-                    },
-                    offset: Math.random() * Math.PI * 2,
-                    pulseSpeed: 0.0005 + Math.random() * 0.0005
-                });
-            }
-
-            updateBackground(0); // Initial background
+            // Simple background color
+            scene.background = new THREE.Color(0x050208);
 
             // Lights
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -288,52 +226,6 @@
             return block;
         }
 
-        function updateBackground(altitude) {
-            const stages = [
-                { alt: 0, top: '#2e1a4d', bot: '#050208' }, // Ground
-                { alt: 15, top: '#1a1a2e', bot: '#0a0a1f' }, // Low Atmos
-                { alt: 35, top: '#0a0a1f', bot: '#020205' }, // High Atmos
-                { alt: 60, top: '#050208', bot: '#000000' }  // Deep Space
-            ];
-
-            // Find current stages for interpolation
-            let s1 = stages[0], s2 = stages[stages.length - 1];
-            for (let i = 0; i < stages.length - 1; i++) {
-                if (altitude >= stages[i].alt && altitude < stages[i + 1].alt) {
-                    s1 = stages[i];
-                    s2 = stages[i + 1];
-                    break;
-                }
-            }
-
-            const ratio = Math.min(1, Math.max(0, (altitude - s1.alt) / (s2.alt - s1.alt || 1)));
-
-            const lerpColor = (c1, c2, r) => {
-                const rgb1 = new THREE.Color(c1);
-                const rgb2 = new THREE.Color(c2);
-                return `#${rgb1.lerp(rgb2, r).getHexString()}`;
-            };
-
-            const top = lerpColor(s1.top, s2.top, ratio);
-            const bot = lerpColor(s1.bot, s2.bot, ratio);
-
-            // Update Gradient
-            const gradient = bgContext.createLinearGradient(0, 0, 0, 512);
-            gradient.addColorStop(0, top);
-            gradient.addColorStop(1, bot);
-            bgContext.fillStyle = gradient;
-            bgContext.fillRect(0, 0, 2, 512);
-            bgTexture.needsUpdate = true;
-
-            // Sync fog
-            const fogColor = new THREE.Color(bot);
-            scene.fog.color.copy(fogColor);
-
-            // Sync stars brightness
-            if (backgroundParticles.length > 0) {
-                backgroundParticles[0].material.opacity = 0.3 + (altitude / 100) * 0.4;
-            }
-        }
 
         function handleAction() {
             audio.init();
@@ -408,7 +300,6 @@
             // Increase speed slightly, always reset direction to positive for next spawn
             speed = Math.abs(speed) + 0.002;
 
-            updateBackground(score);
             startNewRound();
         }
 
@@ -447,13 +338,14 @@
             targetCameraY = stack.length * BOX_HEIGHT + 10;
         }
 
+
         function gameOver() {
             gameState = 'OVER';
             audio.playNote([440, 110], 'sawtooth', 0.5, 0.3);
 
             // Set zoom out target based on tower height
-            targetCameraZoom = Math.max(0.2, 10 / (stack.length * BOX_HEIGHT + 10)); // Calculate needed zoom to see whole tower
-            targetCameraY = (stack.length * BOX_HEIGHT) / 2; // Center camera on the tower
+            targetCameraZoom = Math.max(0.18, 9 / (stack.length * BOX_HEIGHT + 10)); // Slightly tighter zoom
+            targetCameraY = (stack.length * BOX_HEIGHT) * 0.5 + 10; // Center more comfortably
 
             // Delay UI popup to let player see the tower
             setTimeout(() => {
@@ -510,29 +402,6 @@
                 camera.zoom = currentCameraZoom;
                 camera.updateProjectionMatrix();
             }
-
-            // Background particles parallax
-            if (backgroundParticles.length > 0) {
-                backgroundParticles[0].position.y = camera.position.y * 0.5;
-                backgroundParticles[0].rotation.y += 0.0005;
-                backgroundParticles[0].material.opacity = 0.3 + Math.sin(Date.now() * 0.002) * 0.1;
-            }
-
-            // Ethereal blocks animation with pulse and parallax
-            floatingElements.forEach(el => {
-                el.mesh.rotation.x += el.rotationSpeed.x;
-                el.mesh.rotation.y += el.rotationSpeed.y;
-                el.mesh.rotation.z += el.rotationSpeed.z;
-
-                // Organic Pulse (Opacity & Position)
-                const pulse = Math.sin(Date.now() * el.pulseSpeed + el.offset);
-                el.mesh.material.opacity = 0.08 + (pulse + 1) * 0.06;
-
-                // Floating drift
-                const drift = pulse * 2;
-                // Parallax Y: move with camera at a very slow rate for distance
-                el.mesh.position.y = el.baseY + drift + (camera.position.y * 0.88);
-            });
 
             // Debris physics
             for (let i = debris.length - 1; i >= 0; i--) {
