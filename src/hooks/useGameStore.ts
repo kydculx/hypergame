@@ -62,8 +62,8 @@ export const useGameStore = create<GameState>()(
           id: 'neon-jump',
           title: 'Neon Jump',
           description: 'Navigate the neon pipes.',
-          thumbnailUrl: '/images/neon-jump-thumb.svg',
-          gameUrl: '/games/neon/index.html',
+          thumbnailUrl: 'images/neon-jump-thumb.svg',
+          gameUrl: 'games/neon/index.html',
           category: 'action',
         },
         {
