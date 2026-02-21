@@ -39,7 +39,7 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
 
             {/* Footer */}
             <footer className="text-center text-white/80 py-8 text-sm">
-                <p>© 2026 Cherrygames. All rights reserved.</p>
+                <p>© 2026 WCGames. All rights reserved.</p>
             </footer>
         </div>
     );
