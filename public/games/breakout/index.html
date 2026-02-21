@@ -126,35 +126,46 @@
                 if (!this.ctx) {
                     try {
                         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                        if (AudioContextClass) this.ctx = new AudioContextClass();
+                        if (AudioContextClass) {
+                            this.ctx = new AudioContextClass();
+                            console.log("AudioContext created, state:", this.ctx.state);
+                        }
                     } catch (e) {
                         console.warn("AudioContext failed:", e);
                     }
                 }
                 if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume().catch(e => console.log(e));
+                    console.log("Attempting to resume AudioContext...");
+                    this.ctx.resume().then(() => {
+                        console.log("AudioContext resumed! State:", this.ctx.state);
+                    }).catch(e => console.log("Resume failed:", e));
                 }
             }
 
             playNote(freq, type, duration, volume) {
                 this.init();
                 if (!this.ctx) return;
+                // Don't strictly bail on !running, as it might still be resuming
 
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
+                const now = this.ctx.currentTime;
+
                 osc.type = type;
                 if (Array.isArray(freq)) {
-                    osc.frequency.setValueAtTime(freq[0], this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(freq[1], this.ctx.currentTime + duration);
+                    osc.frequency.setValueAtTime(freq[0], now);
+                    osc.frequency.exponentialRampToValueAtTime(freq[1], now + duration);
                 } else {
-                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(freq, now);
                 }
-                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
+                gain.gain.setValueAtTime(volume, now);
+                gain.gain.linearRampToValueAtTime(0, now + duration);
+
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + duration);
+                osc.start(now);
+                osc.stop(now + duration);
             }
         }
         const audio = new AudioManager();
@@ -354,6 +365,10 @@
 
         function handleAction(e) {
             audio.init();
+            // Test sound on first interaction
+            if (!isStarted && (e.type === 'mousedown' || e.type === 'touchstart')) {
+                audio.playNote(440, 'sine', 0.1, 0.2);
+            }
             if (isGameOver) return;
             if (!isStarted) {
                 isStarted = true;
@@ -368,8 +383,9 @@
         }
 
         window.addEventListener('mousemove', handleAction);
-        window.addEventListener('touchmove', handleAction);
+        window.addEventListener('touchmove', handleAction, { passive: false });
         window.addEventListener('mousedown', handleAction);
+        window.addEventListener('touchstart', handleAction, { passive: false });
 
         function createParticles(x, y, color) {
             for (let i = 0; i < 8; i++) {
@@ -439,7 +455,7 @@
                                 scoreEl.textContent = score;
                                 createParticles(bx + brickWidth / 2, by + brickHeight / 2, b.color);
                                 spawnItem(bx + brickWidth / 2, by + brickHeight / 2);
-                                audio.playNote(400 + (r * 100), 'triangle', 0.1, 0.1);
+                                audio.playNote(400 + (r * 100), 'triangle', 0.1, 0.3);
                                 window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
 
                                 if (checkLevelComplete()) {
@@ -468,7 +484,7 @@
                                         if (Math.abs(b.dy) < 1) b.dy = b.dy > 0 ? 1 : -1;
                                     });
 
-                                    audio.playNote([400, 800, 1200], 'square', 0.5, 0.3);
+                                    audio.playNote([400, 800, 1200], 'square', 0.5, 0.5);
 
                                     initBricks();
                                     return; // Stop processing collision for this frame
@@ -510,11 +526,11 @@
                 // Wall collisions
                 if (ball.x + ball.dx > canvas.width - BALL_RADIUS || ball.x + ball.dx < BALL_RADIUS) {
                     ball.dx = -ball.dx;
-                    audio.playNote(300, 'sine', 0.05, 0.05);
+                    audio.playNote(300, 'sine', 0.05, 0.3);
                 }
                 if (ball.y + ball.dy < BALL_RADIUS) {
                     ball.dy = -ball.dy;
-                    audio.playNote(300, 'sine', 0.05, 0.05);
+                    audio.playNote(300, 'sine', 0.05, 0.3);
                 } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM) {
                     // Paddle Check
                     if (ball.y < canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM && ball.dy > 0 &&
@@ -534,7 +550,7 @@
                         // Prevent stuck
                         ball.y = canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS - 1;
                         combo = 0;
-                        audio.playNote(200, 'square', 0.1, 0.1);
+                        audio.playNote(200, 'square', 0.1, 0.4);
                     } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS) {
                         // Ball lost
                         balls.splice(i, 1);
@@ -736,11 +752,12 @@
             isGameOver = true;
             gameOverEl.style.display = 'block';
             finalScoreEl.textContent = score;
-            audio.playNote([220, 50], 'sawtooth', 0.5, 0.2);
+            audio.playNote([220, 50], 'sawtooth', 0.5, 0.4);
             window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
         }
 
         resize();
+        audio.init(); // Initialize context early
         draw();
         window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>

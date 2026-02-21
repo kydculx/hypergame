@@ -159,6 +159,7 @@
             }
         }
         const audio = new AudioManager();
+        audio.init(); // Initialize audio context on startup
 
         // Game Constants
         const GRAVITY = 0.5;
@@ -186,7 +187,7 @@
 
         function handleAction(e) {
             if (e && e.cancelable) e.preventDefault(); // Prevent iOS zoom/scroll
-            audio.init();
+            // audio.init(); // Removed, now called on startup
             if (isGameOver) return;
             if (!isStarted) {
                 isStarted = true;
