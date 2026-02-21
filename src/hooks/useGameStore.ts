@@ -61,9 +61,9 @@ export const useGameStore = create<GameState>()(
         {
           id: 'neon-jump',
           title: 'Neon Jump',
-          description: 'Navigate through a neon-lit cyberpunk world in this intense runner!',
-          thumbnailUrl: 'images/neon-jump-thumb.svg',
-          gameUrl: 'games/neon/index.html',
+          description: 'Navigate the neon pipes.',
+          thumbnailUrl: '/images/neon-jump-thumb.svg',
+          gameUrl: '/games/neon/index.html',
           category: 'action',
         },
         {
@@ -89,6 +89,14 @@ export const useGameStore = create<GameState>()(
           thumbnailUrl: 'images/geometry-thumb.svg',
           gameUrl: 'games/geometry/index.html',
           category: 'action',
+        },
+        {
+          id: 'domino',
+          title: 'Domino Match',
+          description: 'Bridge the gaps with the right size domino to keep the chain reacting!',
+          thumbnailUrl: 'images/domino-thumb.svg',
+          gameUrl: 'games/domino/index.html',
+          category: 'puzzle',
         },
 
       ],

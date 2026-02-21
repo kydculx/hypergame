@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8ec5fc"/>
+      <stop offset="100%" stop-color="#e0c3fc"/>
+    </linearGradient>
+
+    <!-- Isometric Block S (Blue) -->
+    <g id="dominoS">
+      <path d="M0,0 L20,-10 L30,-5 L10,5 Z" fill="#b0eafc" /> <!-- Top -->
+      <path d="M0,0 L10,5 L10,35 L0,30 Z" fill="#4cc9f0" />   <!-- Left -->
+      <path d="M10,5 L30,-5 L30,25 L10,35 Z" fill="#2d9fc2" /> <!-- Right -->
+      <!-- Dot -->
+      <circle cx="15" cy="15" r="2" fill="#fff" opacity="0.8" transform="skewY(26.5) scale(1, 0.5)"/>
+    </g>
+
+    <!-- Isometric Block M (Pink) -->
+    <g id="dominoM">
+      <path d="M0,0 L20,-10 L30,-5 L10,5 Z" fill="#ffb3d9" />
+      <path d="M0,0 L10,5 L10,45 L0,40 Z" fill="#f72585" />
+      <path d="M10,5 L30,-5 L30,35 L10,45 Z" fill="#c70c67" />
+      <circle cx="15" cy="15" r="2" fill="#fff" opacity="0.8" transform="skewY(26.5) scale(1, 0.5)"/>
+      <circle cx="15" cy="27" r="2" fill="#fff" opacity="0.8" transform="skewY(26.5) scale(1, 0.5)"/>
+    </g>
+
+    <!-- Isometric Block L (Yellow) -->
+    <g id="dominoL">
+      <path d="M0,0 L20,-10 L30,-5 L10,5 Z" fill="#ffe7a0" />
+      <path d="M0,0 L10,5 L10,55 L0,50 Z" fill="#ffb703" />
+      <path d="M10,5 L30,-5 L30,45 L10,55 Z" fill="#d49700" />
+      <circle cx="15" cy="15" r="2" fill="#fff" opacity="0.8" transform="skewY(26.5) scale(1, 0.5)"/>
+      <circle cx="15" cy="27" r="2" fill="#fff" opacity="0.8" transform="skewY(26.5) scale(1, 0.5)"/>
+      <circle cx="15" cy="39" r="2" fill="#fff" opacity="0.8" transform="skewY(26.5) scale(1, 0.5)"/>
+    </g>
+
+    <filter id="shadow" dx="0" dy="5" stdDeviation="5">
+      <feDropShadow dx="-2" dy="8" stdDeviation="4" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="200" fill="url(#bg)" rx="20"/>
+
+  <!-- Track Base representing the shadow receiving path -->
+  <path d="M 40,160 L 160,100 L 180,110 L 60,170 Z" fill="#5a7b9c" opacity="0.15"/>
+
+  <!-- Animated Dominos -->
+  <g filter="url(#shadow)">
+    <!-- 3rd Domino (Yellow L) -->
+    <g transform="translate(130, 95)" style="animation: fall3 2s infinite cubic-bezier(0.5, 0, 0.8, 0.2);">
+      <use href="#dominoL" x="-15" y="-50"/>
+    </g>
+    
+    <!-- 2nd Domino (Pink M) -->
+    <g transform="translate(90, 115)" style="animation: fall2 2s infinite cubic-bezier(0.5, 0, 0.8, 0.2);">
+      <use href="#dominoM" x="-15" y="-40"/>
+    </g>
+
+    <!-- 1st Domino (Blue S) -->
+    <g transform="translate(50, 135)" style="animation: fall1 2s infinite cubic-bezier(0.5, 0, 0.8, 0.2);">
+      <use href="#dominoS" x="-15" y="-30"/>
+    </g>
+  </g>
+
+  <style>
+    /* 
+      Animations mapped locally to isometric rotation.
+      Rotation origin is bottom center of the blocks.
+    */
+    @keyframes fall1 {
+      0%, 10% { transform: translate(50px, 135px) rotate(0deg); }
+      20%, 100% { transform: translate(50px, 135px) rotate(55deg); }
+    }
+    @keyframes fall2 {
+      0%, 20% { transform: translate(90px, 115px) rotate(0deg); }
+      30%, 100% { transform: translate(90px, 115px) rotate(55deg); }
+    }
+    @keyframes fall3 {
+      0%, 30% { transform: translate(130px, 95px) rotate(0deg); }
+      45%, 100% { transform: translate(130px, 95px) rotate(70deg); }
+    }
+  </style>
+</svg>
