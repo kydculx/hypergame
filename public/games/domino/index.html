@@ -380,6 +380,38 @@
 
         // Floor removed per user request
 
+        // Ambient Particles (Dust/Orbs)
+        const particleCount = 200;
+        const particleGeo = new THREE.IcosahedronGeometry(0.12, 0); // Very simple floating shapes
+        const particleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+        const particles = new THREE.InstancedMesh(particleGeo, particleMat, particleCount);
+
+        const dummy = new THREE.Object3D();
+        const particleData = [];
+        for (let i = 0; i < particleCount; i++) {
+            // Random positions in a large 80x80 area
+            const x = (Math.random() - 0.5) * 80;
+            const y = Math.random() * 40 - 5;
+            const z = (Math.random() - 0.5) * 80;
+
+            dummy.position.set(x, y, z);
+            // Random rotation
+            dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            dummy.updateMatrix();
+            particles.setMatrixAt(i, dummy.matrix);
+
+            // Store unique float data
+            particleData.push({
+                x: x, y: y, z: z,
+                rx: dummy.rotation.x, ry: dummy.rotation.y, rz: dummy.rotation.z,
+                rspeed: (Math.random() - 0.5) * 0.02,
+                yspeed: 0.01 + Math.random() * 0.03,
+                amp: 0.1 + Math.random() * 0.4,
+                phase: Math.random() * Math.PI * 2
+            });
+        }
+        scene.add(particles);
+
         // Geometries
         const geoCache = {};
         function getGeometry(h) {
@@ -842,6 +874,34 @@
 
         function animate() {
             requestAnimationFrame(animate);
+            const time = Date.now() * 0.001;
+
+            // Animate Ambient Particles endlessly around the camera focus
+            for (let i = 0; i < particleCount; i++) {
+                let pd = particleData[i];
+                pd.y += pd.yspeed; // Float up
+                pd.rx += pd.rspeed;
+                pd.ry += pd.rspeed;
+
+                // Wrap vertically
+                if (pd.y > 35) pd.y = -5;
+
+                let curX = pd.x + Math.sin(time + pd.phase) * pd.amp;
+                let curZ = pd.z + Math.cos(time + pd.phase) * pd.amp;
+
+                // Wrap horizontally relative to the camera to create an infinite field
+                if (curX < cameraLookAtX - 40) pd.x += 80;
+                if (curX > cameraLookAtX + 40) pd.x -= 80;
+                if (curZ < cameraLookAtZ - 40) pd.z += 80;
+                if (curZ > cameraLookAtZ + 40) pd.z -= 80;
+
+                dummy.position.set(curX, pd.y, curZ);
+                dummy.rotation.set(pd.rx, pd.ry, pd.rz);
+                dummy.updateMatrix();
+                particles.setMatrixAt(i, dummy.matrix);
+            }
+            particles.instanceMatrix.needsUpdate = true;
+
             if (gameState === 'PLAYING') {
                 dominos.forEach(d => d.update());
                 updateFocusCamera();
