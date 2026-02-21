@@ -9,7 +9,8 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: #000;
+            background: linear-gradient(135deg, #1a0b2e 0%, #0d0517 100%);
+            background-attachment: fixed;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
             -webkit-user-select: none;
@@ -173,8 +174,8 @@
 
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a0b2e);
-            scene.fog = new THREE.FogExp2(0x1a0b2e, 0.04);
+            scene.background = null; // Transparent scene to show CSS gradient
+            scene.fog = new THREE.FogExp2(0x1a0b2e, 0.035);
 
             // Lights
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -204,9 +205,10 @@
             camera.position.set(10, 10, 10);
             camera.lookAt(0, 0, 0);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0); // Ensure absolute transparency
             document.body.appendChild(renderer.domElement);
 
             // Foundation
