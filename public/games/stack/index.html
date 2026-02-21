@@ -182,16 +182,7 @@
             bgContext = bgCanvas.getContext('2d');
             bgTexture = new THREE.CanvasTexture(bgCanvas);
             scene.background = bgTexture;
-
-            updateBackground(0); // Initial background
-
-            // Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(10, 20, 10);
-            scene.add(dirLight);
+            scene.fog = new THREE.FogExp2(0x050208, 0.035);
 
             // Background Particles
             const particleGeo = new THREE.BufferGeometry();
@@ -205,6 +196,18 @@
             const particleMesh = new THREE.Points(particleGeo, particleMat);
             scene.add(particleMesh);
             backgroundParticles.push(particleMesh);
+
+            updateBackground(0); // Initial background
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            // Camera (Orthographic for that classic stack look)
 
             // Camera (Orthographic for that classic stack look)
             const aspect = window.innerWidth / window.innerHeight;
