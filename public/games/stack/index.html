@@ -350,7 +350,7 @@
 
                 // Add debris (falling part)
                 const debrisWidth = direction === 'x' ? originalWidth - newWidth : newWidth;
-                const debrisDepth = direction === 'z' ? originalDepth - new Depth : newDepth;
+                const debrisDepth = direction === 'z' ? originalDepth - newDepth : newDepth;
                 const debrisX = direction === 'x'
                     ? (diff > 0 ? newX + newWidth / 2 + debrisWidth / 2 : newX - newWidth / 2 - debrisWidth / 2)
                     : newX;
