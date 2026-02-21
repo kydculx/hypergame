@@ -343,12 +343,20 @@
 
         /* Removed normalizeVelocity function */
 
+        function init() {
+            resize();
+            audio.init(); // Initialize context early
+            animate();
+        }
+
+        init();
+        window.parent.postMessage({ type: 'GAME_READY' }, '*');
+
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             paddleX = (canvas.width - PADDLE_WIDTH) / 2;
             initBricks();
-            resetBall();
 
             // Initialize Stars
             stars = [];
@@ -410,10 +418,103 @@
             return true;
         }
 
-        function collisionDetection() {
+        function applyItem(type) {
+            if (type === 'WIDE') {
+                targetPaddleWidth = 200;
+                setTimeout(() => { targetPaddleWidth = 120; }, 8000);
+                audio.playNote(600, 'sine', 0.3, 0.2);
+            } else if (type === 'MULTI') {
+                const currentCount = balls.length;
+                const MAX_BALLS = 20;
+
+                for (let j = 0; j < currentCount; j++) {
+                    if (balls.length >= MAX_BALLS) break;
+
+                    let b = balls[j];
+                    balls.push({
+                        x: b.x, y: b.y,
+                        dx: -b.dx, dy: b.dy
+                    });
+                }
+                audio.playNote([400, 800], 'square', 0.3, 0.2);
+            }
+        }
+
+        function update() {
+            if (isGameOver || !isStarted) return;
+
+            // Smooth Paddle Resize
+            if (Math.abs(PADDLE_WIDTH - targetPaddleWidth) > 0.1) {
+                const prevWidth = PADDLE_WIDTH;
+                PADDLE_WIDTH += (targetPaddleWidth - PADDLE_WIDTH) * 0.15; // ~0.3s transition
+                // Keep center position: shift X by half of width change
+                paddleX -= (PADDLE_WIDTH - prevWidth) / 2;
+            } else {
+                PADDLE_WIDTH = targetPaddleWidth;
+            }
+
+            // Update all balls
+            const currentLevelSpeed = 4 + (level * 0.7); // Increased scaling for continuous mode (was 0.5)
             const brickWidth = (canvas.width - (BRICK_COLS + 1) * BRICK_PADDING) / BRICK_COLS;
             const brickHeight = 20;
 
+            for (let i = balls.length - 1; i >= 0; i--) {
+                let ball = balls[i];
+
+                // Enforce constant speed magnitude
+                const currentMag = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                if (currentMag !== 0) {
+                    ball.dx = (ball.dx / currentMag) * currentLevelSpeed;
+                    ball.dy = (ball.dy / currentMag) * currentLevelSpeed;
+                }
+
+                // Wall collisions
+                if (ball.x + ball.dx > canvas.width - BALL_RADIUS || ball.x + ball.dx < BALL_RADIUS) {
+                    ball.dx = -ball.dx;
+                    audio.playNote(300, 'sine', 0.05, 0.3);
+                }
+                if (ball.y + ball.dy < BALL_RADIUS) {
+                    ball.dy = -ball.dy;
+                    audio.playNote(300, 'sine', 0.05, 0.3);
+                } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM) {
+                    // Paddle Check
+                    if (ball.y < canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM && ball.dy > 0 &&
+                        ball.x + BALL_RADIUS > paddleX && ball.x - BALL_RADIUS < paddleX + PADDLE_WIDTH) {
+
+                        // Calculate hit position (-1 to 1)
+                        let hitPos = (ball.x - (paddleX + PADDLE_WIDTH / 2)) / (PADDLE_WIDTH / 2);
+
+                        // Bounce angle based on hit position (max 60 degrees)
+                        const maxBounceAngle = Math.PI / 3;
+                        const theta = hitPos * maxBounceAngle;
+
+                        // New velocity based on fixed speed
+                        ball.dx = currentLevelSpeed * Math.sin(theta);
+                        ball.dy = -currentLevelSpeed * Math.cos(theta);
+
+                        // Prevent stuck
+                        ball.y = canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS - 1;
+                        combo = 0;
+                        audio.playNote(200, 'square', 0.1, 0.4);
+                    } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS) {
+                        // Ball lost
+                        balls.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+            }
+
+            if (shake > 0) shake *= 0.9; // Decay shake
+
+            // Life check - Instant Game Over
+            if (balls.length === 0) {
+                gameOver();
+            }
+
+            // Brick collision detection (integrated)
             for (let i = 0; i < balls.length; i++) {
                 let ball = balls[i];
                 for (let c = 0; c < BRICK_COLS; c++) {
@@ -494,82 +595,6 @@
                     }
                 }
             }
-        }
-
-        function update() {
-            if (isGameOver || !isStarted) return;
-
-            // Smooth Paddle Resize
-            if (Math.abs(PADDLE_WIDTH - targetPaddleWidth) > 0.1) {
-                const prevWidth = PADDLE_WIDTH;
-                PADDLE_WIDTH += (targetPaddleWidth - PADDLE_WIDTH) * 0.15; // ~0.3s transition
-                // Keep center position: shift X by half of width change
-                paddleX -= (PADDLE_WIDTH - prevWidth) / 2;
-            } else {
-                PADDLE_WIDTH = targetPaddleWidth;
-            }
-
-            // Update all balls
-            const currentLevelSpeed = 4 + (level * 0.7); // Increased scaling for continuous mode (was 0.5)
-
-            for (let i = balls.length - 1; i >= 0; i--) {
-                let ball = balls[i];
-
-                // Enforce constant speed magnitude
-                // This fixes the 'laggy' speed issue by normalizing every frame
-                const currentMag = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-                if (currentMag !== 0) {
-                    ball.dx = (ball.dx / currentMag) * currentLevelSpeed;
-                    ball.dy = (ball.dy / currentMag) * currentLevelSpeed;
-                }
-
-                // Wall collisions
-                if (ball.x + ball.dx > canvas.width - BALL_RADIUS || ball.x + ball.dx < BALL_RADIUS) {
-                    ball.dx = -ball.dx;
-                    audio.playNote(300, 'sine', 0.05, 0.3);
-                }
-                if (ball.y + ball.dy < BALL_RADIUS) {
-                    ball.dy = -ball.dy;
-                    audio.playNote(300, 'sine', 0.05, 0.3);
-                } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM) {
-                    // Paddle Check
-                    if (ball.y < canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM && ball.dy > 0 &&
-                        ball.x + BALL_RADIUS > paddleX && ball.x - BALL_RADIUS < paddleX + PADDLE_WIDTH) {
-
-                        // Calculate hit position (-1 to 1)
-                        let hitPos = (ball.x - (paddleX + PADDLE_WIDTH / 2)) / (PADDLE_WIDTH / 2);
-
-                        // Bounce angle based on hit position (max 60 degrees)
-                        const maxBounceAngle = Math.PI / 3;
-                        const theta = hitPos * maxBounceAngle;
-
-                        // New velocity based on fixed speed
-                        ball.dx = currentLevelSpeed * Math.sin(theta);
-                        ball.dy = -currentLevelSpeed * Math.cos(theta);
-
-                        // Prevent stuck
-                        ball.y = canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM - BALL_RADIUS - 1;
-                        combo = 0;
-                        audio.playNote(200, 'square', 0.1, 0.4);
-                    } else if (ball.y + ball.dy > canvas.height - BALL_RADIUS) {
-                        // Ball lost
-                        balls.splice(i, 1);
-                        continue;
-                    }
-                }
-
-                ball.x += ball.dx;
-                ball.y += ball.dy;
-            }
-
-            if (shake > 0) shake *= 0.9; // Decay shake
-
-            // Life check - Instant Game Over
-            if (balls.length === 0) {
-                gameOver();
-            }
-
-            collisionDetection();
 
             // Item update
             for (let i = items.length - 1; i >= 0; i--) {
@@ -580,28 +605,7 @@
                 if (item.y + item.h > canvas.height - PADDLE_HEIGHT - PADDLE_OFFSET_BOTTOM &&
                     item.x < paddleX + PADDLE_WIDTH &&
                     item.x + item.w > paddleX) {
-
-                    if (item.type === 'WIDE') {
-                        targetPaddleWidth = 200;
-                        setTimeout(() => { targetPaddleWidth = 120; }, 8000);
-                        audio.playNote(600, 'sine', 0.3, 0.2);
-                    } else if (item.type === 'MULTI') {
-                        const currentCount = balls.length;
-                        // Limit total balls to 100 to prevent performance issues and chaos
-                        const MAX_BALLS = 20;
-
-                        for (let j = 0; j < currentCount; j++) {
-                            if (balls.length >= MAX_BALLS) break;
-
-                            // Duplicate ball with slightly different angle
-                            let b = balls[j];
-                            balls.push({
-                                x: b.x, y: b.y,
-                                dx: -b.dx, dy: b.dy // Reverse horizontal direction for new ball
-                            });
-                        }
-                        audio.playNote([400, 800], 'square', 0.3, 0.2);
-                    }
+                    applyItem(item.type);
                     items.splice(i, 1);
                 } else if (item.y > canvas.height) {
                     items.splice(i, 1);
@@ -618,7 +622,7 @@
             }
         }
 
-        function draw() {
+        function render() {
             // Trail Effect
             ctx.fillStyle = 'rgba(5, 5, 5, 0.25)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);

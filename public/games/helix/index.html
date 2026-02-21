@@ -145,39 +145,68 @@
         let lastX;
         let isDrag = false;
 
-        // Audio
-        let audioCtx = null;
-        function initAudio() {
-            if (!audioCtx) {
-                try {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    if (AudioContextClass) audioCtx = new AudioContextClass();
-                } catch (e) {
-                    console.warn("AudioContext failed:", e);
+        // Audio System
+        class AudioManager {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) {
+                    try {
+                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContextClass) this.ctx = new AudioContextClass();
+                    } catch (e) {
+                        console.warn("AudioContext failed:", e);
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume().catch(e => console.log(e));
                 }
             }
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().catch(e => console.log(e));
+            playNote(freq, type, duration = 0.1, volume = 0.1) {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.value = freq;
+                osc.type = type;
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + duration);
+                osc.stop(this.ctx.currentTime + duration);
             }
         }
-        function playTone(freq, type) {
-            initAudio();
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.frequency.value = freq;
-            osc.type = type;
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
-            osc.stop(audioCtx.currentTime + 0.1);
-        }
+        const audio = new AudioManager();
 
         init();
-        initAudio(); // Pre-initialize context
 
         function init() {
+            setupScene();
+            createTower();
+            createBall();
+            audio.init(); // Pre-initialize context
+
+            // Listeners
+            window.addEventListener('pointerdown', e => {
+                audio.init();
+                isDrag = true;
+                lastX = e.clientX || (e.touches && e.touches[0].clientX);
+            });
+            window.addEventListener('pointerup', () => isDrag = false);
+            window.addEventListener('pointermove', e => {
+                if (!isDrag || gameState !== 'PLAYING') return;
+                const x = e.clientX || e.touches[0].clientX;
+                pole.rotation.y += (x - lastX) * 0.01;
+                lastX = x;
+            });
+            window.addEventListener('resize', resize);
+
+            // Start
+            gameState = 'PLAYING';
+            animate();
+            window.parent.postMessage({ type: 'GAME_READY' }, '*');
+        }
+
+        function setupScene() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(COLORS.bg);
             scene.fog = new THREE.Fog(COLORS.bg, 10, 30);
@@ -195,43 +224,18 @@
             dl.position.set(5, 10, 5);
             scene.add(dl);
             scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        }
 
-            // Objects
+        function createBall() {
             ball = new THREE.Mesh(
                 new THREE.SphereGeometry(BALL_RADIUS, 16, 16),
                 new THREE.MeshPhongMaterial({ color: COLORS.ball })
             );
             ball.position.set(0, ballY, POLE_RADIUS + PLATFORM_WIDTH / 2);
             scene.add(ball);
-
-            createPole();
-
-            // Listeners
-            window.addEventListener('pointerdown', e => {
-                initAudio();
-                isDrag = true;
-                lastX = e.clientX || (e.touches && e.touches[0].clientX);
-            });
-            window.addEventListener('pointerup', () => isDrag = false);
-            window.addEventListener('pointermove', e => {
-                if (!isDrag || gameState !== 'PLAYING') return;
-                const x = e.clientX || e.touches[0].clientX;
-                pole.rotation.y += (x - lastX) * 0.01;
-                lastX = x;
-            });
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-
-            // Start
-            gameState = 'PLAYING';
-            animate();
-            window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
 
-        function createPole() {
+        function createTower() {
             pole = new THREE.Group();
             scene.add(pole);
 
@@ -301,9 +305,7 @@
             }
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-
+        function update() {
             if (gameState === 'PLAYING') {
                 // Ball Physics
                 ballDy -= GRAVITY;
@@ -371,9 +373,9 @@
                             // Screen Shake on big drop
                             if (comboCount > 1) {
                                 // Break sound
-                                playTone(400, 'square');
+                                audio.playNote(400, 'sine');
                             } else {
-                                playTone(300, 'triangle');
+                                audio.playNote(600, 'triangle');
                             }
                             comboCount = 0;
                         } else {

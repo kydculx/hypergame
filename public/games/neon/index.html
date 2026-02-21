@@ -250,96 +250,76 @@
 
                 // Score Counting
                 if (!pipe.passed && pipe.type === 'top' && player.x > pipe.x + pipe.w) {
-                    pipe.passed = true;
-                    score++;
-                    scoreEl.textContent = score;
-                    audio.playNote([660, 880], 'square', 0.1, 0.05);
-                    window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    for (let i = bgScrollX; i < canvas.width; i += 60) {
+                        ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height);
+                    }
+                    for (let i = 0; i < canvas.height; i += 60) {
+                        ctx.moveTo(0, i); ctx.lineTo(canvas.width, i);
+                    }
+                    ctx.stroke();
+
+                    // Draw Ghosts (moved from old draw)
+                    ctx.shadowBlur = 0;
+                    for (let i = ghosts.length - 1; i >= 0; i--) {
+                        const g = ghosts[i];
+                        ctx.fillStyle = `rgba(255, 0, 255, ${g.life * 0.4})`;
+                        ctx.fillRect(g.x, g.y, g.w, g.h);
+                        g.life -= 0.04;
+                        g.x -= PIPE_SPEED;
+                        if (g.life <= 0) ghosts.splice(i, 1);
+                    }
+
+                    // Draw Pipes
+                    pipes.forEach(pipe => {
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#00ffff';
+                        ctx.strokeStyle = '#00ffff';
+                        ctx.lineWidth = 3; // Added missing lineWidth
+                        ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
+                        // Glow effect inside
+                        ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
+                        ctx.fillRect(pipe.x, pipe.y, pipe.w, pipe.h);
+                    });
+
+                    // Draw Player (moved from old draw)
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#ff00ff';
+                    ctx.strokeStyle = '#ff00ff';
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.strokeRect(player.x, player.y, player.w, player.h);
+                    ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+                    ctx.fillRect(player.x, player.y, player.w, player.h);
+
+                    if (!isStarted) {
+                        ctx.shadowBlur = 10;
+                        ctx.fillStyle = 'white';
+                        ctx.font = '24px "Courier New"';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2 + 100);
+                    }
                 }
 
-                // Remove off-screen pipes
-                if (pipe.x + pipe.w < 0) {
-                    pipes.splice(i, 1);
+                function animate() {
+                    requestAnimationFrame(animate);
+                    update();
+                    render();
                 }
-            }
 
-            frames++;
-        }
+                function gameOver() {
+                    if (isGameOver) return;
+                    isGameOver = true;
+                    gameOverEl.style.display = 'block';
+                    finalScoreEl.textContent = score;
+                    audio.playNote([220, 55], 'sawtooth', 0.4, 0.2);
+                    window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+                }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                animate(); // Changed from draw()
 
-            // Draw Background (Scrolling Grid)
-            ctx.strokeStyle = '#1a1a1a';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            for (let i = bgScrollX; i < canvas.width; i += 60) {
-                ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height);
-            }
-            for (let i = 0; i < canvas.height; i += 60) {
-                ctx.moveTo(0, i); ctx.lineTo(canvas.width, i);
-            }
-            ctx.stroke();
-
-            // Draw Ghosts
-            ctx.shadowBlur = 0;
-            for (let i = ghosts.length - 1; i >= 0; i--) {
-                const g = ghosts[i];
-                ctx.fillStyle = `rgba(255, 0, 255, ${g.life * 0.4})`;
-                ctx.fillRect(g.x, g.y, g.w, g.h);
-                g.life -= 0.04;
-                g.x -= PIPE_SPEED;
-                if (g.life <= 0) ghosts.splice(i, 1);
-            }
-
-            // Draw Pipes
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#00ffff';
-            ctx.strokeStyle = '#00ffff';
-            ctx.lineWidth = 3;
-            pipes.forEach(pipe => {
-                ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
-                // Glow effect inside
-                ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
-                ctx.fillRect(pipe.x, pipe.y, pipe.w, pipe.h);
-            });
-
-            // Draw Player
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#ff00ff';
-            ctx.strokeStyle = '#ff00ff';
-            ctx.fillStyle = '#ff00ff';
-            ctx.strokeRect(player.x, player.y, player.w, player.h);
-            ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
-            ctx.fillRect(player.x, player.y, player.w, player.h);
-
-            if (!isStarted) {
-                ctx.shadowBlur = 10;
-                ctx.fillStyle = 'white';
-                ctx.font = '24px "Courier New"';
-                ctx.textAlign = 'center';
-                ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2 + 100);
-            }
-
-            requestAnimationFrame(() => {
-                update();
-                draw();
-            });
-        }
-
-        function gameOver() {
-            if (isGameOver) return;
-            isGameOver = true;
-            gameOverEl.style.display = 'block';
-            finalScoreEl.textContent = score;
-            audio.playNote([220, 55], 'sawtooth', 0.4, 0.2);
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
-        }
-
-        draw();
-
-        // Notify platform
-        window.parent.postMessage({ type: 'GAME_READY' }, '*');
+                // Notify platform
+                window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>
     <!-- Google Ads Container -->
     <div id="ad-container"
@@ -351,11 +331,11 @@
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
         <script>
-            try {
-                (adsbygoogle = window.adsbygoogle || []).push({});
-            } catch (e) {
-                console.warn("AdSense blocked by client, ignoring.");
-            }
+                    try {
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    } catch (e) {
+                        console.warn("AdSense blocked by client, ignoring.");
+                    }
         </script>
     </div>
 </body>

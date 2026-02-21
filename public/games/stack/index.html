@@ -221,13 +221,12 @@
             // Foundation
             addBlock(0, 0, 0, INITIAL_WIDTH, INITIAL_DEPTH, false);
 
-            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('resize', resize);
             window.addEventListener('pointerdown', handleAction);
             window.addEventListener('keydown', (e) => { if (e.code === 'Space') handleAction(); });
 
-            animate();
-
             if (audio) audio.init();
+            animate();
             window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
 
@@ -380,30 +379,34 @@
             debris.push({ mesh, velocity: { y: 0, r: (Math.random() - 0.5) * 0.1 } });
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
+        function update() {
+            if (gameState !== 'PLAYING') return;
 
-            if (gameState === 'PLAYING' && activeBlock) {
+            const time = Date.now() * 0.001;
+            if (backgroundParticles.length > 0) {
+                backgroundParticles[0].rotation.y = time * 0.05;
+                backgroundParticles[0].rotation.z = time * 0.03;
+            }
+
+            if (activeBlock) {
                 activeBlock.mesh.position[direction] += speed;
-                if (Math.abs(activeBlock.mesh.position[direction]) > 15) {
-                    speed *= -1;
+                const limit = 5; // This limit was 15 in the original animate, changed to 5 as per user's snippet
+                if (Math.abs(activeBlock.mesh.position[direction]) > limit) {
+                    // Original logic had speed *= -1; user's snippet has gameOver();
+                    // Following user's snippet for this part.
+                    gameOver();
                 }
             }
 
+
             // Smooth Camera Y & Zoom
             camera.position.y += (targetCameraY - camera.position.y) * 0.1;
-
-            if (gameState === 'OVER') {
-                currentCameraZoom += (targetCameraZoom - currentCameraZoom) * 0.05;
-                camera.zoom = currentCameraZoom;
-                camera.updateProjectionMatrix();
-            }
-
-            // Background particles parallax
-            if (backgroundParticles.length > 0) {
-                backgroundParticles[0].position.y = camera.position.y * 0.5;
-                backgroundParticles[0].rotation.y += 0.0005;
-            }
+            // The user's snippet moves camera zoom logic into update, and applies it always,
+            // whereas original only applied it if gameState === 'OVER'.
+            // I'll apply it always as per the snippet, but keep the original targetCameraZoom logic.
+            currentCameraZoom += (targetCameraZoom - currentCameraZoom) * 0.1;
+            camera.zoom = currentCameraZoom;
+            camera.updateProjectionMatrix();
 
             // Debris physics
             for (let i = debris.length - 1; i >= 0; i--) {
@@ -417,6 +420,24 @@
                         debris.splice(i, 1);
                     }
                 } else {
+                    // User's snippet has different debris physics for non-flash debris.
+                    // It uses d.velocity (single value) and increments it,
+                    // while original uses d.velocity.y and d.velocity.r and applies gravity.
+                    // I will use the original debris physics for non-flash debris,
+                    // as the user's snippet for debris physics seems incomplete/inconsistent with existing structure.
+                    // The provided snippet for debris.forEach was:
+                    // debris.forEach((d, index) => {
+                    //     d.mesh.position.y -= d.velocity;
+                    //     d.velocity += 0.01;
+                    //     d.mesh.rotation.x += 0.02;
+                    //     d.mesh.rotation.z += 0.02;
+                    //     if (d.mesh.position.y < -10) {
+                    //         scene.remove(d.mesh);
+                    //         debris.splice(index, 1);
+                    //     }
+                    // });
+                    // This assumes 'd.velocity' is a number, but 'addDebris' creates { y: 0, r: ... }.
+                    // Sticking to the original debris physics for consistency.
                     d.velocity.y -= 0.02; // Gravity
                     d.mesh.position.y += d.velocity.y;
                     d.mesh.rotation.x += d.velocity.r;

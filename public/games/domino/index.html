@@ -305,15 +305,15 @@
             playSuccess() {
                 // Musical scale climbing based on active streak
                 const degree = Math.min(this.comboNote, this.scale.length - 1);
-                this.playTone(this.scale[degree], 'sine', 0.2, 0.15);
+                if (audio) audio.playNote(this.scale[degree], 'sine', 0.2, 0.15);
                 this.comboNote++;
             }
             resetCombo() {
                 this.comboNote = 0;
             }
             playFail() {
-                this.playTone(150, 'sawtooth', 0.4, 0.3);
-                setTimeout(() => this.playTone(100, 'sawtooth', 0.5, 0.3), 150);
+                this.playNote(150, 'sawtooth', 0.4, 0.3);
+                setTimeout(() => this.playNote(100, 'sawtooth', 0.5, 0.3), 150);
             }
         }
         const audio = new AudioManager();
@@ -812,7 +812,8 @@
             camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
         }
 
-        function handlePlayerInput(sizeStr) {
+        function handleAction(sizeStr) {
+            audio.init();
             if (gameState !== 'PLAYING') return;
 
             // Find the next gap target
@@ -865,14 +866,14 @@
         const btnM = document.getElementById('btn-m');
         const btnL = document.getElementById('btn-l');
 
-        btnS.addEventListener('pointerdown', (e) => { e.preventDefault(); handlePlayerInput('S'); });
-        btnM.addEventListener('pointerdown', (e) => { e.preventDefault(); handlePlayerInput('M'); });
-        btnL.addEventListener('pointerdown', (e) => { e.preventDefault(); handlePlayerInput('L'); });
+        btnS.addEventListener('pointerdown', (e) => { e.preventDefault(); handleAction('S'); });
+        btnM.addEventListener('pointerdown', (e) => { e.preventDefault(); handleAction('M'); });
+        btnL.addEventListener('pointerdown', (e) => { e.preventDefault(); handleAction('L'); });
 
         window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyZ' || e.code === 'ArrowLeft') handlePlayerInput('S');
-            if (e.code === 'KeyX' || e.code === 'ArrowDown') handlePlayerInput('M');
-            if (e.code === 'KeyC' || e.code === 'ArrowRight') handlePlayerInput('L');
+            if (e.code === 'KeyZ' || e.code === 'ArrowLeft') handleAction('S');
+            if (e.code === 'KeyX' || e.code === 'ArrowDown') handleAction('M');
+            if (e.code === 'KeyC' || e.code === 'ArrowRight') handleAction('L');
         });
 
         window.addEventListener('resize', () => {
@@ -881,80 +882,94 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = Date.now() * 0.001;
+        function update() {
+            // physics and logic updates... (not strictly separated yet as it's interleaved with animate)
+        }
+        const time = Date.now() * 0.001;
 
-            // Animate Ambient Particles endlessly around the camera focus
-            for (let i = 0; i < particleCount; i++) {
-                let pd = particleData[i];
-                pd.y += pd.yspeed; // Float up
-                pd.rx += pd.rspeed;
-                pd.ry += pd.rspeed;
+        // Animate Ambient Particles
+        for (let i = 0; i < particleCount; i++) {
+            let pd = particleData[i];
+            pd.y += pd.yspeed; // Float up
+            pd.rx += pd.rspeed;
+            pd.ry += pd.rspeed;
 
-                // Wrap vertically
-                if (pd.y > 35) pd.y = -5;
+            // Wrap vertically
+            if (pd.y > 35) pd.y = -5;
 
-                let curX = pd.x + Math.sin(time + pd.phase) * pd.amp;
-                let curZ = pd.z + Math.cos(time + pd.phase) * pd.amp;
+            let curX = pd.x + Math.sin(time + pd.phase) * pd.amp;
+            let curZ = pd.z + Math.cos(time + pd.phase) * pd.amp;
 
-                // Wrap horizontally relative to the camera to create an infinite field
-                if (curX < cameraLookAtX - 40) pd.x += 80;
-                if (curX > cameraLookAtX + 40) pd.x -= 80;
-                if (curZ < cameraLookAtZ - 40) pd.z += 80;
-                if (curZ > cameraLookAtZ + 40) pd.z -= 80;
+            // Wrap horizontally relative to the camera to create an infinite field
+            if (curX < cameraLookAtX - 40) pd.x += 80;
+            if (curX > cameraLookAtX + 40) pd.x -= 80;
+            if (curZ < cameraLookAtZ - 40) pd.z += 80;
+            if (curZ > cameraLookAtZ + 40) pd.z -= 80;
 
-                dummy.position.set(curX, pd.y, curZ);
-                dummy.rotation.set(pd.rx, pd.ry, pd.rz);
-                dummy.updateMatrix();
-                particles.setMatrixAt(i, dummy.matrix);
+            dummy.position.set(curX, pd.y, curZ);
+            dummy.rotation.set(pd.rx, pd.ry, pd.rz);
+            dummy.updateMatrix();
+            particles.setMatrixAt(i, dummy.matrix);
+        }
+        particles.instanceMatrix.needsUpdate = true;
+
+        // Camera movement for falling domino
+        if (isFalling) {
+            let fallingDomino = dominos.find(d => !d.isFullyDown && d.isTriggered);
+            if (fallingDomino) {
+                let panX = (fallingDomino.mesh.position.x - cameraLookAtX);
+                let panZ = (fallingDomino.mesh.position.z - cameraLookAtZ);
+                camera.position.x = cameraLookAtX + CAMERA_OFFSET.x + panX;
+                camera.position.y = CAMERA_OFFSET.y;
+                camera.position.z = cameraLookAtZ + CAMERA_OFFSET.z + panZ;
+                camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
             }
-            particles.instanceMatrix.needsUpdate = true;
+        }
 
-            if (gameState === 'PLAYING') {
-                dominos.forEach(d => d.update());
-                updateFocusCamera();
+        if (gameState === 'PLAYING') {
+            dominos.forEach(d => d.update());
+            updateFocusCamera();
 
-                // Endless Generation: If we are getting close to the end of the array, spawn more
-                if (dominos.length - currentFocusIndex < 30) {
-                    spawnDominos(20);
-                }
-
-                // Cleanup: Remove old dominos far behind the camera to save memory
-                // We keep a buffer of ~10 behind the focus so they don't pop out visibly
-                if (currentFocusIndex > 20) {
-                    const toRemove = dominos.splice(0, 10);
-                    toRemove.forEach(d => {
-                        scene.remove(d.mesh);
-                        d.mesh.geometry.dispose();
-                        d.mesh.material.dispose();
-                        d.edgeMesh.geometry.dispose();
-                        d.edgeMesh.material.dispose();
-                    });
-                    // Adjust focus index because array length changed
-                    currentFocusIndex -= 10;
-                }
-
-            } else if (gameState === 'START') {
-                // Pan camera slowly around the first domino
-                if (dominos.length > 0) {
-                    const firstD = dominos[0];
-                    const t = Date.now() * 0.0005; // Slow rotation
-
-                    cameraLookAtX = firstD.x;
-                    cameraLookAtZ = firstD.z;
-
-                    // Simple circular pan around the fixed offset
-                    const panX = Math.sin(t) * 10;
-                    const panZ = Math.cos(t) * 10;
-
-                    camera.position.x = cameraLookAtX + CAMERA_OFFSET.x + panX;
-                    camera.position.y = CAMERA_OFFSET.y;
-                    camera.position.z = cameraLookAtZ + CAMERA_OFFSET.z + panZ;
-                    camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
-                }
+            // Endless Generation: If we are getting close to the end of the array, spawn more
+            if (dominos.length - currentFocusIndex < 30) {
+                spawnDominos(20);
             }
-            renderer.render(scene, camera);
+
+            // Cleanup: Remove old dominos far behind the camera to save memory
+            // We keep a buffer of ~10 behind the focus so they don't pop out visibly
+            if (currentFocusIndex > 20) {
+                const toRemove = dominos.splice(0, 10);
+                toRemove.forEach(d => {
+                    scene.remove(d.mesh);
+                    d.mesh.geometry.dispose();
+                    d.mesh.material.dispose();
+                    d.edgeMesh.geometry.dispose();
+                    d.edgeMesh.material.dispose();
+                });
+                // Adjust focus index because array length changed
+                currentFocusIndex -= 10;
+            }
+
+        } else if (gameState === 'START') {
+            // Pan camera slowly around the first domino
+            if (dominos.length > 0) {
+                const firstD = dominos[0];
+                const t = Date.now() * 0.0005; // Slow rotation
+
+                cameraLookAtX = firstD.x;
+                cameraLookAtZ = firstD.z;
+
+                // Simple circular pan around the fixed offset
+                const panX = Math.sin(t) * 10;
+                const panZ = Math.cos(t) * 10;
+
+                camera.position.x = cameraLookAtX + CAMERA_OFFSET.x + panX;
+                camera.position.y = CAMERA_OFFSET.y;
+                camera.position.z = cameraLookAtZ + CAMERA_OFFSET.z + panZ;
+                camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
+            }
+        }
+        renderer.render(scene, camera);
         }
 
         generateLevel(20); // Initial background state

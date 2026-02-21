@@ -132,37 +132,46 @@
         let rotationZ = 0;
         let groundY = -2;
 
-        // Audio
-        let audioCtx = null;
-        function initAudio() {
-            if (!audioCtx) {
-                try {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    if (AudioContextClass) audioCtx = new AudioContextClass();
-                } catch (e) {
-                    console.warn("AudioContext failed:", e);
+        // Audio System
+        class AudioManager {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) {
+                    try {
+                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContextClass) this.ctx = new AudioContextClass();
+                    } catch (e) {
+                        console.warn("AudioContext failed:", e);
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume().catch(e => console.log(e));
                 }
             }
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().catch(e => console.log(e));
+            playNote(freq, type, duration = 0.1, volume = 0.1) {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.value = freq;
+                osc.type = type;
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                gain.gain.value = volume;
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + duration);
+                osc.stop(this.ctx.currentTime + duration);
             }
         }
-        function playTone(freq, type, duration = 0.1) {
-            initAudio();
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.frequency.value = freq;
-            osc.type = type;
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
-            osc.stop(audioCtx.currentTime + duration);
+        const audio = new AudioManager();
+
+        function init() {
+            setupScene();
+            createPlayer();
+            audio.init(); // Initialize context early
         }
 
         init();
-        initAudio(); // Pre-initialize context
 
         function init() {
             scene = new THREE.Scene();
@@ -232,7 +241,7 @@
             // Listeners
             const jumpHandler = (e) => {
                 if (e && e.cancelable) e.preventDefault();
-                initAudio();
+                audio.init();
                 jump();
             };
             const options = { passive: false };
@@ -269,7 +278,7 @@
             if (isGrounded) {
                 velocityY = JUMP_FORCE;
                 isGrounded = false;
-                playTone(400, 'square');
+                audio.playNote(400, 'sine');
 
                 // Rotate visual logic start
                 // We want to rotate 180 degrees per jump?
@@ -359,94 +368,132 @@
                     // Rotate while jumping
                     player.rotation.z -= 0.15;
                 }
+                function update() {
+                    if (gameState !== 'PLAYING') return;
 
-                // Move Obstacles (Player moves visually, but conceptually we move world left)
-                // Actually easier to keep player at X and move obstacles left
-                const speed = currentSpeed;
-                score += speed * 10;
-                document.getElementById('score').textContent = Math.floor(score);
+                    // Physics
+                    velocityY -= GRAVITY;
+                    player.position.y += velocityY;
 
-                // Update Obstacles
-                if (obstacles.length > 0) {
-                    const lastObs = obstacles[obstacles.length - 1];
-                    if (lastObs.position.x < 15) { // Spawn ahead
-                        // Dynamic Gap Logic
-                        // Initial gap: 15-25 (Sparse)
-                        // Final gap: 6-11 (Dense)
-                        // Reaches max density at score 3000 (~30 seconds)
-                        const progress = Math.min(1.0, score / 3000);
-                        const minGap = 15 - (9 * progress); // Linear decay from 15 to 6
-                        const variance = 10 - (5 * progress); // Linear decay from 10 to 5
+                    // Ground Collision
+                    if (player.position.y <= groundY + PLAYER_SIZE / 2) {
+                        if (!isGrounded) {
+                            // Just landed
+                            spawnParticles(player.position.x, groundY + 0.5, COLORS.ground, 10);
+                        }
+                        player.position.y = groundY + PLAYER_SIZE / 2;
+                        velocityY = 0;
+                        isGrounded = true;
 
-                        const gap = minGap + Math.random() * variance;
-                        spawnObstacle(lastObs.position.x + gap);
+                        // Smooth snap rotation
+                        const nearest90 = Math.round(player.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
+                        player.rotation.z += (nearest90 - player.rotation.z) * 0.25; // Smooth lerp
+                    } else {
+                        // Rotate while jumping
+                        player.rotation.z -= 0.15;
+                    }
+
+                    // Move Obstacles (Player moves visually, but conceptually we move world left)
+                    // Actually easier to keep player at X and move obstacles left
+                    const speed = currentSpeed;
+                    score += speed * 10;
+                    document.getElementById('score').textContent = Math.floor(score);
+
+                    // Update Obstacles
+                    if (obstacles.length > 0) {
+                        const lastObs = obstacles[obstacles.length - 1];
+                        if (lastObs.position.x < 15) { // Spawn ahead
+                            // Dynamic Gap Logic
+                            // Initial gap: 15-25 (Sparse)
+                            // Final gap: 6-11 (Dense)
+                            // Reaches max density at score 3000 (~30 seconds)
+                            const progress = Math.min(1.0, score / 3000);
+                            const minGap = 15 - (9 * progress); // Linear decay from 15 to 6
+                            const variance = 10 - (5 * progress); // Linear decay from 10 to 5
+
+                            const gap = minGap + Math.random() * variance;
+                            spawnObstacle(lastObs.position.x + gap);
+                        }
+                    }
+
+                    for (let i = obstacles.length - 1; i >= 0; i--) {
+                        const obs = obstacles[i];
+                        obs.position.x -= speed;
+
+                        // Cleanup - dynamic based on camera
+                        // Safely remove when clearly off screen to the left
+                        if (obs.position.x < camera.left - 5) {
+                            scene.remove(obs);
+                            obstacles.splice(i, 1);
+                            continue;
+                        }
+
+                        // Collision Detection (AABB)
+                        // Player AABB
+                        const pHalf = PLAYER_SIZE / 2 * 0.8; // slightly smaller box forgiving
+                        const px = player.position.x;
+                        const py = player.position.y;
+
+                        const oWidth = obs.userData.width;
+                        const oHeight = obs.userData.height;
+                        const ox = obs.position.x;
+                        const oy = obs.position.y;
+
+                        if (Math.abs(px - ox) < pHalf + oWidth &&
+                            Math.abs(py - oy) < pHalf + oHeight) {
+                            gameOver();
+                        }
+                    }
+
+                    // Speed up
+                    currentSpeed += 0.00005;
+
+                    // Color Pulse background
+                    const time = Date.now() * 0.001;
+                    scene.background.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
+                    scene.fog.color.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
+
+                    // Update Parallax
+                    parallaxObjects.forEach(p => {
+                        p.position.x -= speed * p.userData.speed;
+                        p.rotation.x += p.userData.rotSpeedX;
+                        p.rotation.y += p.userData.rotSpeedY;
+                        if (p.position.x < camera.left - 10) {
+                            p.position.x = camera.right + 10;
+                            p.position.y = Math.random() * 20 - 5;
+                        }
+                    });
+
+                    // Particles
+                    for (let i = particles.length - 1; i >= 0; i--) {
+                        const p = particles[i];
+                        p.mesh.position.x += p.vx;
+                        p.mesh.position.y += p.vy;
+                        p.mesh.scale.multiplyScalar(0.9);
+                        p.life -= 0.05;
+                        if (p.life <= 0) {
+                            scene.remove(p.mesh);
+                            particles.splice(i, 1);
+                        }
                     }
                 }
-
-                for (let i = obstacles.length - 1; i >= 0; i--) {
-                    const obs = obstacles[i];
-                    obs.position.x -= speed;
-
-                    // Cleanup - dynamic based on camera
-                    // Safely remove when clearly off screen to the left
-                    if (obs.position.x < camera.left - 5) {
-                        scene.remove(obs);
-                        obstacles.splice(i, 1);
-                        continue;
-                    }
-
-                    // Collision Detection (AABB)
-                    // Player AABB
-                    const pHalf = PLAYER_SIZE / 2 * 0.8; // slightly smaller box forgiving
-                    const px = player.position.x;
-                    const py = player.position.y;
-
-                    const oWidth = obs.userData.width;
-                    const oHeight = obs.userData.height;
-                    const ox = obs.position.x;
-                    const oy = obs.position.y;
-
-                    if (Math.abs(px - ox) < pHalf + oWidth &&
-                        Math.abs(py - oy) < pHalf + oHeight) {
-                        gameOver();
-                    }
-                }
-
-                // Speed up
-                currentSpeed += 0.00005;
-
-                // Color Pulse background
-                const time = Date.now() * 0.001;
-                scene.background.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
-                scene.fog.color.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
-
-                // Update Parallax
-                parallaxObjects.forEach(p => {
-                    p.position.x -= speed * p.userData.speed;
-                    p.rotation.x += p.userData.rotSpeedX;
-                    p.rotation.y += p.userData.rotSpeedY;
-                    if (p.position.x < camera.left - 10) {
-                        p.position.x = camera.right + 10;
-                        p.position.y = Math.random() * 20 - 5;
-                    }
-                });
+                update();
+                render();
             }
 
-            // Particles
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.mesh.position.x += p.vx;
-                p.mesh.position.y += p.vy;
-                p.mesh.scale.multiplyScalar(0.9);
-                p.life -= 0.05;
-                if (p.life <= 0) {
-                    scene.remove(p.mesh);
-                    particles.splice(i, 1);
-                }
+            function resize() {
+                const aspect = window.innerWidth / window.innerHeight;
+                const d = 10;
+                camera.left = -d * aspect;
+                camera.right = d * aspect;
+                camera.top = d;
+                camera.bottom = -d;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
             }
 
-            renderer.render(scene, camera);
-        }
+            window.addEventListener('resize', resize);
+            animate();
     </script>
     <!-- Google Ads Container -->
     <div id="ad-container"
@@ -458,11 +505,11 @@
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
         <script>
-            try {
-                (adsbygoogle = window.adsbygoogle || []).push({});
-            } catch (e) {
-                console.warn("AdSense blocked by client, ignoring.");
-            }
+                try {
+                    (adsbygoogle = window.adsbygoogle || []).push({});
+                } catch (e) {
+                    console.warn("AdSense blocked by client, ignoring.");
+                }
         </script>
     </div>
 </body>
