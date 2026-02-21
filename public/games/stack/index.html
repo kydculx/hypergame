@@ -344,7 +344,7 @@
             audio.playNote([440, 110], 'sawtooth', 0.5, 0.3);
 
             // Set zoom out target based on tower height
-            targetCameraZoom = Math.max(0.18, 9 / (stack.length * BOX_HEIGHT + 10)); // Slightly tighter zoom
+            targetCameraZoom = Math.max(0.22, 11 / (stack.length * BOX_HEIGHT + 10)); // 20% less zoom-out
             targetCameraY = (stack.length * BOX_HEIGHT) * 0.5 + 10; // Center more comfortably
 
             // Delay UI popup to let player see the tower
