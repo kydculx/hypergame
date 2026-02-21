@@ -193,29 +193,31 @@
                 posArray[i] = (Math.random() - 0.5) * 60;
             }
             particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            const particleMat = new THREE.PointsMaterial({ size: 0.2, color: 0x88ccff, transparent: true, opacity: 0.6 });
+            const particleMat = new THREE.PointsMaterial({ size: 0.2, color: 0xccccff, transparent: true, opacity: 0.7 });
             const particleMesh = new THREE.Points(particleGeo, particleMat);
             scene.add(particleMesh);
             backgroundParticles.push(particleMesh);
 
-            // Floating Background Elements
-            const floatCount = 10;
+            // Ambient Ethereal Blocks
+            const floatCount = 8;
             for (let i = 0; i < floatCount; i++) {
-                const size = 1 + Math.random() * 3;
+                const size = 15 + Math.random() * 15;
                 const geometry = new THREE.BoxGeometry(size, size, size);
-                const material = new THREE.MeshStandardMaterial({
-                    color: new THREE.Color(`hsl(${200 + Math.random() * 60}, 40%, 40%)`),
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0xbbccff,
+                    wireframe: true,
                     transparent: true,
-                    opacity: 0.15
+                    opacity: 0.12,
+                    side: THREE.DoubleSide
                 });
                 const mesh = new THREE.Mesh(geometry, material);
 
-                // Position randomly in a large cylinder/box around the tower
+                // Position brought much closer for Orthographic frustum (d=10)
                 const angle = Math.random() * Math.PI * 2;
-                const radius = 25 + Math.random() * 30;
+                const radius = 8 + Math.random() * 12;
                 mesh.position.set(
                     Math.cos(angle) * radius,
-                    (Math.random() - 0.5) * 60,
+                    (Math.random() - 0.5) * 50,
                     Math.sin(angle) * radius
                 );
                 mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
@@ -225,11 +227,12 @@
                     mesh,
                     baseY: mesh.position.y,
                     rotationSpeed: {
-                        x: (Math.random() - 0.5) * 0.005,
-                        y: (Math.random() - 0.5) * 0.005,
-                        z: (Math.random() - 0.5) * 0.005
+                        x: (Math.random() - 0.5) * 0.001,
+                        y: (Math.random() - 0.5) * 0.001,
+                        z: (Math.random() - 0.5) * 0.001
                     },
-                    offset: Math.random() * Math.PI * 2
+                    offset: Math.random() * Math.PI * 2,
+                    pulseSpeed: 0.0005 + Math.random() * 0.0005
                 });
             }
 
@@ -515,16 +518,20 @@
                 backgroundParticles[0].material.opacity = 0.3 + Math.sin(Date.now() * 0.002) * 0.1;
             }
 
-            // Floating elements animation with parallax
+            // Ethereal blocks animation with pulse and parallax
             floatingElements.forEach(el => {
                 el.mesh.rotation.x += el.rotationSpeed.x;
                 el.mesh.rotation.y += el.rotationSpeed.y;
                 el.mesh.rotation.z += el.rotationSpeed.z;
 
+                // Organic Pulse (Opacity & Position)
+                const pulse = Math.sin(Date.now() * el.pulseSpeed + el.offset);
+                el.mesh.material.opacity = 0.08 + (pulse + 1) * 0.06;
+
                 // Floating drift
-                const drift = Math.sin(Date.now() * 0.001 + el.offset) * 2;
-                // Parallax Y: move with camera but at a slower rate
-                el.mesh.position.y = el.baseY + drift + (camera.position.y * 0.7);
+                const drift = pulse * 2;
+                // Parallax Y: move with camera at a very slow rate for distance
+                el.mesh.position.y = el.baseY + drift + (camera.position.y * 0.88);
             });
 
             // Debris physics
