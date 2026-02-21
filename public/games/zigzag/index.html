@@ -12,9 +12,6 @@
             background: #a9cce3;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-            overscroll-behavior: none;
             touch-action: none;
         }
 
@@ -33,15 +30,6 @@
             font-size: 64px;
             font-weight: 800;
             text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
-            color: #ffffff;
-        }
-
-        #instructions {
-            font-size: 18px;
-            opacity: 0.9;
-            margin-top: 10px;
-            color: #555;
-            font-weight: 600;
         }
 
         #game-over {
@@ -55,7 +43,6 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
             display: none;
-            pointer-events: auto;
             z-index: 20;
             min-width: 200px;
         }
@@ -87,17 +74,7 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
             box-shadow: 0 4px 0 #2980b9;
-        }
-
-        button:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        button:hover {
-            background: #2980b9;
         }
     </style>
 </head>
@@ -105,49 +82,15 @@
 <body>
     <div id="ui">
         <div id="score">0</div>
-        <div id="instructions">Tap to Switch Direction</div>
     </div>
-
     <div id="game-over">
         <h1>GAME OVER</h1>
         <p>Score: <span id="final-score">0</span></p>
-        <button onclick="restartGame()">RETRY</button>
+        <button onclick="location.reload()">RETRY</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Game Configuration
-        const PLATFORM_SIZE = 3;
-        const BALL_RADIUS = 0.5;
-        const BALL_SPEED_BASE = 0.15;
-        const CAMERA_OFFSET = { x: 20, y: 20, z: 20 };
-        const COLORS = {
-            background: 0xa9cce3,
-            ball: 0xe74c3c,
-            platform: 0xe5e8e8, // Off-white
-            platformHighlight: 0xffffff, // Pure white
-            shadow: 0xd6eaf8,
-            crystal: 0xf1c40f
-        };
-
-        let scene, camera, renderer;
-        let ball;
-        let platforms = [];
-        let crystals = [];
-        let clouds = [];
-        let score = 0;
-        let gameState = 'START'; // START, PLAYING, OVER
-        let direction = 'x'; // 'x' or 'z'
-        let speed = BALL_SPEED_BASE;
-        let lastPlatformPos = { x: 0, y: 0, z: 0 };
-        let frames = 0;
-        let targetCameraPos = { x: 0, y: 0, z: 0 };
-        let isGameOver = false;
-        let isStarted = false;
-
-        let scoreEl, instructionsEl, gameOverEl, finalScoreEl;
-
-        // Audio System
         class AudioManager {
             constructor() { this.ctx = null; }
             init() {
@@ -155,13 +98,9 @@
                     try {
                         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
                         if (AudioContextClass) this.ctx = new AudioContextClass();
-                    } catch (e) {
-                        console.warn("AudioContext failed:", e);
-                    }
+                    } catch (e) { }
                 }
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume().catch(e => console.log(e));
-                }
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
             }
             playNote(freq, type, duration = 0.1, volume = 0.1) {
                 this.init();
@@ -172,294 +111,169 @@
                 osc.type = type;
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
+                gain.gain.value = volume;
                 osc.start();
-                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + duration);
                 osc.stop(this.ctx.currentTime + duration);
-            }
-
-            // Specific sound effects
-            playSwitchSound() {
-                this.init();
-                if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(400, now);
-                osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now);
-                osc.stop(now + 0.1);
-            }
-
-            playCrystalSound() {
-                this.init();
-                if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(880, now);
-                osc.frequency.linearRampToValueAtTime(1760, now + 0.1);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-                osc.start(now);
-                osc.stop(now + 0.15);
-            }
-
-            playGameOverSound() {
-                this.init();
-                if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, now);
-                osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
-                osc.start(now);
-                osc.stop(now + 0.5);
             }
         }
         const audio = new AudioManager();
 
-        init();
-        audio.init(); // Pre-initialize context
+        const PLATFORM_SIZE = 3, BALL_RADIUS = 0.5, BALL_SPEED_BASE = 0.15;
+        let scene, camera, renderer, ball;
+        let platforms = [], crystals = [], clouds = [], score = 0, gameState = 'START';
+        let direction = 'x', speed = BALL_SPEED_BASE, lastPlatformPos = { x: 0, y: 0, z: 0 };
+        let targetCameraPos = { x: 0, y: 0, z: 0 };
 
         function init() {
-            // Get UI elements
-            scoreEl = document.getElementById('score');
-            instructionsEl = document.getElementById('instructions');
-            gameOverEl = document.getElementById('game-over');
-            finalScoreEl = document.getElementById('final-score');
-
-            // Scene Setup
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(COLORS.background);
-            scene.fog = new THREE.Fog(COLORS.background, 20, 60);
+            scene.background = new THREE.Color(0xa9cce3);
+            scene.fog = new THREE.Fog(0xa9cce3, 20, 60);
 
-            // Camera (Orthographic for Isometric view)
             const aspect = window.innerWidth / window.innerHeight;
             const d = 20;
             camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
-            camera.position.set(CAMERA_OFFSET.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z);
+            camera.position.set(20, 20, 20);
             camera.lookAt(0, 0, 0);
 
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
 
-            // Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dl = new THREE.DirectionalLight(0xffffff, 0.7);
+            dl.position.set(20, 50, 30);
+            dl.castShadow = true;
+            scene.add(dl);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-            dirLight.position.set(20, 50, 30);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 1024;
-            dirLight.shadow.mapSize.height = 1024;
-            dirLight.shadow.camera.near = 0.5;
-            dirLight.shadow.camera.far = 100;
-            dirLight.shadow.camera.left = -30;
-            dirLight.shadow.camera.right = 30;
-            dirLight.shadow.camera.top = 30;
-            dirLight.shadow.camera.bottom = -30;
-            scene.add(dirLight);
-
-            // Init Game Objects
             initClouds();
             createBall();
-
-            // Initial Platform Generation
             createPlatform(0, 0, 0);
-            for (let i = 0; i < 20; i++) {
-                spawnNextPlatform();
-            }
+            for (let i = 0; i < 20; i++) spawnNextPlatform();
 
-            window.addEventListener('pointerdown', handleAction, { passive: false });
-            window.addEventListener('keydown', (e) => {
-                if (e.code === 'Space') handleAction(e);
-            });
-            window.addEventListener('resize', resize);
-
-            // Start Loop
+            resize();
             animate();
-
-            // Notify Parent
             window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
 
         function createBall() {
-            const geometry = new THREE.SphereGeometry(BALL_RADIUS, 32, 32);
-            const material = new THREE.MeshPhongMaterial({ color: COLORS.ball, shininess: 50 });
-            ball = new THREE.Mesh(geometry, material);
-            ball.position.set(0, BALL_RADIUS + PLATFORM_SIZE / 2, 0); // Sit on top of platform
+            ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 32, 32), new THREE.MeshPhongMaterial({ color: 0xe74c3c }));
+            ball.position.set(0, BALL_RADIUS + PLATFORM_SIZE / 2, 0);
             ball.castShadow = true;
             scene.add(ball);
         }
 
         function initClouds() {
             for (let i = 0; i < 60; i++) {
-                const geo = new THREE.DodecahedronGeometry(Math.random() * 0.8 + 0.2, 1);
-                const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, flatShading: true });
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(
-                    (Math.random() - 0.5) * 120,
-                    Math.random() * 30 - 15,
-                    (Math.random() - 0.5) * 120
-                );
+                const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(Math.random() * 0.8 + 0.2, 1), new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 }));
+                mesh.position.set((Math.random() - 0.5) * 120, Math.random() * 30 - 15, (Math.random() - 0.5) * 120);
                 scene.add(mesh);
                 clouds.push({ mesh, speed: Math.random() * 0.05 + 0.01 });
             }
         }
 
         function createPlatform(x, y, z) {
-            const geometry = new THREE.BoxGeometry(PLATFORM_SIZE, PLATFORM_SIZE, PLATFORM_SIZE);
-            const material = new THREE.MeshLambertMaterial({ color: COLORS.platform });
-            const mesh = new THREE.Mesh(geometry, material);
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(PLATFORM_SIZE, PLATFORM_SIZE, PLATFORM_SIZE), new THREE.MeshLambertMaterial({ color: 0xe5e8e8 }));
             mesh.position.set(x, y, z);
             mesh.receiveShadow = true;
             scene.add(mesh);
             platforms.push(mesh);
             lastPlatformPos = { x, y, z };
 
-            // Decoration / Shadow block
-            const shadowGeo = new THREE.BoxGeometry(PLATFORM_SIZE, PLATFORM_SIZE * 2, PLATFORM_SIZE);
-            const shadowMat = new THREE.MeshBasicMaterial({ color: COLORS.shadow });
-            const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-            shadowMesh.position.set(x, y - PLATFORM_SIZE * 1.5, z);
-            scene.add(shadowMesh);
-            mesh.userData.shadow = shadowMesh; // Link to remove later
+            const shadow = new THREE.Mesh(new THREE.BoxGeometry(PLATFORM_SIZE, PLATFORM_SIZE * 2, PLATFORM_SIZE), new THREE.MeshBasicMaterial({ color: 0xd6eaf8 }));
+            shadow.position.set(x, y - PLATFORM_SIZE * 1.5, z);
+            scene.add(shadow);
+            mesh.userData.shadow = shadow;
 
-            // Chance to spawn crystal (10%)
-            if (Math.random() < 0.15 && frames > 5) {
-                createCrystal(x, y + PLATFORM_SIZE / 2 + 1, z);
+            if (Math.random() < 0.15 && platforms.length > 5) {
+                const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.6), new THREE.MeshPhongMaterial({ color: 0xf1c40f }));
+                crystal.position.set(x, y + PLATFORM_SIZE / 2 + 1, z);
+                scene.add(crystal);
+                crystals.push(crystal);
             }
-        }
-
-        function createCrystal(x, y, z) {
-            const geometry = new THREE.OctahedronGeometry(0.6);
-            const material = new THREE.MeshPhongMaterial({
-                color: COLORS.crystal,
-                emissive: 0x444400,
-                shininess: 100
-            });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            scene.add(mesh);
-            crystals.push(mesh);
         }
 
         function spawnNextPlatform() {
-            frames++;
-            let isX = Math.random() > 0.5;
-
-            // Force straight path for first 15 blocks to align with initial ball direction
-            if (platforms.length < 15) {
-                isX = true;
-            }
-
-            const newX = lastPlatformPos.x + (isX ? PLATFORM_SIZE : 0);
-            const newZ = lastPlatformPos.z + (isX ? 0 : -PLATFORM_SIZE); // Move -Z (forward/right visually)
-
-            createPlatform(newX, lastPlatformPos.y, newZ);
+            const isX = Math.random() > 0.5 || platforms.length < 5;
+            createPlatform(lastPlatformPos.x + (isX ? PLATFORM_SIZE : 0), 0, lastPlatformPos.z + (isX ? 0 : -PLATFORM_SIZE));
         }
 
-        function handleAction(e) {
-            if (e && e.cancelable) e.preventDefault();
-            if (isGameOver) return;
-
+        function handleAction() {
+            if (gameState === 'OVER') return;
             audio.init();
-            if (gameState === 'START') {
-                gameState = 'PLAYING';
-                isStarted = true;
-                instructionsEl.style.opacity = 0;
-                // Give a small delay before first switch to prevent accidental double-tap start
-                setTimeout(() => {
-                    if (instructionsEl) {
-                        instructionsEl.style.display = 'none';
+            if (gameState === 'START') { gameState = 'PLAYING'; return; }
+            direction = direction === 'x' ? 'z' : 'x';
+            audio.playNote(400, 'sine');
+        }
+
+        function update() {
+            if (gameState === 'PLAYING') {
+                ball.position[direction] += (direction === 'x' ? 1 : -1) * speed;
+                speed += 0.00005;
+
+                targetCameraPos.x = ball.position.x + 20;
+                targetCameraPos.z = ball.position.z + 20;
+                camera.position.x += (targetCameraPos.x - camera.position.x) * 0.05;
+                camera.position.z += (targetCameraPos.z - camera.position.z) * 0.05;
+
+                let onPlatform = false;
+                platforms.forEach(p => {
+                    if (Math.abs(ball.position.x - p.position.x) < PLATFORM_SIZE / 2 + BALL_RADIUS * 0.3 &&
+                        Math.abs(ball.position.z - p.position.z) < PLATFORM_SIZE / 2 + BALL_RADIUS * 0.3) {
+                        onPlatform = true;
                     }
-                }, 500);
-                return;
+                });
+
+                if (!onPlatform) gameOver();
+
+                crystals.forEach((c, i) => {
+                    c.rotation.y += 0.05;
+                    if (ball.position.distanceTo(c.position) < 1.5) {
+                        scene.remove(c); crystals.splice(i, 1);
+                        score += 5; audio.playNote(880, 'sine');
+                    }
+                });
+
+                if (platforms.length > 0 && ball.position.distanceTo(platforms[platforms.length - 1].position) < 30) {
+                    spawnNextPlatform();
+                }
+
+                score += 0.1;
+                document.getElementById('score').textContent = Math.floor(score);
+            } else if (gameState === 'OVER') {
+                ball.position.y -= 0.5;
             }
 
-            direction = direction === 'x' ? 'z' : 'x';
-            audio.playSwitchSound();
+            clouds.forEach(c => {
+                c.mesh.position.x += c.speed;
+                if (c.mesh.position.x > ball.position.x + 60) c.mesh.position.x = ball.position.x - 60;
+            });
         }
 
-        function gameOver() {
-            isGameOver = true;
-            gameState = 'OVER';
-            audio.playGameOverSound();
-            gameOverEl.style.display = 'block';
-            finalScoreEl.textContent = score;
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
-        }
-
-        function restartGame() {
-            location.reload();
-        }
-
+        function render() { renderer.render(scene, camera); }
+        function animate() { requestAnimationFrame(animate); update(); render(); }
         function resize() {
             const aspect = window.innerWidth / window.innerHeight;
             const d = 20;
-            camera.left = -d * aspect;
-            camera.right = d * aspect;
-            camera.top = d;
-            camera.bottom = -d;
+            camera.left = -d * aspect; camera.right = d * aspect;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        function update() {
-            if (isGameOver || !isStarted) {
-                // Continue cloud movement even if game is over
-                clouds.forEach(c => {
-                    c.mesh.position.x += c.speed;
-                    // Simple reset for clouds, could be more sophisticated
-                    if (c.mesh.position.x > ball.position.x + 60) c.mesh.position.x = ball.position.x - 60;
-                });
-
-                // Fall animation continue if game is over
-                if (isGameOver && ball.position.y > -50) {
-                    ball.position.y -= 0.5;
-                    // Camera looks down slightly to watch fall
-                    camera.position.y += (CAMERA_OFFSET.y + 10 - camera.position.y) * 0.05;
-                }
-            }
-
-            renderer.render(scene, camera);
+        function gameOver() {
+            if (gameState === 'OVER') return; gameState = 'OVER';
+            document.getElementById('game-over').style.display = 'block';
+            document.getElementById('final-score').textContent = Math.floor(score);
+            audio.playNote(150, 'sawtooth', 0.5, 0.3);
+            window.parent.postMessage({ type: 'GAME_OVER', payload: { score: Math.floor(score) } }, '*');
         }
+
+        window.addEventListener('pointerdown', handleAction);
+        window.addEventListener('keydown', e => { if (e.code === 'Space') handleAction(); });
+        window.addEventListener('resize', resize);
+        init();
     </script>
-    <!-- Google Ads Container -->
-    <div id="ad-container"
-        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
-        <script async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
-            crossorigin="anonymous"></script>
-        <!-- Horizontal Banner -->
-        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
-            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
-        <script>
-            (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-    </div>
 </body>
 
 </html>

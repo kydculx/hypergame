@@ -9,7 +9,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: #2c3e50;
+            background: #222;
             font-family: sans-serif;
             user-select: none;
             touch-action: none;
@@ -31,12 +31,6 @@
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
 
-        #level {
-            font-size: 24px;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
-
         #game-over {
             position: absolute;
             top: 50%;
@@ -48,11 +42,9 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
             display: none;
-            cursor: default;
             z-index: 20;
             min-width: 200px;
             pointer-events: auto;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         h1 {
@@ -82,18 +74,7 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
             box-shadow: 0 4px 0 #c0392b;
-            margin-top: 0;
-        }
-
-        button:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        button:hover {
-            background: #c0392b;
         }
     </style>
 </head>
@@ -101,51 +82,15 @@
 <body>
     <div id="ui">
         <div id="score">0</div>
-        <div id="level">Level 1</div>
     </div>
     <div id="game-over">
         <h1>GAME OVER</h1>
         <p>Score: <span id="final-score">0</span></p>
-        <button onclick="restartGame()">RETRY</button>
+        <button onclick="location.reload()">RETRY</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // --- Constants ---
-        const BALL_RADIUS = 0.35;
-        const POLE_RADIUS = 1.2;
-        const PLATFORM_WIDTH = 2;
-        const FLOOR_HEIGHT = 4;
-        const GRAVITY = 0.018;
-        const BOUNCE_FORCE = 0.35;
-        const GAP_SIZE = 1.2; // Radians
-
-        const COLORS = {
-            bg: 0x222222,
-            pole: 0xffffff,
-            ball: 0xff0055,
-            safe: 0x00aaff,
-            danger: 0xff3300,
-            splat: 0xff0055
-        };
-
-        let scene, camera, renderer;
-        let ball, pole;
-        let platforms = [];
-        let splats = [];
-        let score = 0;
-        let gameState = 'START';
-        let comboCount = 0;
-
-        let ballY = 2;
-        let ballDy = 0;
-        let poleY = 0; // Move pole up to simulate ball falling
-
-        // Input
-        let lastX;
-        let isDrag = false;
-
-        // Audio System
         class AudioManager {
             constructor() { this.ctx = null; }
             init() {
@@ -153,13 +98,9 @@
                     try {
                         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
                         if (AudioContextClass) this.ctx = new AudioContextClass();
-                    } catch (e) {
-                        console.warn("AudioContext failed:", e);
-                    }
+                    } catch (e) { }
                 }
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume().catch(e => console.log(e));
-                }
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
             }
             playNote(freq, type, duration = 0.1, volume = 0.1) {
                 this.init();
@@ -170,6 +111,7 @@
                 osc.type = type;
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
+                gain.gain.value = volume;
                 osc.start();
                 gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + duration);
                 osc.stop(this.ctx.currentTime + duration);
@@ -177,80 +119,43 @@
         }
         const audio = new AudioManager();
 
-        init();
+        const BALL_RADIUS = 0.35, POLE_RADIUS = 1.2, PLATFORM_WIDTH = 2, FLOOR_HEIGHT = 4, GRAVITY = 0.018, BOUNCE_FORCE = 0.35, GAP_SIZE = 1.2;
+        let scene, camera, renderer, ball, pole;
+        let platforms = [], splats = [], score = 0, gameState = 'START', comboCount = 0;
+        let ballY = 2, ballDy = 0, lastX, isDrag = false;
 
         function init() {
-            setupScene();
-            createTower();
-            createBall();
-            audio.init(); // Pre-initialize context
-
-            // Listeners
-            window.addEventListener('pointerdown', e => {
-                audio.init();
-                isDrag = true;
-                lastX = e.clientX || (e.touches && e.touches[0].clientX);
-            });
-            window.addEventListener('pointerup', () => isDrag = false);
-            window.addEventListener('pointermove', e => {
-                if (!isDrag || gameState !== 'PLAYING') return;
-                const x = e.clientX || e.touches[0].clientX;
-                pole.rotation.y += (x - lastX) * 0.01;
-                lastX = x;
-            });
-            window.addEventListener('resize', resize);
-
-            // Start
-            gameState = 'PLAYING';
-            animate();
-            window.parent.postMessage({ type: 'GAME_READY' }, '*');
-        }
-
-        function setupScene() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(COLORS.bg);
-            scene.fog = new THREE.Fog(COLORS.bg, 10, 30);
-
+            scene.background = new THREE.Color(0x222222);
+            scene.fog = new THREE.Fog(0x222222, 10, 30);
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 5, 10);
             camera.lookAt(0, 1, 0);
-
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // Light
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
             const dl = new THREE.DirectionalLight(0xffffff, 0.8);
             dl.position.set(5, 10, 5);
             scene.add(dl);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-        }
 
-        function createBall() {
-            ball = new THREE.Mesh(
-                new THREE.SphereGeometry(BALL_RADIUS, 16, 16),
-                new THREE.MeshPhongMaterial({ color: COLORS.ball })
-            );
-            ball.position.set(0, ballY, POLE_RADIUS + PLATFORM_WIDTH / 2);
-            scene.add(ball);
-        }
-
-        function createTower() {
             pole = new THREE.Group();
             scene.add(pole);
-
-            // Core Cylinder
-            const cyl = new THREE.Mesh(
-                new THREE.CylinderGeometry(POLE_RADIUS, POLE_RADIUS, 200, 32),
-                new THREE.MeshLambertMaterial({ color: COLORS.pole })
-            );
-            cyl.position.y = -90; // Extend down
+            const cyl = new THREE.Mesh(new THREE.CylinderGeometry(POLE_RADIUS, POLE_RADIUS, 200, 32), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            cyl.position.y = -90;
             pole.add(cyl);
 
-            // Platforms
-            for (let i = 0; i < 30; i++) {
-                createFloor(i);
-            }
+            for (let i = 0; i < 30; i++) createFloor(i);
+
+            ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 16), new THREE.MeshPhongMaterial({ color: 0xff0055 }));
+            ball.position.set(0, ballY, POLE_RADIUS + PLATFORM_WIDTH / 2);
+            scene.add(ball);
+
+            gameState = 'PLAYING';
+            resize();
+            animate();
+            window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
 
         function createFloor(index) {
@@ -258,180 +163,88 @@
             const group = new THREE.Group();
             group.position.y = y;
             group.rotation.y = Math.random() * Math.PI * 2;
-            group.userData = { id: index, passed: false };
-
-            // Gap
-            const gapAngle = GAP_SIZE;
-            // We create a torus arc? No, Extrude arc.
-            // Create full circle minus gap
+            group.userData = { passed: false };
             const shape = new THREE.Shape();
-            const segments = 20;
-            const startAngle = gapAngle / 2;
-            const endAngle = Math.PI * 2 - gapAngle / 2;
-
-            // Draw arc
-            shape.absarc(0, 0, POLE_RADIUS + PLATFORM_WIDTH, startAngle, endAngle, false);
-            shape.absarc(0, 0, POLE_RADIUS, endAngle, startAngle, true); // Inner hole
-
+            shape.absarc(0, 0, POLE_RADIUS + PLATFORM_WIDTH, GAP_SIZE / 2, Math.PI * 2 - GAP_SIZE / 2, false);
+            shape.absarc(0, 0, POLE_RADIUS, Math.PI * 2 - GAP_SIZE / 2, GAP_SIZE / 2, true);
             const isDanger = index > 0 && Math.random() < 0.3;
-            const mat = new THREE.MeshLambertMaterial({ color: isDanger ? COLORS.danger : COLORS.safe });
-            const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: false });
-
-            const mesh = new THREE.Mesh(geo, mat);
+            const mat = new THREE.MeshLambertMaterial({ color: isDanger ? 0xff3300 : 0x00aaff });
+            const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: false }), mat);
             mesh.rotation.x = -Math.PI / 2;
             mesh.userData = { isDanger };
-
             group.add(mesh);
             pole.add(group);
             platforms.push(group);
         }
 
-        function createSplat(y, radiusFromCenter) {
-            const geo = new THREE.CircleGeometry(BALL_RADIUS * 1.5, 16);
-            const mat = new THREE.MeshBasicMaterial({ color: COLORS.splat, transparent: true, opacity: 0.8, depthWrite: false });
-            const splat = new THREE.Mesh(geo, mat);
+        function createSplat(y) {
+            const splat = new THREE.Mesh(new THREE.CircleGeometry(BALL_RADIUS * 1.5, 16), new THREE.MeshBasicMaterial({ color: 0xff0055, transparent: true, opacity: 0.8, depthWrite: false }));
             splat.rotation.x = -Math.PI / 2;
-
-            // Calculate position on the pole relative to global rotation
             const angle = -pole.rotation.y;
-            splat.position.set(Math.sin(angle) * radiusFromCenter, y + 0.11, Math.cos(angle) * radiusFromCenter);
-
+            splat.position.set(Math.sin(angle) * (POLE_RADIUS + PLATFORM_WIDTH / 2), y + 0.11, Math.cos(angle) * (POLE_RADIUS + PLATFORM_WIDTH / 2));
             pole.add(splat);
             splats.push(splat);
-
-            if (splats.length > 20) {
-                const old = splats.shift();
-                pole.remove(old);
-            }
+            if (splats.length > 20) pole.remove(splats.shift());
         }
 
         function update() {
-            if (gameState === 'PLAYING') {
-                // Ball Physics
-                ballDy -= GRAVITY;
-                ballY += ballDy;
-
-                // Camera Follow logic: Spring tension
-                const targetCamY = ballY + 4;
-                if (camera.position.y > targetCamY) {
-                    camera.position.y += (targetCamY - camera.position.y) * 0.15; // Fast follow down
-                } else {
-                    camera.position.y += (targetCamY - camera.position.y) * 0.05; // Slow spring up
-                }
-
-                // Collision (Continuous / Swept)
-                const prevY = ballY - ballDy; // Position before this frame's movement
-
-                platforms.forEach(p => {
-                    const py = p.position.y;
-
-                    // Check if we CROSSED the platform height this frame (falling down)
-                    // Condition: Was above (or at) platform, now below platform.
-                    // And ball is falling (ballDy < 0)
-                    // We treat the platform as a thin plane for crossing check, 
-                    // but we also want to respect the ball radius.
-                    // Contact point is BallY - Radius.
-
-                    const contactY_Prev = prevY - BALL_RADIUS;
-                    const contactY_Curr = ballY - BALL_RADIUS;
-
-                    // If we crossed the platform plane
-                    if (contactY_Prev >= py && contactY_Curr <= py && ballDy < 0) {
-
-                        // We think we hit. Now check angle.
-                        // Calculate interpolated rotation? 
-                        // For simplicity, use current frame rotation (high framerate assumes small change)
-
-                        const ballAngle = -Math.PI / 2;
-                        let relAngle = ballAngle - (pole.rotation.y + p.rotation.y);
-
-                        relAngle = relAngle % (Math.PI * 2);
-                        if (relAngle < 0) relAngle += Math.PI * 2;
-
-                        // Gap Check
-                        const start = GAP_SIZE / 2;
-                        const end = Math.PI * 2 - GAP_SIZE / 2;
-
-                        // In Solid Area?
-                        if (relAngle > start && relAngle < end) {
-                            // Hit Solid!
-
-                            // Check Danger
-                            const childMesh = p.children[0];
-                            if (childMesh.userData.isDanger) {
-                                gameOver();
-                                return;
-                            }
-
-                            // Splat Decal
-                            createSplat(py, POLE_RADIUS + PLATFORM_WIDTH / 2);
-
-                            // Bounce
-                            ballDy = BOUNCE_FORCE;
-                            ballY = py + BALL_RADIUS; // Snap to surface to prevent sinking
-
-                            // Screen Shake on big drop
-                            if (comboCount > 1) {
-                                // Break sound
-                                audio.playNote(400, 'sine');
-                            } else {
-                                audio.playNote(600, 'triangle');
-                            }
-                            comboCount = 0;
-                        } else {
-                            // Hit Gap! Pass through.
-                            if (!p.userData.passed) {
-                                p.userData.passed = true;
-                                score++;
-                                comboCount++;
-                                document.getElementById('score').textContent = score;
-                                playTone(500 + comboCount * 100, 'sine');
-                                window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
-                            }
-                        }
+            if (gameState !== 'PLAYING') return;
+            ballDy -= GRAVITY;
+            ballY += ballDy;
+            const targetCamY = ballY + 4;
+            camera.position.y += (targetCamY - camera.position.y) * 0.1;
+            const prevY = ballY - ballDy;
+            platforms.forEach(p => {
+                const py = p.position.y;
+                if (prevY - BALL_RADIUS >= py && ballY - BALL_RADIUS <= py && ballDy < 0) {
+                    let relAngle = (-Math.PI / 2 - (pole.rotation.y + p.rotation.y)) % (Math.PI * 2);
+                    if (relAngle < 0) relAngle += Math.PI * 2;
+                    if (relAngle > GAP_SIZE / 2 && relAngle < Math.PI * 2 - GAP_SIZE / 2) {
+                        if (p.children[0].userData.isDanger) { gameOver(); return; }
+                        createSplat(py);
+                        ballDy = BOUNCE_FORCE;
+                        ballY = py + BALL_RADIUS;
+                        audio.playNote(600, 'triangle');
+                        comboCount = 0;
+                    } else if (!p.userData.passed) {
+                        p.userData.passed = true; score++; comboCount++;
+                        document.getElementById('score').textContent = score;
+                        audio.playNote(500 + comboCount * 100, 'sine');
+                        window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
                     }
-                });
-
-                splats.forEach(s => {
-                    s.material.opacity = Math.max(0, s.material.opacity - 0.005); // Slowly fade
-                });
-
-                ball.position.y = ballY;
-                if (ballY < -120) gameOver(); // Fall off world
-            }
-
-            renderer.render(scene, camera);
+                }
+            });
+            splats.forEach(s => s.material.opacity = Math.max(0, s.material.opacity - 0.005));
+            ball.position.y = ballY;
+            if (ballY < -120) gameOver();
         }
 
+        function render() { renderer.render(scene, camera); }
+        function animate() { requestAnimationFrame(animate); update(); render(); }
+        function resize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
         function gameOver() {
-            gameState = 'OVER';
+            if (gameState === 'OVER') return; gameState = 'OVER';
             document.getElementById('game-over').style.display = 'block';
             document.getElementById('final-score').textContent = score;
-            playTone(150, 'sawtooth');
+            audio.playNote(150, 'sawtooth');
             window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
         }
 
-        function restartGame() {
-            location.reload();
-        }
+        window.addEventListener('pointerdown', e => { audio.init(); isDrag = true; lastX = e.clientX || (e.touches && e.touches[0].clientX); });
+        window.addEventListener('pointerup', () => isDrag = false);
+        window.addEventListener('pointermove', e => {
+            if (!isDrag || gameState !== 'PLAYING') return;
+            const x = e.clientX || (e.touches && e.touches[0].clientX);
+            pole.rotation.y += (x - lastX) * 0.01;
+            lastX = x;
+        }, { passive: false });
+        window.addEventListener('resize', resize);
+        init();
     </script>
-    <!-- Google Ads Container -->
-    <div id="ad-container"
-        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
-        <script async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
-            crossorigin="anonymous"></script>
-        <!-- Horizontal Banner -->
-        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
-            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
-        <script>
-            try {
-                (adsbygoogle = window.adsbygoogle || []).push({});
-            } catch (e) {
-                console.warn("AdSense blocked by client, ignoring.");
-            }
-        </script>
-    </div>
 </body>
 
 </html>

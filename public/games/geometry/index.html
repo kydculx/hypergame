@@ -31,10 +31,6 @@
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
 
-        button:hover {
-            background: #c0392b;
-        }
-
         #game-over {
             position: absolute;
             top: 50%;
@@ -84,6 +80,10 @@
             margin-top: 0;
         }
 
+        button:hover {
+            background: #c0392b;
+        }
+
         button:active {
             transform: translateY(4px);
             box-shadow: none;
@@ -105,8 +105,8 @@
     <script>
         // --- Constants ---
         const PLAYER_SIZE = 1;
-        const JUMP_FORCE = 0.36; // Increased from 0.32
-        const GRAVITY = 0.016; // Decreased from 0.018 for floatier jump
+        const JUMP_FORCE = 0.36;
+        const GRAVITY = 0.016;
         const GAME_SPEED_BASE = 0.18;
 
         const COLORS = {
@@ -118,7 +118,7 @@
         };
 
         let scene, camera, renderer;
-        let player;
+        let player, ground;
         let obstacles = [];
         let particles = [];
         let parallaxObjects = [];
@@ -132,7 +132,7 @@
         let rotationZ = 0;
         let groundY = -2;
 
-        // Audio System
+        // Audio Manager
         class AudioManager {
             constructor() { this.ctx = null; }
             init() {
@@ -166,14 +166,6 @@
         const audio = new AudioManager();
 
         function init() {
-            setupScene();
-            createPlayer();
-            audio.init(); // Initialize context early
-        }
-
-        init();
-
-        function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(COLORS.bg);
             scene.fog = new THREE.Fog(COLORS.bg, 10, 30);
@@ -182,7 +174,7 @@
             const aspect = window.innerWidth / window.innerHeight;
             const d = 10;
             camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 100);
-            camera.position.set(0, 0, 20); // Side view
+            camera.position.set(0, 0, 20);
             camera.lookAt(0, 0, 0);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -195,10 +187,10 @@
             scene.add(dl);
             scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-            // Ground (Infinite scrolling visual)
+            // Ground
             const groundGeo = new THREE.BoxGeometry(100, 5, 10);
             const groundMat = new THREE.MeshLambertMaterial({ color: COLORS.ground });
-            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground = new THREE.Mesh(groundGeo, groundMat);
             ground.position.set(0, groundY - 2.5, 0);
             scene.add(ground);
 
@@ -210,67 +202,36 @@
             player.position.set(-6, groundY + PLAYER_SIZE / 2, 0);
             scene.add(player);
 
-            // Background Parallax Objects
+            // Parallax
             for (let i = 0; i < 15; i++) {
                 const size = Math.random() * 3 + 1;
-                const geo = new THREE.BoxGeometry(size, size, size);
-                const mat = new THREE.MeshBasicMaterial({
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: 0.03 + Math.random() * 0.05,
-                    wireframe: Math.random() > 0.5
-                });
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(
-                    (Math.random() - 0.5) * 80,
-                    Math.random() * 20 - 5,
-                    -10 - Math.random() * 20
+                const mesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(size, size, size),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.05 })
                 );
-                mesh.userData = {
-                    speed: Math.random() * 0.8 + 0.2, // relative speed multiplier to game speed
-                    rotSpeedX: (Math.random() - 0.5) * 0.02,
-                    rotSpeedY: (Math.random() - 0.5) * 0.02
-                };
+                mesh.position.set((Math.random() - 0.5) * 80, Math.random() * 20 - 5, -10 - Math.random() * 20);
+                mesh.userData = { speed: Math.random() * 0.8 + 0.2 };
                 scene.add(mesh);
                 parallaxObjects.push(mesh);
             }
 
-            // Initial Obstacles
             spawnObstacle(10);
-
-            // Listeners
-            const jumpHandler = (e) => {
-                if (e && e.cancelable) e.preventDefault();
-                audio.init();
-                jump();
-            };
-            const options = { passive: false };
-            window.addEventListener('pointerdown', jumpHandler, options);
-            window.addEventListener('touchstart', jumpHandler, options);
-            window.addEventListener('keydown', e => { if (e.code === 'Space') jumpHandler(e); });
-            window.addEventListener('resize', updateLayout);
-
-            // Start
             gameState = 'PLAYING';
-            updateLayout(); // Initial layout set
+            resize();
             animate();
             window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
 
-        function updateLayout() {
+        function resize() {
             const aspect = window.innerWidth / window.innerHeight;
             const d = 10;
-
-            // Update Camera
             camera.left = -d * aspect;
             camera.right = d * aspect;
+            camera.top = d;
+            camera.bottom = -d;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-
-            // Update Player X to be visible
-            // Standard target is -6, but must be at least 2 units from left edge
-            const safeLeft = camera.left + 3;
-            player.position.x = Math.max(-6, safeLeft);
+            player.position.x = Math.max(-6, camera.left + 3);
         }
 
         function jump() {
@@ -279,35 +240,22 @@
                 velocityY = JUMP_FORCE;
                 isGrounded = false;
                 audio.playNote(400, 'sine');
-
-                // Rotate visual logic start
-                // We want to rotate 180 degrees per jump?
             }
         }
 
         function spawnObstacle(xOffset) {
-            // Random pattern
             const type = Math.random() < 0.7 ? 'SPIKE' : 'BLOCK';
             let mesh;
-
             if (type === 'SPIKE') {
-                const geo = new THREE.ConeGeometry(0.5, 1, 4);
-                const mat = new THREE.MeshLambertMaterial({ color: COLORS.spike });
-                mesh = new THREE.Mesh(geo, mat);
+                mesh = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1, 4), new THREE.MeshLambertMaterial({ color: COLORS.spike }));
                 mesh.position.set(xOffset, groundY + 0.5, 0);
-                mesh.userData = { type: 'SPIKE', width: 0.5, height: 0.5 }; // Hitbox size (half-extents)
+                mesh.userData = { width: 0.5, height: 0.5 };
             } else {
-                // Block
-                // Can be low or high? 
-                // Simple block on ground
                 const height = Math.random() < 0.5 ? 1 : 1.5;
-                const geo = new THREE.BoxGeometry(1, height, 1);
-                const mat = new THREE.MeshLambertMaterial({ color: COLORS.block });
-                mesh = new THREE.Mesh(geo, mat);
+                mesh = new THREE.Mesh(new THREE.BoxGeometry(1, height, 1), new THREE.MeshLambertMaterial({ color: COLORS.block }));
                 mesh.position.set(xOffset, groundY + height / 2, 0);
-                mesh.userData = { type: 'BLOCK', width: 0.5, height: height / 2 };
+                mesh.userData = { width: 0.5, height: height / 2 };
             }
-
             scene.add(mesh);
             obstacles.push(mesh);
         }
@@ -315,26 +263,92 @@
         function spawnParticles(x, y, color, count = 5) {
             for (let i = 0; i < count; i++) {
                 const size = Math.random() * 0.3 + 0.1;
-                const geo = new THREE.BoxGeometry(size, size, size);
-                const mat = new THREE.MeshBasicMaterial({ color: color });
-                const mesh = new THREE.Mesh(geo, mat);
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshBasicMaterial({ color }));
                 mesh.position.set(x + (Math.random() - 0.5), y + (Math.random() - 0.5), 0);
                 scene.add(mesh);
-                particles.push({
-                    mesh,
-                    vx: (Math.random() - 0.5) * 0.3,
-                    vy: Math.random() * 0.3,
-                    life: 1.0
-                });
+                particles.push({ mesh, vx: (Math.random() - 0.5) * 0.3, vy: Math.random() * 0.3, life: 1.0 });
             }
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            velocityY -= GRAVITY;
+            player.position.y += velocityY;
+
+            if (player.position.y <= groundY + PLAYER_SIZE / 2) {
+                if (!isGrounded) spawnParticles(player.position.x, groundY + 0.5, COLORS.ground, 10);
+                player.position.y = groundY + PLAYER_SIZE / 2;
+                velocityY = 0;
+                isGrounded = true;
+                const nearest90 = Math.round(player.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
+                player.rotation.z += (nearest90 - player.rotation.z) * 0.25;
+            } else {
+                player.rotation.z -= 0.15;
+            }
+
+            score += currentSpeed * 10;
+            document.getElementById('score').textContent = Math.floor(score);
+
+            if (obstacles.length > 0) {
+                const lastObs = obstacles[obstacles.length - 1];
+                if (lastObs.position.x < 15) {
+                    const progress = Math.min(1.0, score / 3000);
+                    const gap = (15 - (9 * progress)) + Math.random() * (10 - (5 * progress));
+                    spawnObstacle(lastObs.position.x + gap);
+                }
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.position.x -= currentSpeed;
+                if (obs.position.x < camera.left - 5) {
+                    scene.remove(obs);
+                    obstacles.splice(i, 1);
+                    continue;
+                }
+                const pHalf = PLAYER_SIZE / 2 * 0.8;
+                if (Math.abs(player.position.x - obs.position.x) < pHalf + obs.userData.width &&
+                    Math.abs(player.position.y - obs.position.y) < pHalf + obs.userData.height) {
+                    gameOver();
+                }
+            }
+
+            currentSpeed += 0.00005;
+            parallaxObjects.forEach(p => {
+                p.position.x -= currentSpeed * p.userData.speed;
+                if (p.position.x < camera.left - 10) p.position.x = camera.right + 10;
+            });
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.mesh.position.x += p.vx;
+                p.mesh.position.y += p.vy;
+                p.mesh.scale.multiplyScalar(0.9);
+                p.life -= 0.05;
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function render() {
+            renderer.render(scene, camera);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            update();
+            render();
         }
 
         function gameOver() {
             gameState = 'OVER';
             document.getElementById('game-over').style.display = 'block';
             document.getElementById('final-score').textContent = Math.floor(score);
-            playTone(100, 'sawtooth', 0.5);
-            spawnParticles(player.position.x, player.position.y, COLORS.player);
+            audio.playNote(100, 'sawtooth', 0.5, 0.3);
+            spawnParticles(player.position.x, player.position.y, COLORS.player, 20);
             player.visible = false;
             window.parent.postMessage({ type: 'GAME_OVER', payload: { score: Math.floor(score) } }, '*');
         }
@@ -343,175 +357,17 @@
             location.reload();
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
+        const jumpHandler = (e) => {
+            if (e && e.cancelable) e.preventDefault();
+            audio.init();
+            jump();
+        };
+        window.addEventListener('pointerdown', jumpHandler, { passive: false });
+        window.addEventListener('keydown', e => { if (e.code === 'Space') jumpHandler(e); });
+        window.addEventListener('resize', resize);
 
-            if (gameState === 'PLAYING') {
-                // Physics
-                velocityY -= GRAVITY;
-                player.position.y += velocityY;
-
-                // Ground Collision
-                if (player.position.y <= groundY + PLAYER_SIZE / 2) {
-                    if (!isGrounded) {
-                        // Just landed
-                        spawnParticles(player.position.x, groundY + 0.5, COLORS.ground, 10);
-                    }
-                    player.position.y = groundY + PLAYER_SIZE / 2;
-                    velocityY = 0;
-                    isGrounded = true;
-
-                    // Smooth snap rotation
-                    const nearest90 = Math.round(player.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
-                    player.rotation.z += (nearest90 - player.rotation.z) * 0.25; // Smooth lerp
-                } else {
-                    // Rotate while jumping
-                    player.rotation.z -= 0.15;
-                }
-                function update() {
-                    if (gameState !== 'PLAYING') return;
-
-                    // Physics
-                    velocityY -= GRAVITY;
-                    player.position.y += velocityY;
-
-                    // Ground Collision
-                    if (player.position.y <= groundY + PLAYER_SIZE / 2) {
-                        if (!isGrounded) {
-                            // Just landed
-                            spawnParticles(player.position.x, groundY + 0.5, COLORS.ground, 10);
-                        }
-                        player.position.y = groundY + PLAYER_SIZE / 2;
-                        velocityY = 0;
-                        isGrounded = true;
-
-                        // Smooth snap rotation
-                        const nearest90 = Math.round(player.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
-                        player.rotation.z += (nearest90 - player.rotation.z) * 0.25; // Smooth lerp
-                    } else {
-                        // Rotate while jumping
-                        player.rotation.z -= 0.15;
-                    }
-
-                    // Move Obstacles (Player moves visually, but conceptually we move world left)
-                    // Actually easier to keep player at X and move obstacles left
-                    const speed = currentSpeed;
-                    score += speed * 10;
-                    document.getElementById('score').textContent = Math.floor(score);
-
-                    // Update Obstacles
-                    if (obstacles.length > 0) {
-                        const lastObs = obstacles[obstacles.length - 1];
-                        if (lastObs.position.x < 15) { // Spawn ahead
-                            // Dynamic Gap Logic
-                            // Initial gap: 15-25 (Sparse)
-                            // Final gap: 6-11 (Dense)
-                            // Reaches max density at score 3000 (~30 seconds)
-                            const progress = Math.min(1.0, score / 3000);
-                            const minGap = 15 - (9 * progress); // Linear decay from 15 to 6
-                            const variance = 10 - (5 * progress); // Linear decay from 10 to 5
-
-                            const gap = minGap + Math.random() * variance;
-                            spawnObstacle(lastObs.position.x + gap);
-                        }
-                    }
-
-                    for (let i = obstacles.length - 1; i >= 0; i--) {
-                        const obs = obstacles[i];
-                        obs.position.x -= speed;
-
-                        // Cleanup - dynamic based on camera
-                        // Safely remove when clearly off screen to the left
-                        if (obs.position.x < camera.left - 5) {
-                            scene.remove(obs);
-                            obstacles.splice(i, 1);
-                            continue;
-                        }
-
-                        // Collision Detection (AABB)
-                        // Player AABB
-                        const pHalf = PLAYER_SIZE / 2 * 0.8; // slightly smaller box forgiving
-                        const px = player.position.x;
-                        const py = player.position.y;
-
-                        const oWidth = obs.userData.width;
-                        const oHeight = obs.userData.height;
-                        const ox = obs.position.x;
-                        const oy = obs.position.y;
-
-                        if (Math.abs(px - ox) < pHalf + oWidth &&
-                            Math.abs(py - oy) < pHalf + oHeight) {
-                            gameOver();
-                        }
-                    }
-
-                    // Speed up
-                    currentSpeed += 0.00005;
-
-                    // Color Pulse background
-                    const time = Date.now() * 0.001;
-                    scene.background.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
-                    scene.fog.color.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
-
-                    // Update Parallax
-                    parallaxObjects.forEach(p => {
-                        p.position.x -= speed * p.userData.speed;
-                        p.rotation.x += p.userData.rotSpeedX;
-                        p.rotation.y += p.userData.rotSpeedY;
-                        if (p.position.x < camera.left - 10) {
-                            p.position.x = camera.right + 10;
-                            p.position.y = Math.random() * 20 - 5;
-                        }
-                    });
-
-                    // Particles
-                    for (let i = particles.length - 1; i >= 0; i--) {
-                        const p = particles[i];
-                        p.mesh.position.x += p.vx;
-                        p.mesh.position.y += p.vy;
-                        p.mesh.scale.multiplyScalar(0.9);
-                        p.life -= 0.05;
-                        if (p.life <= 0) {
-                            scene.remove(p.mesh);
-                            particles.splice(i, 1);
-                        }
-                    }
-                }
-                update();
-                render();
-            }
-
-            function resize() {
-                const aspect = window.innerWidth / window.innerHeight;
-                const d = 10;
-                camera.left = -d * aspect;
-                camera.right = d * aspect;
-                camera.top = d;
-                camera.bottom = -d;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-
-            window.addEventListener('resize', resize);
-            animate();
+        init();
     </script>
-    <!-- Google Ads Container -->
-    <div id="ad-container"
-        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
-        <script async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
-            crossorigin="anonymous"></script>
-        <!-- Horizontal Banner -->
-        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
-            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
-        <script>
-                try {
-                    (adsbygoogle = window.adsbygoogle || []).push({});
-                } catch (e) {
-                    console.warn("AdSense blocked by client, ignoring.");
-                }
-        </script>
-    </div>
 </body>
 
 </html>

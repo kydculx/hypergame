@@ -10,11 +10,8 @@
             margin: 0;
             overflow: hidden;
             background: linear-gradient(135deg, #8ec5fc 0%, #e0c3fc 100%);
-            /* Hyper-casual pastel gradient */
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
             touch-action: none;
         }
 
@@ -35,16 +32,6 @@
             text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
         }
 
-        #combo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffd166;
-            margin-top: 5px;
-            text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
-            display: none;
-        }
-
-        /* Controls UI at the bottom */
         #controls {
             position: absolute;
             bottom: 40px;
@@ -60,69 +47,60 @@
             border-radius: 20px;
             width: 80px;
             height: 110px;
-            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
             padding-bottom: 15px;
             align-items: center;
             cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.1s, filter 0.2s;
-            color: white;
+            transition: transform 0.1s, box-shadow 0.1s;
         }
 
         .control-btn:active {
             transform: translateY(6px);
-            box-shadow: 0 0px 0 rgba(0, 0, 0, 0) !important;
         }
 
         .icon-domino {
-            background: #e63946;
+            background: white;
             border-radius: 4px;
             margin-bottom: 5px;
+            width: 20px;
         }
 
         .btn-label {
             font-size: 28px;
             font-weight: 800;
-            margin-top: 5px;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            color: white;
         }
 
-        /* Match the 3D domino colors perfectly */
         .btn-s {
             background: #4cc9f0;
-            box-shadow: 0 6px 0 #3ba0c0, 0 10px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 6px 0 #3ba0c0;
         }
 
         .btn-s .icon-domino {
-            width: 20px;
             height: 20px;
-            background: white;
         }
 
         .btn-m {
             background: #f72585;
-            box-shadow: 0 6px 0 #bd1b65, 0 10px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 6px 0 #bd1b65;
         }
 
         .btn-m .icon-domino {
-            width: 20px;
             height: 30px;
-            background: white;
         }
 
         .btn-l {
             background: #ffb703;
-            box-shadow: 0 6px 0 #c28b02, 0 10px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 6px 0 #c28b02;
         }
 
         .btn-l .icon-domino {
-            width: 20px;
             height: 40px;
-            background: white;
         }
 
+        #start-screen,
         #game-over {
             position: absolute;
             top: 50%;
@@ -131,30 +109,10 @@
             background: white;
             padding: 40px;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
-            display: none;
-            pointer-events: auto;
             z-index: 20;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             min-width: 200px;
-        }
-
-        h1 {
-            color: #333;
-            margin: 0 0 10px 0;
-            font-size: 24px;
-        }
-
-        p {
-            color: #666;
-            margin: 0 0 20px 0;
-            font-size: 16px;
-        }
-
-        #final-score {
-            color: #e63946;
-            font-weight: bold;
-            font-size: 24px;
         }
 
         .replay-btn {
@@ -166,30 +124,6 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 0 #b32a35;
-        }
-
-        .replay-btn:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        .replay-btn:hover {
-            background: #d62828;
-        }
-
-        #start-screen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            z-index: 30;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
     </style>
 </head>
@@ -197,9 +131,7 @@
 <body>
     <div id="ui">
         <div id="score">0</div>
-        <div id="combo">Combo x1</div>
     </div>
-
     <div id="controls">
         <div class="control-btn btn-s" id="btn-s">
             <div class="icon-domino"></div>
@@ -214,768 +146,220 @@
             <div class="btn-label">L</div>
         </div>
     </div>
-
     <div id="start-screen">
         <h1>DOMINO MATCH</h1>
-        <p>Choose the right domino size<br>to bridge the gap!</p>
         <button class="replay-btn" id="start-btn">PLAY</button>
     </div>
-
-    <div id="game-over">
+    <div id="game-over" style="display:none">
         <h1>GAME OVER!</h1>
         <p>Score: <span id="final-score">0</span></p>
         <button class="replay-btn" onclick="location.reload()">RETRY</button>
     </div>
 
-    <!-- Include Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <script>
-        // Audio System (Web Audio API for rich synthesized sounds)
         class AudioManager {
-            constructor() {
-                this.ctx = null;
-                this.comboNote = 0;
-                this.scale = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50]; // C Major multi-octave
-            }
+            constructor() { this.ctx = null; }
             init() {
                 if (!this.ctx) {
                     try {
                         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
                         if (AudioContextClass) this.ctx = new AudioContextClass();
-                    } catch (e) {
-                        console.warn("AudioContext failed:", e);
-                    }
+                    } catch (e) { }
                 }
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume().catch(e => console.log(e));
-                }
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
             }
-            playTone(freq, type, duration, vol = 0.1, slide = false) {
+            playNote(freq, type, duration, vol) {
                 this.init();
                 if (!this.ctx) return;
-
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
-
                 osc.type = type;
                 osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                if (slide) {
-                    osc.frequency.exponentialRampToValueAtTime(freq * 2, this.ctx.currentTime + duration);
-                }
-
                 gain.gain.setValueAtTime(vol, this.ctx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-
                 osc.start();
                 osc.stop(this.ctx.currentTime + duration);
-            }
-            playPlace() {
-                // A punchy pop for placing a domino
-                this.playTone(400, 'sine', 0.1, 0.1, true);
-            }
-            playClack() {
-                // Short, woody clack when dominoes hit each other
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                const filter = this.ctx.createBiquadFilter();
-
-                filter.type = 'bandpass';
-                filter.frequency.value = 800;
-                filter.Q.value = 1.5;
-
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1000, this.ctx.currentTime + 0.04);
-
-                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.04);
-
-                osc.connect(filter);
-                filter.connect(gain);
-                gain.connect(this.ctx.destination);
-
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.04);
-            }
-            playSuccess() {
-                // Musical scale climbing based on active streak
-                const degree = Math.min(this.comboNote, this.scale.length - 1);
-                if (audio) audio.playNote(this.scale[degree], 'sine', 0.2, 0.15);
-                this.comboNote++;
-            }
-            resetCombo() {
-                this.comboNote = 0;
-            }
-            playFail() {
-                this.playNote(150, 'sawtooth', 0.4, 0.3);
-                setTimeout(() => this.playNote(100, 'sawtooth', 0.5, 0.3), 150);
             }
         }
         const audio = new AudioManager();
 
-        // Game State & Config
+        let scene, camera, renderer, dirLight, dummy;
         let gameState = 'START';
         let score = 0;
-        let combo = 0;
         const dominos = [];
         let currentFocusIndex = 0;
-        let cameraLookAtX = 0;
-        let cameraLookAtZ = 0;
-        let cameraYaw = 0;
-
-        // --- GAME SETTINGS ---
-        // Change this value to make the game start faster or slower!
-        const BASE_FALL_SPEED = 0.04;
-
-        // Change this value to adjust the camera viewing angle! 
-        // Example: { x: 12, y: 12, z: 12 } = 2 o'clock diagonal view
-        // Example: { x: 0, y: 15, z: 0 } = Direct side view
+        let cameraLookAtX = 0, cameraLookAtZ = 0;
         const CAMERA_OFFSET = { x: 22, y: 22, z: 22 };
-
-        // Domino Config
-        const DOMINO_WIDTH = 0.8;
-        const DOMINO_DEPTH = 0.4;
-        const BASE_COLOR = 0xe0e0e0;
-
+        const DOMINO_WIDTH = 0.8, DOMINO_DEPTH = 0.4;
         const SIZES = {
-            'S': { color: 0x4cc9f0, height: 2, gap: 1.9, fallSpeed: BASE_FALL_SPEED },
-            'M': { color: 0xf72585, height: 3, gap: 2.9, fallSpeed: BASE_FALL_SPEED - 0.01 },
-            'L': { color: 0xffb703, height: 4, gap: 3.9, fallSpeed: BASE_FALL_SPEED - 0.02 }
+            'S': { color: 0x4cc9f0, height: 2, gap: 1.9, fallSpeed: 0.04 },
+            'M': { color: 0xf72585, height: 3, gap: 2.9, fallSpeed: 0.03 },
+            'L': { color: 0xffb703, height: 4, gap: 3.9, fallSpeed: 0.02 }
         };
 
-        // Three.js Setup
-        const scene = new THREE.Scene();
-        // Explicitly set a bright pastel background color because transparency renders black on some devices
-        scene.background = new THREE.Color(0xb0d0f0);
-        // 2. Camera: Perspective, angled so the past dominoes flow to 2 o'clock
-        const aspect = window.innerWidth / window.innerHeight;
-        const camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
-
-        // Position camera based on the global offset
-        // Initial camera position will be set in start-btn logic and animate loop
-        // camera.position.set(CAMERA_OFFSET.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z);
-        // camera.lookAt(0, 0, 0);
-
-        // Disable alpha to ensure background color completely covers the canvas
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.body.appendChild(renderer.domElement);
-
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(10, 20, -10);
-        dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.camera.near = 0.5;
-        dirLight.shadow.camera.far = 50;
-        dirLight.shadow.camera.left = -20;
-        dirLight.shadow.camera.right = 20;
-        dirLight.shadow.camera.top = 20;
-        dirLight.shadow.camera.bottom = -20;
-        dirLight.shadow.bias = -0.001;
-        scene.add(dirLight);
-        scene.add(dirLight.target); // Essential: target must be in the scene for its world matrix to update correctly
-
-        // Floor removed per user request
-
-        // Ambient Particles (Dust/Orbs)
-        const particleCount = 200;
-        const particleGeo = new THREE.IcosahedronGeometry(0.12, 0); // Very simple floating shapes
-        const particleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
-        const particles = new THREE.InstancedMesh(particleGeo, particleMat, particleCount);
-
-        const dummy = new THREE.Object3D();
+        const particleCount = 100;
+        let particles;
         const particleData = [];
-        for (let i = 0; i < particleCount; i++) {
-            // Random positions in a large 80x80 area
-            const x = (Math.random() - 0.5) * 80;
-            const y = Math.random() * 40 - 5;
-            const z = (Math.random() - 0.5) * 80;
 
-            dummy.position.set(x, y, z);
-            // Random rotation
-            dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            dummy.updateMatrix();
-            particles.setMatrixAt(i, dummy.matrix);
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xb0d0f0);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
 
-            // Store unique float data
-            particleData.push({
-                x: x, y: y, z: z,
-                rx: dummy.rotation.x, ry: dummy.rotation.y, rz: dummy.rotation.z,
-                rspeed: (Math.random() - 0.5) * 0.02,
-                yspeed: 0.01 + Math.random() * 0.03,
-                amp: 0.1 + Math.random() * 0.4,
-                phase: Math.random() * Math.PI * 2
-            });
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, -10);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+            scene.add(dirLight.target);
+
+            const pGeo = new THREE.IcosahedronGeometry(0.12, 0);
+            const pMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+            particles = new THREE.InstancedMesh(pGeo, pMat, particleCount);
+            dummy = new THREE.Object3D();
+            for (let i = 0; i < particleCount; i++) {
+                const x = (Math.random() - 0.5) * 80, y = Math.random() * 40, z = (Math.random() - 0.5) * 80;
+                particleData.push({ x, y, z, rspeed: (Math.random() - 0.5) * 0.02, yspeed: 0.01 + Math.random() * 0.03, amp: 0.1 + Math.random() * 0.4, phase: Math.random() * 6.28 });
+            }
+            scene.add(particles);
+
+            generateLevel(20);
+            resize();
+            animate();
+            window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
-        scene.add(particles);
 
-        // Geometries
         const geoCache = {};
         function getGeometry(h) {
             if (!geoCache[h]) {
                 const shape = new THREE.Shape();
-                const w = DOMINO_WIDTH;
-                const d = DOMINO_DEPTH;
-                const r = 0.08; // Border radius
-                shape.moveTo(-w / 2 + r, -d / 2);
-                shape.lineTo(w / 2 - r, -d / 2);
-                shape.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r);
-                shape.lineTo(w / 2, d / 2 - r);
-                shape.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2);
-                shape.lineTo(-w / 2 + r, d / 2);
-                shape.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r);
-                shape.lineTo(-w / 2, -d / 2 + r);
-                shape.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2);
-
-                const extrudeSettings = {
-                    steps: 1,
-                    depth: h,
-                    bevelEnabled: true,
-                    bevelThickness: 0.04,
-                    bevelSize: 0.04,
-                    bevelOffset: 0,
-                    bevelSegments: 4
-                };
-
-                const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-
-                // ExtrudeGeometry extrudes along Z. We rotate it so depth becomes height along Y.
-                // It naturally builds from z=0 to z=h. After rotation, it goes from y=0 to y=h.
+                const w = DOMINO_WIDTH, d = DOMINO_DEPTH, r = 0.08;
+                shape.moveTo(-w / 2 + r, -d / 2); shape.lineTo(w / 2 - r, -d / 2); shape.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r);
+                shape.lineTo(w / 2, d / 2 - r); shape.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2); shape.lineTo(-w / 2 + r, d / 2);
+                shape.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r); shape.lineTo(-w / 2, -d / 2 + r); shape.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2);
+                const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04 });
                 geo.rotateX(-Math.PI / 2);
-
                 geoCache[h] = geo;
             }
             return geoCache[h];
         }
 
         class Domino {
-            constructor(x, z, yaw, sizeType, isGapTarget = false, targetReqSize = null, speedMultiplier = 1.0) {
-                this.x = x;
-                this.z = z;
-                this.yaw = yaw;
-                this.sizeType = sizeType;
+            constructor(x, z, yaw, sizeType, isGapTarget = false) {
+                this.x = x; this.z = z; this.yaw = yaw; this.sizeType = sizeType;
                 this.config = SIZES[sizeType];
-                this.isGapTarget = isGapTarget; // Does user need to place this?
-                this.isActive = !isGapTarget;   // If gap, it's inactive (invisible) until placed
-                this.targetReqSize = targetReqSize; // The exact size required to pass
-
-                // Store the effective fall speed for this domino
-                this.effectiveFallSpeed = this.config.fallSpeed * speedMultiplier;
-
-                this.state = 'IDLE'; // IDLE, FALLING, FALLEN
-                this.angle = 0; // The Pitch angle (falling forward)
-                // Target angle should be negative to fall forward
-                this.targetAngle = -(Math.PI / 2 - 0.2); // Fall to ~-80 degrees
-
-                // For gap blocks, render a dashed outline instead of a solid color
-                let mat;
-                if (isGapTarget) {
-                    mat = new THREE.MeshBasicMaterial({
-                        color: 0xffffff,
-                        transparent: true,
-                        opacity: 0.0 // Make the solid block invisible
-                    });
-                } else {
-                    mat = new THREE.MeshPhysicalMaterial({
-                        color: BASE_COLOR,
-                        metalness: 0.2,
-                        roughness: 0.1,
-                        clearcoat: 1.0,
-                        clearcoatRoughness: 0.1
-                    });
-                }
-
+                this.isGapTarget = isGapTarget;
+                this.isActive = !isGapTarget;
+                this.state = 'IDLE'; this.angle = 0;
+                const mat = isGapTarget ? new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }) : new THREE.MeshPhysicalMaterial({ color: 0xeeeeee });
                 this.mesh = new THREE.Mesh(getGeometry(this.config.height), mat);
-                this.mesh.position.set(x, 0, z);
-                this.mesh.rotation.y = yaw;
+                this.mesh.position.set(x, 0, z); this.mesh.rotation.y = yaw;
                 this.mesh.castShadow = !isGapTarget;
-                this.mesh.receiveShadow = true;
-
-                // Create a floating "track" underneath the domino to receive shadows
-                const trackGeo = new THREE.PlaneGeometry(DOMINO_WIDTH * 3.5, this.config.gap * 1.5);
-
-                // ShadowMaterial makes the plane invisible EXCEPT for the shadows cast onto it!
-                // This way we get shadows floating over the HTML background
-                const trackMat = new THREE.ShadowMaterial({
-                    opacity: 0.7
-                });
-
-                this.trackMesh = new THREE.Mesh(trackGeo, trackMat);
-                this.trackMesh.rotation.x = -Math.PI / 2;
-                this.trackMesh.rotation.z = -yaw;
-                this.trackMesh.position.set(x, -0.01 - (Math.random() * 0.01), z);
-                this.trackMesh.receiveShadow = true;
-
-                // Only add track if it's a real domino, otherwise gaps look empty until placed
-                if (!isGapTarget) {
-                    scene.add(this.trackMesh);
-                }
-
-                const edges = new THREE.EdgesGeometry(getGeometry(this.config.height));
-
-                if (isGapTarget) {
-                    // Dashed white outline for gaps
-                    this.edgeMesh = new THREE.LineSegments(edges, new THREE.LineDashedMaterial({
-                        color: 0xffffff,
-                        linewidth: 2,
-                        dashSize: 0.2,
-                        gapSize: 0.2
-                    }));
-                    this.edgeMesh.computeLineDistances(); // Required for dashed material to work
-                } else {
-                    // Solid black outline for real dominos
-                    this.edgeMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({
-                        color: 0x000000,
-                        linewidth: 2
-                    }));
-                }
-
-                this.mesh.add(this.edgeMesh);
                 scene.add(this.mesh);
+                const edges = new THREE.EdgesGeometry(getGeometry(this.config.height));
+                this.edgeMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
+                this.mesh.add(this.edgeMesh);
             }
-
-            place(playerChosenSize) {
-                if (this.state !== 'IDLE' || !this.isGapTarget) return false;
-
-                this.sizeType = playerChosenSize;
-                this.config = SIZES[playerChosenSize];
-
-                // Update Mesh
+            place(sizeType) {
+                if (!this.isGapTarget) return;
+                this.sizeType = sizeType; this.config = SIZES[sizeType];
                 this.mesh.geometry = getGeometry(this.config.height);
-                this.edgeMesh.geometry = new THREE.EdgesGeometry(getGeometry(this.config.height));
-
-                // Switch back to solid outline and premium physical material
-                this.mesh.material = new THREE.MeshPhysicalMaterial({
-                    color: this.config.color,
-                    metalness: 0.2,
-                    roughness: 0.1,
-                    clearcoat: 1.0,
-                    clearcoatRoughness: 0.1
-                });
-
-                this.edgeMesh.material = new THREE.LineBasicMaterial({
-                    color: 0x000000,
-                    linewidth: 2
-                });
-
-                this.mesh.castShadow = true;
-
-                this.isGapTarget = false;
-                this.wasGapTarget = true; // Track that this used to be a gap to award points
-                this.isActive = true;
-
-                // Add the shadow track now that it's placed
-                scene.add(this.trackMesh);
-
-                audio.playPlace();
-                return true;
+                this.mesh.material = new THREE.MeshPhysicalMaterial({ color: this.config.color });
+                this.isGapTarget = false; this.isActive = true; this.mesh.castShadow = true;
+                audio.playNote(400, 'sine', 0.1, 0.1);
             }
-
-            triggerFall() {
-                if (this.state !== 'IDLE' || !this.isActive) return;
-                this.state = 'FALLING';
-                this.hitNext = false; // Reset collision flag
-
-                // Change color when falling to look cool
-                if (this.mesh.material.color.getHex() === BASE_COLOR) {
-                    this.mesh.material.color.setHex(0xa8dadc);
-                }
-            }
-
+            triggerFall() { if (this.state === 'IDLE' && this.isActive) this.state = 'FALLING'; }
             update() {
                 if (this.state === 'FALLING') {
-                    // Procedural Fall Animation (negative pitch to fall forward on local X-axis)
-                    this.angle -= this.effectiveFallSpeed;
-
-                    // Apply Yaw then Local Pitch
-                    this.mesh.rotation.set(0, this.yaw, 0);
-                    this.mesh.rotateX(this.angle);
-
-                    // Did we hit the next domino? Trigger happens once at -0.6 radians
+                    this.angle -= this.config.fallSpeed;
+                    this.mesh.rotation.set(0, this.yaw, 0); this.mesh.rotateX(this.angle);
                     if (this.angle < -0.6 && !this.hitNext) {
-                        this.hitNext = true; // Mark as hit to prevent multiple triggers
-
-                        const myIdx = dominos.indexOf(this);
-                        const nextDomino = dominos[myIdx + 1];
-
-                        if (nextDomino && nextDomino.state === 'IDLE') {
-                            // 2D distance calculation (X and Z)
-                            const dx = nextDomino.x - this.x;
-                            const dz = nextDomino.z - this.z;
-                            const dist = Math.sqrt(dx * dx + dz * dz);
-
-                            // Break conditions
-                            if (this.config.height < dist - 0.5 || !nextDomino.isActive || (nextDomino.targetReqSize && nextDomino.targetReqSize !== nextDomino.sizeType)) {
-                                this.targetAngle = -Math.PI / 2; // Chain breaks -> Fall completely flat
-                                audio.playClack();
-                                triggerGameOver();
-                            } else {
-                                // Hit successful
-                                this.targetAngle = -1.2; // Rest on the next domino
-
-                                // Unconditionally award 1 point for every domino in the chain
-                                score += 1;
-                                document.getElementById('score').textContent = score;
-
-                                // If the domino we just hit was a player-filled gap, add extra flair
-                                if (nextDomino.wasGapTarget) {
-                                    document.getElementById('score').classList.add('pop');
-                                    setTimeout(() => document.getElementById('score').classList.remove('pop'), 200);
-                                    audio.playSuccess();
-                                }
-
-                                nextDomino.triggerFall();
-                                audio.playClack();
-                            }
-                        } else if (!nextDomino) {
-                            // Chain reached the end
+                        this.hitNext = true;
+                        const next = dominos[dominos.indexOf(this) + 1];
+                        if (next && next.isActive && this.config.height >= Math.sqrt((next.x - this.x) ** 2 + (next.z - this.z) ** 2) - 0.5 && this.sizeType === next.sizeType) {
+                            score++; document.getElementById('score').textContent = score;
+                            next.triggerFall();
+                            audio.playNote(600, 'sine', 0.05, 0.1);
+                        } else {
                             this.targetAngle = -Math.PI / 2;
-                            audio.playClack();
-                            triggerGameOver();
+                            gameOver();
                         }
                     }
-
-                    // Enforce the resting angle so it stops rotating 360 degrees
-                    if (this.targetAngle !== undefined && this.angle <= this.targetAngle) {
-                        this.angle = this.targetAngle;
-                        this.mesh.rotation.set(0, this.yaw, 0);
-                        this.mesh.rotateX(this.angle);
-                        this.state = 'FALLEN';
-                    }
+                    if (this.angle <= (this.targetAngle || -1.2)) { this.angle = (this.targetAngle || -1.2); this.state = 'FALLEN'; }
                 }
             }
         }
 
-        // Logic to generate level
-        let lastX = 0;
-        let lastZ = 0;
-        let lastYaw = 0;
-        let targetYaw = 0;
-        let currentSize = 'M';
-        let streak = 0;
-        let totalGenerated = 0;
-
-        function generateLevel(paramLength = 100) {
-            // Clear existing
-            dominos.forEach(d => {
-                scene.remove(d.mesh);
-                if (d.trackMesh) scene.remove(d.trackMesh);
-            });
-            dominos.length = 0;
-            lastX = 0;
-            lastZ = 0;
-            lastYaw = 0;
-            targetYaw = 0;
-            totalGenerated = 0;
-
-            // Start the chain
-            currentSize = ['S', 'M', 'L'][Math.floor(Math.random() * 3)];
-            streak = 0;
-
-            dominos.push(new Domino(lastX, lastZ, lastYaw, currentSize, false));
-            totalGenerated++;
-
-            spawnDominos(paramLength);
-        }
-
-        // Spawn a chunk of dominos ahead of the current end
-        function spawnDominos(count) {
+        function generateLevel(count) {
+            let lastX = 0, lastZ = 0, lastYaw = 0;
             for (let i = 0; i < count; i++) {
-                totalGenerated++;
-
-                // Difficulty Scaling
-                // 1. Gap frequency slowly increases
-                // Starts at 0% (first 10), then scales from 15% up to 45% max
-                let gapProbability = 0;
-                if (totalGenerated > 10) {
-                    gapProbability = Math.min(0.45, 0.15 + (totalGenerated * 0.002));
-                }
-
-                // 2. Fall speed slowly increases
-                // Max speed multiplier is 2.5x
-                let speedMultiplier = Math.min(2.5, 1.0 + (totalGenerated * 0.005));
-
-                // Change size occasionally
-                if (streak > 2 && Math.random() < 0.4) {
-                    currentSize = ['S', 'M', 'L'][Math.floor(Math.random() * 3)];
-                    streak = 0;
-                }
-
-                // The gap distance to the NEXT domino is determined by the PREVIOUS domino's size
-                let prevSize = dominos[dominos.length - 1].targetReqSize || dominos[dominos.length - 1].sizeType;
-                let gap = SIZES[prevSize].gap;
-
-                // Procedural path curving
-                // Randomly pick a new target direction occasionally, but ensure we don't spiral entirely back on ourselves
-                if (Math.random() < 0.1 && totalGenerated > 10) {
-                    // Turn left or right by up to ~60 degrees (±1 radian)
-                    targetYaw += (Math.random() - 0.5) * 2.0;
-                }
-
-                // Clamp target yaw to prevent backward spirals (max ~70 degrees left or right)
-                targetYaw = Math.max(-1.2, Math.min(1.2, targetYaw));
-
-                // Soft boundary: if the track drifts too far left or right, gently force the target yaw back towards the center
-                if (lastX > 8) {
-                    targetYaw = Math.max(0.2, targetYaw); // Force turn left (-dx)
-                } else if (lastX < -8) {
-                    targetYaw = Math.min(-0.2, targetYaw); // Force turn right (+dx)
-                }
-
-                if (lastX > 12) {
-                    targetYaw = 1.0; // Hard turn left
-                } else if (lastX < -12) {
-                    targetYaw = -1.0; // Hard turn right
-                }
-
-                // Smoothly interpolate current yaw towards target yaw
-                lastYaw += (targetYaw - lastYaw) * 0.1;
-
-                // Calculate next position using trigonometry.
-                // Yaw 0 points straight down -Z axis.
-                lastX += -Math.sin(lastYaw) * gap;
-                lastZ += -Math.cos(lastYaw) * gap;
-
-                // Place a gap target? (Ensure we have a streak so sizes are obvious)
-                // Don't place gaps on very sharp turns (if diff between lastYaw and targetYaw is large)
-                const isTurningSharply = Math.abs(targetYaw - lastYaw) > 0.5;
-                const isTarget = Math.random() < gapProbability && streak > 0 && !isTurningSharply;
-
-                if (isTarget) {
-                    dominos.push(new Domino(lastX, lastZ, lastYaw, prevSize, true, prevSize, speedMultiplier));
-                    streak = 0; // Reset streak so we don't change size immediately after a gap
-                } else {
-                    dominos.push(new Domino(lastX, lastZ, lastYaw, currentSize, false, null, speedMultiplier));
-                    streak++;
-                }
+                const isGap = i > 5 && Math.random() < 0.3;
+                const size = ['S', 'M', 'L'][Math.floor(Math.random() * 3)];
+                const gap = SIZES[size].gap;
+                lastX += -Math.sin(lastYaw) * gap; lastZ += -Math.cos(lastYaw) * gap;
+                dominos.push(new Domino(lastX, lastZ, lastYaw, size, isGap));
             }
         }
 
-        function triggerGameOver() {
-            if (gameState === 'OVER') return;
-            gameState = 'OVER';
-            audio.playFail();
-            document.getElementById('game-over').style.display = 'block';
-            document.getElementById('final-score').textContent = score;
-
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
-        }
-
-        function updateFocusCamera() {
-            if (currentFocusIndex >= dominos.length) return;
-
-            // Find the furthest falling or fallen domino
-            let leadDomino = dominos[0];
-            for (let i = 0; i < dominos.length; i++) {
-                if (dominos[i].state !== 'IDLE') {
-                    leadDomino = dominos[i];
-                    currentFocusIndex = i;
-                } else {
-                    break;
+        function update() {
+            if (gameState === 'PLAYING') {
+                dominos.forEach(d => d.update());
+                let lead = dominos[currentFocusIndex];
+                while (dominos[currentFocusIndex + 1] && dominos[currentFocusIndex + 1].state !== 'IDLE') {
+                    currentFocusIndex++; lead = dominos[currentFocusIndex];
                 }
-            }
-
-            // Target coordinates based on the lead domino
-            let targetX = leadDomino.x;
-            let targetZ = leadDomino.z;
-            let targetYaw = leadDomino.yaw;
-
-            // Interpolate camera focus variables for drone-like smoothing
-            cameraLookAtX += (targetX - cameraLookAtX) * 0.04;
-            cameraLookAtZ += (targetZ - cameraLookAtZ) * 0.04;
-            cameraYaw += (targetYaw - cameraYaw) * 0.04;
-
-            // Move the directional light and its target to follow the camera focus
-            // This prevents shadows from clipping or disappearing as we move far from the origin!
-            dirLight.position.set(cameraLookAtX + 20, 30, cameraLookAtZ - 20);
-            dirLight.target.position.set(cameraLookAtX, 0, cameraLookAtZ);
-            dirLight.target.updateMatrixWorld();
-
-            // RIGIDLY lock the camera position to the smoothed target using the fixed global offset
-            camera.position.x = cameraLookAtX + CAMERA_OFFSET.x;
-            camera.position.y = CAMERA_OFFSET.y;
-            camera.position.z = cameraLookAtZ + CAMERA_OFFSET.z;
-
-            // Look at the smoothed target
-            camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
-        }
-
-        function handleAction(sizeStr) {
-            audio.init();
-            if (gameState !== 'PLAYING') return;
-
-            // Find the next gap target
-            let targetIdx = -1;
-            for (let i = currentFocusIndex; i < dominos.length; i++) {
-                if (dominos[i].isGapTarget) {
-                    targetIdx = i;
-                    break;
-                }
-            }
-
-            if (targetIdx !== -1) {
-                const targetDomino = dominos[targetIdx];
-
-                // The player placed a domino. We always place it.
-                // If it's the wrong size, it will fail when the falling domino hits it in `update()`.
-                targetDomino.place(sizeStr);
-
-                // Play placement sound
-                audio.playPlace();
-            }
-        }
-
-        // UI Event Listeners
-        document.getElementById('start-btn').addEventListener('click', () => {
-            document.getElementById('start-screen').style.display = 'none';
-            gameState = 'PLAYING';
-            generateLevel(100);
-
-            // Snap camera to the first domino instantly to prevent startup jitter
-            if (dominos.length > 0) {
-                const firstD = dominos[0];
-                cameraLookAtX = firstD.x;
-                cameraLookAtZ = firstD.z;
-                cameraYaw = firstD.yaw;
-
+                cameraLookAtX += (lead.x - cameraLookAtX) * 0.05;
+                cameraLookAtZ += (lead.z - cameraLookAtZ) * 0.05;
                 camera.position.set(cameraLookAtX + CAMERA_OFFSET.x, CAMERA_OFFSET.y, cameraLookAtZ + CAMERA_OFFSET.z);
                 camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
+                dirLight.position.set(cameraLookAtX + 10, 20, cameraLookAtZ - 10);
+                dirLight.target.position.set(cameraLookAtX, 0, cameraLookAtZ);
             }
+            const time = Date.now() * 0.001;
+            for (let i = 0; i < particleCount; i++) {
+                let pd = particleData[i]; pd.y += pd.yspeed; if (pd.y > 40) pd.y = 0;
+                dummy.position.set(pd.x + Math.sin(time + pd.phase) * pd.amp, pd.y, pd.z + Math.cos(time + pd.phase) * pd.amp);
+                dummy.updateMatrix(); particles.setMatrixAt(i, dummy.matrix);
+            }
+            particles.instanceMatrix.needsUpdate = true;
+        }
 
-            // Kick off the first domino
-            audio.init();
-            audio.resetCombo();
-            setTimeout(() => {
-                if (dominos.length > 0) dominos[0].triggerFall();
-            }, 500);
-        });
-
-        const btnS = document.getElementById('btn-s');
-        const btnM = document.getElementById('btn-m');
-        const btnL = document.getElementById('btn-l');
-
-        btnS.addEventListener('pointerdown', (e) => { e.preventDefault(); handleAction('S'); });
-        btnM.addEventListener('pointerdown', (e) => { e.preventDefault(); handleAction('M'); });
-        btnL.addEventListener('pointerdown', (e) => { e.preventDefault(); handleAction('L'); });
-
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyZ' || e.code === 'ArrowLeft') handleAction('S');
-            if (e.code === 'KeyX' || e.code === 'ArrowDown') handleAction('M');
-            if (e.code === 'KeyC' || e.code === 'ArrowRight') handleAction('L');
-        });
-
-        window.addEventListener('resize', () => {
+        function render() { renderer.render(scene, camera); }
+        function animate() { requestAnimationFrame(animate); update(); render(); }
+        function resize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        function update() {
-            // physics and logic updates... (not strictly separated yet as it's interleaved with animate)
         }
-        const time = Date.now() * 0.001;
-
-        // Animate Ambient Particles
-        for (let i = 0; i < particleCount; i++) {
-            let pd = particleData[i];
-            pd.y += pd.yspeed; // Float up
-            pd.rx += pd.rspeed;
-            pd.ry += pd.rspeed;
-
-            // Wrap vertically
-            if (pd.y > 35) pd.y = -5;
-
-            let curX = pd.x + Math.sin(time + pd.phase) * pd.amp;
-            let curZ = pd.z + Math.cos(time + pd.phase) * pd.amp;
-
-            // Wrap horizontally relative to the camera to create an infinite field
-            if (curX < cameraLookAtX - 40) pd.x += 80;
-            if (curX > cameraLookAtX + 40) pd.x -= 80;
-            if (curZ < cameraLookAtZ - 40) pd.z += 80;
-            if (curZ > cameraLookAtZ + 40) pd.z -= 80;
-
-            dummy.position.set(curX, pd.y, curZ);
-            dummy.rotation.set(pd.rx, pd.ry, pd.rz);
-            dummy.updateMatrix();
-            particles.setMatrixAt(i, dummy.matrix);
-        }
-        particles.instanceMatrix.needsUpdate = true;
-
-        // Camera movement for falling domino
-        if (isFalling) {
-            let fallingDomino = dominos.find(d => !d.isFullyDown && d.isTriggered);
-            if (fallingDomino) {
-                let panX = (fallingDomino.mesh.position.x - cameraLookAtX);
-                let panZ = (fallingDomino.mesh.position.z - cameraLookAtZ);
-                camera.position.x = cameraLookAtX + CAMERA_OFFSET.x + panX;
-                camera.position.y = CAMERA_OFFSET.y;
-                camera.position.z = cameraLookAtZ + CAMERA_OFFSET.z + panZ;
-                camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
-            }
+        function gameOver() {
+            if (gameState === 'OVER') return; gameState = 'OVER';
+            document.getElementById('game-over').style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            audio.playNote(100, 'sawtooth', 0.5, 0.2);
+            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
         }
 
-        if (gameState === 'PLAYING') {
-            dominos.forEach(d => d.update());
-            updateFocusCamera();
-
-            // Endless Generation: If we are getting close to the end of the array, spawn more
-            if (dominos.length - currentFocusIndex < 30) {
-                spawnDominos(20);
-            }
-
-            // Cleanup: Remove old dominos far behind the camera to save memory
-            // We keep a buffer of ~10 behind the focus so they don't pop out visibly
-            if (currentFocusIndex > 20) {
-                const toRemove = dominos.splice(0, 10);
-                toRemove.forEach(d => {
-                    scene.remove(d.mesh);
-                    d.mesh.geometry.dispose();
-                    d.mesh.material.dispose();
-                    d.edgeMesh.geometry.dispose();
-                    d.edgeMesh.material.dispose();
-                });
-                // Adjust focus index because array length changed
-                currentFocusIndex -= 10;
-            }
-
-        } else if (gameState === 'START') {
-            // Pan camera slowly around the first domino
-            if (dominos.length > 0) {
-                const firstD = dominos[0];
-                const t = Date.now() * 0.0005; // Slow rotation
-
-                cameraLookAtX = firstD.x;
-                cameraLookAtZ = firstD.z;
-
-                // Simple circular pan around the fixed offset
-                const panX = Math.sin(t) * 10;
-                const panZ = Math.cos(t) * 10;
-
-                camera.position.x = cameraLookAtX + CAMERA_OFFSET.x + panX;
-                camera.position.y = CAMERA_OFFSET.y;
-                camera.position.z = cameraLookAtZ + CAMERA_OFFSET.z + panZ;
-                camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
-            }
-        }
-        renderer.render(scene, camera);
-        }
-
-        generateLevel(20); // Initial background state
-        if (audio) audio.init();
-        animate();
-
+        document.getElementById('start-btn').onclick = () => {
+            document.getElementById('start-screen').style.display = 'none';
+            gameState = 'PLAYING';
+            dominos[0].triggerFall();
+        };
+        const handleAction = (s) => {
+            const target = dominos.find(d => d.isGapTarget);
+            if (target) target.place(s);
+        };
+        document.getElementById('btn-s').onclick = () => handleAction('S');
+        document.getElementById('btn-m').onclick = () => handleAction('M');
+        document.getElementById('btn-l').onclick = () => handleAction('L');
+        window.addEventListener('resize', resize);
+        init();
     </script>
 </body>
 

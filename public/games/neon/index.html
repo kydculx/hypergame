@@ -17,6 +17,8 @@
             -webkit-touch-callout: none;
             overscroll-behavior: none;
             touch-action: none;
+            weight: 100%;
+            height: 100%;
         }
 
         canvas {
@@ -37,11 +39,6 @@
             font-weight: bold;
             color: #ff00ff;
             text-shadow: 0 0 10px #ff00ff;
-        }
-
-        button:hover {
-            background: #d400d4;
-            box-shadow: 0 0 20px #ff00ff;
         }
 
         #game-over {
@@ -90,6 +87,11 @@
             transition: transform 0.1s, background 0.2s;
             box-shadow: 0 4px 0 #cc00cc;
             margin-top: 5px;
+        }
+
+        button:hover {
+            background: #d400d4;
+            box-shadow: 0 0 20px #ff00ff;
         }
 
         button:active {
@@ -159,7 +161,6 @@
             }
         }
         const audio = new AudioManager();
-        audio.init(); // Initialize audio context on startup
 
         // Game Constants
         const GRAVITY = 0.5;
@@ -177,17 +178,21 @@
         let isStarted = false;
         let bgScrollX = 0; // Scrolling grid
 
+        function init() {
+            resize();
+            audio.init();
+            animate();
+            window.parent.postMessage({ type: 'GAME_READY' }, '*');
+        }
+
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             if (!isStarted) player.y = canvas.height / 2;
         }
-        window.addEventListener('resize', resize);
-        resize();
 
         function handleAction(e) {
-            if (e && e.cancelable) e.preventDefault(); // Prevent iOS zoom/scroll
-            // audio.init(); // Removed, now called on startup
+            if (e && e.cancelable) e.preventDefault();
             if (isGameOver) return;
             if (!isStarted) {
                 isStarted = true;
@@ -196,13 +201,6 @@
             player.velocity = JUMP_FORCE;
             audio.playNote(440, 'sine', 0.1, 0.1);
         }
-
-        const options = { passive: false };
-        window.addEventListener('pointerdown', handleAction, options);
-        window.addEventListener('touchstart', handleAction, options);
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') handleAction(e);
-        });
 
         function createPipe() {
             const minHeight = 50;
@@ -239,7 +237,7 @@
                 const pipe = pipes[i];
                 pipe.x -= PIPE_SPEED;
 
-                // Collision Detection (Forgiving Hitbox)
+                // Collision Detection
                 const PADDING = 6;
                 if (player.x + PADDING < pipe.x + pipe.w &&
                     player.x + player.w - PADDING > pipe.x &&
@@ -250,77 +248,106 @@
 
                 // Score Counting
                 if (!pipe.passed && pipe.type === 'top' && player.x > pipe.x + pipe.w) {
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    for (let i = bgScrollX; i < canvas.width; i += 60) {
-                        ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height);
-                    }
-                    for (let i = 0; i < canvas.height; i += 60) {
-                        ctx.moveTo(0, i); ctx.lineTo(canvas.width, i);
-                    }
-                    ctx.stroke();
-
-                    // Draw Ghosts (moved from old draw)
-                    ctx.shadowBlur = 0;
-                    for (let i = ghosts.length - 1; i >= 0; i--) {
-                        const g = ghosts[i];
-                        ctx.fillStyle = `rgba(255, 0, 255, ${g.life * 0.4})`;
-                        ctx.fillRect(g.x, g.y, g.w, g.h);
-                        g.life -= 0.04;
-                        g.x -= PIPE_SPEED;
-                        if (g.life <= 0) ghosts.splice(i, 1);
-                    }
-
-                    // Draw Pipes
-                    pipes.forEach(pipe => {
-                        ctx.shadowBlur = 15;
-                        ctx.shadowColor = '#00ffff';
-                        ctx.strokeStyle = '#00ffff';
-                        ctx.lineWidth = 3; // Added missing lineWidth
-                        ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
-                        // Glow effect inside
-                        ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
-                        ctx.fillRect(pipe.x, pipe.y, pipe.w, pipe.h);
-                    });
-
-                    // Draw Player (moved from old draw)
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = '#ff00ff';
-                    ctx.strokeStyle = '#ff00ff';
-                    ctx.fillStyle = '#ff00ff';
-                    ctx.strokeRect(player.x, player.y, player.w, player.h);
-                    ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
-                    ctx.fillRect(player.x, player.y, player.w, player.h);
-
-                    if (!isStarted) {
-                        ctx.shadowBlur = 10;
-                        ctx.fillStyle = 'white';
-                        ctx.font = '24px "Courier New"';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2 + 100);
-                    }
+                    pipe.passed = true;
+                    score++;
+                    scoreEl.textContent = score;
+                    audio.playNote(880, 'sine', 0.1, 0.1);
+                    window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
                 }
 
-                function animate() {
-                    requestAnimationFrame(animate);
-                    update();
-                    render();
+                if (pipe.x + pipe.w < 0) {
+                    pipes.splice(i, 1);
                 }
+            }
 
-                function gameOver() {
-                    if (isGameOver) return;
-                    isGameOver = true;
-                    gameOverEl.style.display = 'block';
-                    finalScoreEl.textContent = score;
-                    audio.playNote([220, 55], 'sawtooth', 0.4, 0.2);
-                    window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
-                }
+            // Update ghosts
+            for (let i = ghosts.length - 1; i >= 0; i--) {
+                ghosts[i].life -= 0.04;
+                ghosts[i].x -= PIPE_SPEED;
+                if (ghosts[i].life <= 0) ghosts.splice(i, 1);
+            }
 
-                animate(); // Changed from draw()
+            frames++;
+        }
 
-                // Notify platform
-                window.parent.postMessage({ type: 'GAME_READY' }, '*');
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background (Scrolling Grid)
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = bgScrollX; i < canvas.width; i += 60) {
+                ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height);
+            }
+            for (let i = 0; i < canvas.height; i += 60) {
+                ctx.moveTo(0, i); ctx.lineTo(canvas.width, i);
+            }
+            ctx.stroke();
+
+            // Draw Ghosts
+            ctx.shadowBlur = 0;
+            ghosts.forEach(g => {
+                ctx.fillStyle = `rgba(255, 0, 255, ${g.life * 0.4})`;
+                ctx.fillRect(g.x, g.y, g.w, g.h);
+            });
+
+            // Draw Pipes
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00ffff';
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 3;
+            pipes.forEach(pipe => {
+                ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
+                ctx.fillRect(pipe.x, pipe.y, pipe.w, pipe.h);
+            });
+
+            // Draw Player
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ff00ff';
+            ctx.strokeStyle = '#ff00ff';
+            ctx.fillStyle = '#ff00ff';
+            ctx.strokeRect(player.x, player.y, player.w, player.h);
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            if (!isStarted && !isGameOver) {
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = 'white';
+                ctx.font = '24px "Courier New"';
+                ctx.textAlign = 'center';
+                ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2 + 100);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            update();
+            render();
+        }
+
+        function gameOver() {
+            if (isGameOver) return;
+            isGameOver = true;
+            gameOverEl.style.display = 'block';
+            finalScoreEl.textContent = score;
+            audio.playNote([220, 55], 'sawtooth', 0.4, 0.2);
+            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+        }
+
+        // Event Listeners
+        const options = { passive: false };
+        window.addEventListener('pointerdown', handleAction, options);
+        window.addEventListener('touchstart', handleAction, options);
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') handleAction(e);
+        });
+        window.addEventListener('resize', resize);
+
+        init();
     </script>
+
     <!-- Google Ads Container -->
     <div id="ad-container"
         style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
@@ -331,11 +358,11 @@
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
         <script>
-                    try {
-                        (adsbygoogle = window.adsbygoogle || []).push({});
-                    } catch (e) {
-                        console.warn("AdSense blocked by client, ignoring.");
-                    }
+            try {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (e) {
+                console.warn("AdSense blocked by client, ignoring.");
+            }
         </script>
     </div>
 </body>
