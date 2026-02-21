@@ -270,8 +270,11 @@
             }
 
             // Slice block logic
-            const newWidth = direction === 'x' ? overlap : activeBlock.width;
-            const newDepth = direction === 'z' ? overlap : activeBlock.depth;
+            const originalWidth = activeBlock.width;
+            const originalDepth = activeBlock.depth;
+
+            const newWidth = direction === 'x' ? overlap : originalWidth;
+            const newDepth = direction === 'z' ? overlap : originalDepth;
             const newX = direction === 'x' ? topBlock.mesh.position.x + diff / 2 : activeBlock.mesh.position.x;
             const newZ = direction === 'z' ? topBlock.mesh.position.z + diff / 2 : activeBlock.mesh.position.z;
 
@@ -279,23 +282,23 @@
             activeBlock.mesh.geometry.dispose();
             activeBlock.mesh.geometry = new THREE.BoxGeometry(newWidth, BOX_HEIGHT, newDepth);
 
-            activeBlock.mesh.position[direction] = newX;
-            if (direction === 'z') activeBlock.mesh.position.z = newZ;
+            activeBlock.mesh.position.x = newX;
+            activeBlock.mesh.position.z = newZ;
 
             activeBlock.width = newWidth;
             activeBlock.depth = newDepth;
 
             // Add debris (falling part)
-            const debrisWidth = direction === 'x' ? activeBlock[dimension] - overlap : activeBlock.width;
-            const debrisDepth = direction === 'z' ? activeBlock[dimension] - overlap : activeBlock.depth;
+            const debrisWidth = direction === 'x' ? originalWidth - newWidth : newWidth;
+            const debrisDepth = direction === 'z' ? originalDepth - newDepth : newDepth;
             const debrisX = direction === 'x'
                 ? (diff > 0 ? newX + newWidth / 2 + debrisWidth / 2 : newX - newWidth / 2 - debrisWidth / 2)
-                : activeBlock.mesh.position.x;
+                : newX;
             const debrisZ = direction === 'z'
                 ? (diff > 0 ? newZ + newDepth / 2 + debrisDepth / 2 : newZ - newDepth / 2 - debrisDepth / 2)
-                : activeBlock.mesh.position.z;
+                : newZ;
 
-            addDebris(debrisX, activeBlock.mesh.position.y, debrisZ, debrisWidth, debrisDepth, activeBlock.mesh.material.color);
+            addDebris(debrisX, activeBlock.mesh.position.y, debrisZ, debrisWidth, debrisDepth, activeBlock.mesh.material.color, diff);
 
             stack.push(activeBlock);
             score++;
@@ -309,12 +312,24 @@
         }
 
         function createPerfectFlash(x, y, z, w, d) {
-            const geo = new THREE.BoxGeometry(w + 0.5, BOX_HEIGHT + 0.5, d + 0.5);
-            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+            const flashColor = activeBlock.mesh.material.color.clone().multiplyScalar(1.2).addScalar(0.1);
+
+            // Thin ripple plane at the interface between blocks
+            const geo = new THREE.PlaneGeometry(w, d);
+            const mat = new THREE.MeshBasicMaterial({ color: flashColor, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(x, y, z);
+
+            // Position it exactly between the blocks
+            mesh.position.set(x, y - BOX_HEIGHT / 2, z);
+            mesh.rotation.x = Math.PI / 2;
             scene.add(mesh);
-            debris.push({ mesh, velocity: { y: 0, r: 0 }, isFlash: true, life: 1.0 });
+
+            debris.push({
+                mesh,
+                velocity: { y: 0.02, r: 0 }, // Very subtle upward drift
+                isFlash: true,
+                life: 1.0
+            });
         }
 
         function startNewRound() {
@@ -362,13 +377,18 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        function addDebris(x, y, z, width, depth, color) {
+        function addDebris(x, y, z, width, depth, color, diff) {
             const geometry = new THREE.BoxGeometry(width, BOX_HEIGHT, depth);
             const material = new THREE.MeshStandardMaterial({ color });
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(x, y, z);
             scene.add(mesh);
-            debris.push({ mesh, velocity: { y: 0, r: (Math.random() - 0.5) * 0.1 } });
+
+            // Give it a subtle initial push in the direction it was cut
+            const vx = direction === 'x' ? diff * 0.1 : 0;
+            const vz = direction === 'z' ? diff * 0.1 : 0;
+
+            debris.push({ mesh, velocity: { x: vx, y: 0, z: vz, r: (Math.random() - 0.5) * 0.1 } });
         }
 
         function animate() {
@@ -400,8 +420,10 @@
             for (let i = debris.length - 1; i >= 0; i--) {
                 const d = debris[i];
                 if (d.isFlash) {
-                    d.life -= 0.05;
-                    d.mesh.scale.multiplyScalar(1.05);
+                    d.life -= 0.03;
+                    const scale = 1 + (1 - d.life) * 1.2; // Toned down expansion
+                    d.mesh.scale.set(scale, scale, 1);
+                    d.mesh.position.y += d.velocity.y;
                     d.mesh.material.opacity = d.life;
                     if (d.life <= 0) {
                         scene.remove(d.mesh);
@@ -409,7 +431,9 @@
                     }
                 } else {
                     d.velocity.y -= 0.02; // Gravity
+                    d.mesh.position.x += d.velocity.x || 0;
                     d.mesh.position.y += d.velocity.y;
+                    d.mesh.position.z += d.velocity.z || 0;
                     d.mesh.rotation.x += d.velocity.r;
                     d.mesh.rotation.z += d.velocity.r;
 
