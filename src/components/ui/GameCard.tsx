@@ -35,18 +35,17 @@ export const GameCard: React.FC<GameCardProps> = ({
         ${className}
       `}
         >
-            {/* Placeholder for actual image if thumbnail is a placeholder color/gradient */}
-            {/* Placeholder for actual image if thumbnail is a placeholder color/gradient */}
-            <div className={`w-full h-full ${!thumbnail.includes('/') ? thumbnail : ''} bg-cover bg-center transition-transform duration-500 group-hover:scale-110 group-hover:brightness-110`}
-                style={thumbnail.includes('/') ? { backgroundImage: `url(${thumbnail})` } : {}}
-            >
-                {/* Check if it looks like a file path (has extension or slashes) */}
-                {(thumbnail.includes('/') || thumbnail.includes('.')) && (
+            {/* Background Image / Placeholder */}
+            <div className="w-full h-full overflow-hidden transition-transform duration-500 group-hover:scale-110 group-hover:brightness-110">
+                {(thumbnail.includes('/') || thumbnail.includes('.')) ? (
                     <img
                         src={thumbnail}
                         alt={title}
-                        className="w-full h-full object-cover transition-transform duration-500"
+                        className="w-full h-full object-cover"
+                        loading="lazy"
                     />
+                ) : (
+                    <div className={`w-full h-full ${thumbnail} bg-cover bg-center`} />
                 )}
             </div>
 
