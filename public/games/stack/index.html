@@ -130,6 +130,7 @@
         let targetCameraZoom = 1; // For game over zoom out
         let currentCameraZoom = 1;
         let backgroundParticles = [];
+        let bgCanvas, bgContext, bgTexture;
 
         // Audio Manager
         class AudioManager {
@@ -175,20 +176,14 @@
             scene = new THREE.Scene();
 
             // Create robust gradient background via CanvasTexture
-            const canvas = document.createElement('canvas');
-            canvas.width = 2;
-            canvas.height = 512;
-            const context = canvas.getContext('2d');
-            const gradient = context.createLinearGradient(0, 0, 0, 512);
-            gradient.addColorStop(0, '#1a1a2e'); // Top: Deep Purple
-            gradient.addColorStop(0.5, '#16213e'); // Mid: Navy
-            gradient.addColorStop(1, '#050208'); // Bottom: Near Black
-            context.fillStyle = gradient;
-            context.fillRect(0, 0, 2, 512);
+            bgCanvas = document.createElement('canvas');
+            bgCanvas.width = 2;
+            bgCanvas.height = 512;
+            bgContext = bgCanvas.getContext('2d');
+            bgTexture = new THREE.CanvasTexture(bgCanvas);
+            scene.background = bgTexture;
 
-            const backgroundTexture = new THREE.CanvasTexture(canvas);
-            scene.background = backgroundTexture;
-            scene.fog = new THREE.FogExp2(0x050208, 0.035);
+            updateBackground(0); // Initial background
 
             // Lights
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -251,6 +246,53 @@
                 stack.push(block);
             }
             return block;
+        }
+
+        function updateBackground(altitude) {
+            const stages = [
+                { alt: 0, top: '#2e1a4d', bot: '#050208' }, // Ground
+                { alt: 15, top: '#1a1a2e', bot: '#0a0a1f' }, // Low Atmos
+                { alt: 35, top: '#0a0a1f', bot: '#020205' }, // High Atmos
+                { alt: 60, top: '#050208', bot: '#000000' }  // Deep Space
+            ];
+
+            // Find current stages for interpolation
+            let s1 = stages[0], s2 = stages[stages.length - 1];
+            for (let i = 0; i < stages.length - 1; i++) {
+                if (altitude >= stages[i].alt && altitude < stages[i + 1].alt) {
+                    s1 = stages[i];
+                    s2 = stages[i + 1];
+                    break;
+                }
+            }
+
+            const ratio = Math.min(1, Math.max(0, (altitude - s1.alt) / (s2.alt - s1.alt || 1)));
+
+            const lerpColor = (c1, c2, r) => {
+                const rgb1 = new THREE.Color(c1);
+                const rgb2 = new THREE.Color(c2);
+                return `#${rgb1.lerp(rgb2, r).getHexString()}`;
+            };
+
+            const top = lerpColor(s1.top, s2.top, ratio);
+            const bot = lerpColor(s1.bot, s2.bot, ratio);
+
+            // Update Gradient
+            const gradient = bgContext.createLinearGradient(0, 0, 0, 512);
+            gradient.addColorStop(0, top);
+            gradient.addColorStop(1, bot);
+            bgContext.fillStyle = gradient;
+            bgContext.fillRect(0, 0, 2, 512);
+            bgTexture.needsUpdate = true;
+
+            // Sync fog
+            const fogColor = new THREE.Color(bot);
+            scene.fog.color.copy(fogColor);
+
+            // Sync stars brightness
+            if (backgroundParticles.length > 0) {
+                backgroundParticles[0].material.opacity = 0.3 + (altitude / 100) * 0.4;
+            }
         }
 
         function handleAction() {
@@ -322,6 +364,7 @@
             // Increase speed slightly, always reset direction to positive for next spawn
             speed = Math.abs(speed) + 0.002;
 
+            updateBackground(score);
             startNewRound();
         }
 
