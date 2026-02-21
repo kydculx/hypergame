@@ -254,23 +254,7 @@
                 spawnNextPlatform();
             }
 
-            function handleInput(e) {
-                if (e && e.cancelable) e.preventDefault();
-                initAudio();
-                if (gameState === 'START') {
-                    gameState = 'PLAYING';
-                    document.getElementById('instructions').style.display = 'none';
-                    return;
-                }
-                if (gameState !== 'PLAYING') return;
-
-                direction = direction === 'x' ? 'z' : 'x';
-                playTone(400 + Math.random() * 100, 'sine');
-            }
-
-            const options = { passive: false };
-            window.addEventListener('pointerdown', handleInput, options);
-            window.addEventListener('touchstart', handleInput, options);
+            window.addEventListener('pointerdown', handleInput, { passive: false });
             window.addEventListener('keydown', (e) => {
                 if (e.code === 'Space') handleInput(e);
             });
@@ -359,16 +343,25 @@
             createPlatform(newX, lastPlatformPos.y, newZ);
         }
 
-        function handleInput() {
+        function handleInput(e) {
+            if (e && e.cancelable) e.preventDefault();
             if (gameState === 'OVER') return;
 
+            initAudio();
             if (gameState === 'START') {
                 gameState = 'PLAYING';
                 document.getElementById('instructions').style.opacity = 0;
-            } else {
-                direction = direction === 'x' ? 'z' : 'x';
-                playSound('switch');
+                // Give a small delay before first switch to prevent accidental double-tap start
+                setTimeout(() => {
+                    if (document.getElementById('instructions')) {
+                         document.getElementById('instructions').style.display = 'none';
+                    }
+                }, 500);
+                return;
             }
+
+            direction = direction === 'x' ? 'z' : 'x';
+            playTone(400 + Math.random() * 100, 'sine');
         }
 
         function gameOver() {
