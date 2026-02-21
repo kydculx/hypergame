@@ -17,8 +17,6 @@
             -webkit-touch-callout: none;
             overscroll-behavior: none;
             touch-action: none;
-            weight: 100%;
-            height: 100%;
         }
 
         canvas {
@@ -39,6 +37,11 @@
             font-weight: bold;
             color: #ff00ff;
             text-shadow: 0 0 10px #ff00ff;
+        }
+
+        button:hover {
+            background: #d400d4;
+            box-shadow: 0 0 20px #ff00ff;
         }
 
         #game-over {
@@ -89,11 +92,6 @@
             margin-top: 5px;
         }
 
-        button:hover {
-            background: #d400d4;
-            box-shadow: 0 0 20px #ff00ff;
-        }
-
         button:active {
             transform: translateY(4px);
             box-shadow: none;
@@ -126,23 +124,12 @@
                 this.ctx = null;
             }
             init() {
-                if (!this.ctx) {
-                    try {
-                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                        if (AudioContextClass) {
-                            this.ctx = new AudioContextClass();
-                        }
-                    } catch (e) {
-                        console.warn("AudioContext could not be initialized:", e);
-                    }
-                }
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume().catch(e => console.log(e));
-                }
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             }
             playNote(freq, type, duration, volume) {
-                this.init();
                 if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = type;
@@ -178,21 +165,16 @@
         let isStarted = false;
         let bgScrollX = 0; // Scrolling grid
 
-        function init() {
-            resize();
-            audio.init();
-            animate();
-            window.parent.postMessage({ type: 'GAME_READY' }, '*');
-        }
-
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             if (!isStarted) player.y = canvas.height / 2;
         }
+        window.addEventListener('resize', resize);
+        resize();
 
-        function handleAction(e) {
-            if (e && e.cancelable) e.preventDefault();
+        function handleAction() {
+            audio.init();
             if (isGameOver) return;
             if (!isStarted) {
                 isStarted = true;
@@ -201,6 +183,9 @@
             player.velocity = JUMP_FORCE;
             audio.playNote(440, 'sine', 0.1, 0.1);
         }
+
+        window.addEventListener('pointerdown', handleAction);
+        window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') handleAction(); });
 
         function createPipe() {
             const minHeight = 50;
@@ -237,7 +222,7 @@
                 const pipe = pipes[i];
                 pipe.x -= PIPE_SPEED;
 
-                // Collision Detection
+                // Collision Detection (Forgiving Hitbox)
                 const PADDING = 6;
                 if (player.x + PADDING < pipe.x + pipe.w &&
                     player.x + player.w - PADDING > pipe.x &&
@@ -251,26 +236,20 @@
                     pipe.passed = true;
                     score++;
                     scoreEl.textContent = score;
-                    audio.playNote(880, 'sine', 0.1, 0.1);
+                    audio.playNote([660, 880], 'square', 0.1, 0.05);
                     window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
                 }
 
+                // Remove off-screen pipes
                 if (pipe.x + pipe.w < 0) {
                     pipes.splice(i, 1);
                 }
             }
 
-            // Update ghosts
-            for (let i = ghosts.length - 1; i >= 0; i--) {
-                ghosts[i].life -= 0.04;
-                ghosts[i].x -= PIPE_SPEED;
-                if (ghosts[i].life <= 0) ghosts.splice(i, 1);
-            }
-
             frames++;
         }
 
-        function render() {
+        function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Draw Background (Scrolling Grid)
@@ -287,10 +266,14 @@
 
             // Draw Ghosts
             ctx.shadowBlur = 0;
-            ghosts.forEach(g => {
+            for (let i = ghosts.length - 1; i >= 0; i--) {
+                const g = ghosts[i];
                 ctx.fillStyle = `rgba(255, 0, 255, ${g.life * 0.4})`;
                 ctx.fillRect(g.x, g.y, g.w, g.h);
-            });
+                g.life -= 0.04;
+                g.x -= PIPE_SPEED;
+                if (g.life <= 0) ghosts.splice(i, 1);
+            }
 
             // Draw Pipes
             ctx.shadowBlur = 15;
@@ -299,6 +282,7 @@
             ctx.lineWidth = 3;
             pipes.forEach(pipe => {
                 ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
+                // Glow effect inside
                 ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
                 ctx.fillRect(pipe.x, pipe.y, pipe.w, pipe.h);
             });
@@ -312,19 +296,18 @@
             ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
             ctx.fillRect(player.x, player.y, player.w, player.h);
 
-            if (!isStarted && !isGameOver) {
+            if (!isStarted) {
                 ctx.shadowBlur = 10;
                 ctx.fillStyle = 'white';
                 ctx.font = '24px "Courier New"';
                 ctx.textAlign = 'center';
                 ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2 + 100);
             }
-        }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            update();
-            render();
+            requestAnimationFrame(() => {
+                update();
+                draw();
+            });
         }
 
         function gameOver() {
@@ -336,18 +319,11 @@
             window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
         }
 
-        // Event Listeners
-        const options = { passive: false };
-        window.addEventListener('pointerdown', handleAction, options);
-        window.addEventListener('touchstart', handleAction, options);
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') handleAction(e);
-        });
-        window.addEventListener('resize', resize);
+        draw();
 
-        init();
+        // Notify platform
+        window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>
-
     <!-- Google Ads Container -->
     <div id="ad-container"
         style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
@@ -358,11 +334,7 @@
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
         <script>
-            try {
-                (adsbygoogle = window.adsbygoogle || []).push({});
-            } catch (e) {
-                console.warn("AdSense blocked by client, ignoring.");
-            }
+            (adsbygoogle = window.adsbygoogle || []).push({});
         </script>
     </div>
 </body>

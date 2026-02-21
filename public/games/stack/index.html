@@ -10,14 +10,18 @@
             margin: 0;
             overflow: hidden;
             background: #000;
-            font-family: sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            overscroll-behavior: none;
             touch-action: none;
         }
 
         #ui {
             position: absolute;
             top: 20px;
+            left: 0;
             width: 100%;
             text-align: center;
             color: white;
@@ -27,6 +31,13 @@
         #score {
             font-size: 48px;
             font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #instructions {
+            font-size: 18px;
+            opacity: 0.8;
+            margin-top: 10px;
         }
 
         #game-over {
@@ -37,9 +48,30 @@
             background: white;
             padding: 40px;
             border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
             display: none;
+            pointer-events: auto;
             z-index: 20;
+            min-width: 200px;
+        }
+
+        h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        p {
+            color: #666;
+            margin: 0 0 20px 0;
+            font-size: 16px;
+        }
+
+        #final-score {
+            color: #646cff;
+            font-weight: bold;
+            font-size: 24px;
         }
 
         button {
@@ -51,6 +83,18 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #4b51bf;
+            margin-top: 5px;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        button:hover {
+            background: #535bf2;
         }
     </style>
 </head>
@@ -58,161 +102,340 @@
 <body>
     <div id="ui">
         <div id="score">0</div>
+        <div id="instructions">Click to Start</div>
     </div>
+
     <div id="game-over">
         <h1>GAME OVER</h1>
         <p>Your Score: <span id="final-score">0</span></p>
-        <button onclick="location.reload()">RETRY</button>
+        <button onclick="restartGame()">RETRY</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
+        // Game Constants
+        const BOX_HEIGHT = 1;
+        const INITIAL_WIDTH = 3;
+        const INITIAL_DEPTH = 3;
+
+        let scene, camera, renderer;
+        let stack = [];
+        let debris = [];
+        let activeBlock = null;
+        let direction = 'x';
+        let speed = 0.15;
+        let gameState = 'START'; // START, PLAYING, OVER
+        let score = 0;
+        let targetCameraY = 10;
+        let targetCameraZoom = 1; // For game over zoom out
+        let currentCameraZoom = 1;
+        let backgroundParticles = [];
+
+        // Audio Manager
         class AudioManager {
-            constructor() { this.ctx = null; }
+            constructor() {
+                this.ctx = null;
+            }
             init() {
-                if (!this.ctx) {
-                    try {
-                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                        if (AudioContextClass) this.ctx = new AudioContextClass();
-                    } catch (e) { }
-                }
-                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             }
             playNote(freq, type, duration, volume) {
-                this.init();
                 if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
+
                 osc.type = type;
+
+                // Frequency slide for game over
                 if (Array.isArray(freq)) {
                     osc.frequency.setValueAtTime(freq[0], this.ctx.currentTime);
                     osc.frequency.exponentialRampToValueAtTime(freq[1], this.ctx.currentTime + duration);
                 } else {
                     osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
                 }
+
                 gain.gain.setValueAtTime(volume, this.ctx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
+
                 osc.start();
                 osc.stop(this.ctx.currentTime + duration);
             }
         }
         const audio = new AudioManager();
 
-        const BOX_HEIGHT = 1, INITIAL_WIDTH = 3, INITIAL_DEPTH = 3;
-        let scene, camera, renderer, activeBlock = null;
-        let stack = [], debris = [], direction = 'x', speed = 0.15, gameState = 'START', score = 0;
-        let targetCameraY = 10, targetCameraZoom = 1, currentCameraZoom = 1;
+        init();
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x1a0b2e);
             scene.fog = new THREE.FogExp2(0x1a0b2e, 0.04);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-            const dl = new THREE.DirectionalLight(0xffffff, 0.8);
-            dl.position.set(10, 20, 10);
-            scene.add(dl);
 
-            camera = new THREE.OrthographicCamera(-10 * (window.innerWidth / window.innerHeight), 10 * (window.innerWidth / window.innerHeight), 10, -10, 0.1, 1000);
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            // Background Particles
+            const particleGeo = new THREE.BufferGeometry();
+            const particleCount = 300;
+            const posArray = new Float32Array(particleCount * 3);
+            for (let i = 0; i < particleCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 60;
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particleMat = new THREE.PointsMaterial({ size: 0.2, color: 0x88ccff, transparent: true, opacity: 0.6 });
+            const particleMesh = new THREE.Points(particleGeo, particleMat);
+            scene.add(particleMesh);
+            backgroundParticles.push(particleMesh);
+
+            // Camera (Orthographic for that classic stack look)
+            const aspect = window.innerWidth / window.innerHeight;
+            const d = 10;
+            camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 0.1, 1000);
             camera.position.set(10, 10, 10);
             camera.lookAt(0, 0, 0);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
+            // Foundation
             addBlock(0, 0, 0, INITIAL_WIDTH, INITIAL_DEPTH, false);
-            gameState = 'START';
-            resize();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('pointerdown', handleAction);
+            window.addEventListener('keydown', (e) => { if (e.code === 'Space') handleAction(); });
+
             animate();
+
+            // Notify platform
             window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
 
         function addBlock(x, y, z, width, depth, isActive) {
-            const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, BOX_HEIGHT, depth), new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${score * 10 + 200}, 70%, 60%)`) }));
+            const color = new THREE.Color(`hsl(${score * 10 + 200}, 70%, 60%)`);
+            const geometry = new THREE.BoxGeometry(width, BOX_HEIGHT, depth);
+            const material = new THREE.MeshStandardMaterial({ color });
+            const mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(x, y, z);
             scene.add(mesh);
+
             const block = { mesh, width, depth };
-            if (isActive) activeBlock = block; else stack.push(block);
+            if (isActive) {
+                activeBlock = block;
+            } else {
+                stack.push(block);
+            }
             return block;
         }
 
         function handleAction() {
             audio.init();
             if (gameState === 'OVER') return;
-            if (gameState === 'START') { gameState = 'PLAYING'; startNewRound(); return; }
+            if (gameState === 'START') {
+                gameState = 'PLAYING';
+                startNewRound();
+                return;
+            }
 
-            const top = stack[stack.length - 1];
-            const diff = activeBlock.mesh.position[direction] - top.mesh.position[direction];
-            const overlap = activeBlock[direction === 'x' ? 'width' : 'depth'] - Math.abs(diff);
+            // Place Block
+            const topBlock = stack[stack.length - 1];
+            const diff = activeBlock.mesh.position[direction] - topBlock.mesh.position[direction];
+            const dimension = direction === 'x' ? 'width' : 'depth';
+            const overlap = activeBlock[dimension] - Math.abs(diff);
 
-            if (overlap <= 0) { gameOver(); return; }
+            if (overlap <= 0) {
+                gameOver();
+                return;
+            }
 
+            // Sound feedback
             const isPerfect = Math.abs(diff) < 0.15;
-            audio.playNote(220 + score * 20, isPerfect ? 'sine' : 'triangle', 0.1, 0.3);
+            const baseFreq = 220 + (score * 20);
+            if (isPerfect) {
+                audio.playNote(baseFreq * 1.5, 'sine', 0.2, 0.3);
+                createPerfectFlash(activeBlock.mesh.position.x, activeBlock.mesh.position.y, activeBlock.mesh.position.z, activeBlock.width, activeBlock.depth);
+            } else {
+                audio.playNote(baseFreq, 'triangle', 0.1, 0.3);
+            }
 
-            const newW = direction === 'x' ? overlap : activeBlock.width;
-            const newD = direction === 'z' ? overlap : activeBlock.depth;
-            const newX = direction === 'x' ? top.mesh.position.x + diff / 2 : activeBlock.mesh.position.x;
-            const newZ = direction === 'z' ? top.mesh.position.z + diff / 2 : activeBlock.mesh.position.z;
+            // Slice block logic
+            const newWidth = direction === 'x' ? overlap : activeBlock.width;
+            const newDepth = direction === 'z' ? overlap : activeBlock.depth;
+            const newX = direction === 'x' ? topBlock.mesh.position.x + diff / 2 : activeBlock.mesh.position.x;
+            const newZ = direction === 'z' ? topBlock.mesh.position.z + diff / 2 : activeBlock.mesh.position.z;
 
+            // Recreate geometry instead of scale to maintain correct world sizing for next block
             activeBlock.mesh.geometry.dispose();
-            activeBlock.mesh.geometry = new THREE.BoxGeometry(newW, BOX_HEIGHT, newD);
-            activeBlock.mesh.position.x = newX;
-            activeBlock.mesh.position.z = newZ;
-            activeBlock.width = newW;
-            activeBlock.depth = newD;
+            activeBlock.mesh.geometry = new THREE.BoxGeometry(newWidth, BOX_HEIGHT, newDepth);
+
+            activeBlock.mesh.position[direction] = newX;
+            if (direction === 'z') activeBlock.mesh.position.z = newZ;
+
+            activeBlock.width = newWidth;
+            activeBlock.depth = newDepth;
+
+            // Add debris (falling part)
+            const debrisWidth = direction === 'x' ? activeBlock[dimension] - overlap : activeBlock.width;
+            const debrisDepth = direction === 'z' ? activeBlock[dimension] - overlap : activeBlock.depth;
+            const debrisX = direction === 'x'
+                ? (diff > 0 ? newX + newWidth / 2 + debrisWidth / 2 : newX - newWidth / 2 - debrisWidth / 2)
+                : activeBlock.mesh.position.x;
+            const debrisZ = direction === 'z'
+                ? (diff > 0 ? newZ + newDepth / 2 + debrisDepth / 2 : newZ - newDepth / 2 - debrisDepth / 2)
+                : activeBlock.mesh.position.z;
+
+            addDebris(debrisX, activeBlock.mesh.position.y, debrisZ, debrisWidth, debrisDepth, activeBlock.mesh.material.color);
 
             stack.push(activeBlock);
             score++;
             document.getElementById('score').textContent = score;
             window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+
+            // Increase speed slightly, always reset direction to positive for next spawn
             speed = Math.abs(speed) + 0.002;
+
             startNewRound();
         }
 
+        function createPerfectFlash(x, y, z, w, d) {
+            const geo = new THREE.BoxGeometry(w + 0.5, BOX_HEIGHT + 0.5, d + 0.5);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            debris.push({ mesh, velocity: { y: 0, r: 0 }, isFlash: true, life: 1.0 });
+        }
+
         function startNewRound() {
-            const top = stack[stack.length - 1];
+            const topBlock = stack[stack.length - 1];
             direction = direction === 'x' ? 'z' : 'x';
-            addBlock(direction === 'x' ? -10 : top.mesh.position.x, stack.length * BOX_HEIGHT, direction === 'z' ? -10 : top.mesh.position.z, top.width, top.depth, true);
+
+            const x = direction === 'x' ? -15 : topBlock.mesh.position.x;
+            const z = direction === 'z' ? -15 : topBlock.mesh.position.z;
+            const y = stack.length * BOX_HEIGHT;
+
+            addBlock(x, y, z, topBlock.width, topBlock.depth, true);
+
+            // Move camera up via Lerp
             targetCameraY = stack.length * BOX_HEIGHT + 10;
         }
 
-        function update() {
-            if (gameState === 'PLAYING' && activeBlock) {
-                activeBlock.mesh.position[direction] += speed;
-                if (Math.abs(activeBlock.mesh.position[direction]) > 10) gameOver();
-            }
-            camera.position.y += (targetCameraY - camera.position.y) * 0.1;
-            currentCameraZoom += (targetCameraZoom - currentCameraZoom) * 0.1;
-            camera.zoom = currentCameraZoom;
-            camera.updateProjectionMatrix();
+        function gameOver() {
+            gameState = 'OVER';
+            audio.playNote([440, 110], 'sawtooth', 0.5, 0.3);
+
+            // Set zoom out target based on tower height
+            targetCameraZoom = Math.max(0.2, 10 / (stack.length * BOX_HEIGHT + 10)); // Calculate needed zoom to see whole tower
+            targetCameraY = (stack.length * BOX_HEIGHT) / 2; // Center camera on the tower
+
+            // Delay UI popup to let player see the tower
+            setTimeout(() => {
+                document.getElementById('game-over').style.display = 'block';
+                document.getElementById('final-score').textContent = score;
+                window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+            }, 1500);
         }
 
-        function render() { renderer.render(scene, camera); }
-        function animate() { requestAnimationFrame(animate); update(); render(); }
-        function resize() {
+        function restartGame() {
+            location.reload();
+        }
+
+        function onWindowResize() {
             const aspect = window.innerWidth / window.innerHeight;
-            camera.left = -10 * aspect; camera.right = 10 * aspect;
+            const d = 10;
+            camera.left = -d * aspect;
+            camera.right = d * aspect;
+            camera.top = d;
+            camera.bottom = -d;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        function gameOver() {
-            if (gameState === 'OVER') return; gameState = 'OVER';
-            targetCameraZoom = Math.max(0.2, 10 / (stack.length * BOX_HEIGHT + 10));
-            targetCameraY = (stack.length * BOX_HEIGHT) / 2;
-            document.getElementById('game-over').style.display = 'block';
-            document.getElementById('final-score').textContent = score;
-            audio.playNote([440, 110], 'sawtooth', 0.5, 0.3);
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+
+        function addDebris(x, y, z, width, depth, color) {
+            const geometry = new THREE.BoxGeometry(width, BOX_HEIGHT, depth);
+            const material = new THREE.MeshStandardMaterial({ color });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            debris.push({ mesh, velocity: { y: 0, r: (Math.random() - 0.5) * 0.1 } });
         }
 
-        window.addEventListener('pointerdown', handleAction);
-        window.addEventListener('keydown', e => { if (e.code === 'Space') handleAction(); });
-        window.addEventListener('resize', resize);
-        init();
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (gameState === 'PLAYING' && activeBlock) {
+                activeBlock.mesh.position[direction] += speed;
+                if (Math.abs(activeBlock.mesh.position[direction]) > 15) {
+                    speed *= -1;
+                }
+            }
+
+            // Smooth Camera Y & Zoom
+            camera.position.y += (targetCameraY - camera.position.y) * 0.1;
+
+            if (gameState === 'OVER') {
+                currentCameraZoom += (targetCameraZoom - currentCameraZoom) * 0.05;
+                camera.zoom = currentCameraZoom;
+                camera.updateProjectionMatrix();
+            }
+
+            // Background particles parallax
+            if (backgroundParticles.length > 0) {
+                backgroundParticles[0].position.y = camera.position.y * 0.5;
+                backgroundParticles[0].rotation.y += 0.0005;
+            }
+
+            // Debris physics
+            for (let i = debris.length - 1; i >= 0; i--) {
+                const d = debris[i];
+                if (d.isFlash) {
+                    d.life -= 0.05;
+                    d.mesh.scale.multiplyScalar(1.05);
+                    d.mesh.material.opacity = d.life;
+                    if (d.life <= 0) {
+                        scene.remove(d.mesh);
+                        debris.splice(i, 1);
+                    }
+                } else {
+                    d.velocity.y -= 0.02; // Gravity
+                    d.mesh.position.y += d.velocity.y;
+                    d.mesh.rotation.x += d.velocity.r;
+                    d.mesh.rotation.z += d.velocity.r;
+
+                    if (d.mesh.position.y < targetCameraY - 20) {
+                        scene.remove(d.mesh);
+                        debris.splice(i, 1);
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
     </script>
+    <!-- Google Ads Container -->
+    <div id="ad-container"
+        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+        <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+            crossorigin="anonymous"></script>
+        <!-- Horizontal Banner -->
+        <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
+            data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
 </body>
 
 </html>
