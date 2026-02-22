@@ -282,35 +282,31 @@
             player.add(playerInner);
             scene.add(player);
 
-            // Background Parallax Objects (Synthwave Cyber-Mountains)
+            // Background Parallax Objects (Neon Geometric Shapes)
             parallaxObjects = []; // Reset array
-            for (let i = 0; i < 25; i++) {
-                // Large wireframe Pyramids (tetrahedrons/cones) for that classic 80s outrun look
-                const radius = Math.random() * 8 + 4; // Big mountains
-                const height = Math.random() * 10 + 8;
-                const geo = new THREE.ConeGeometry(radius, height, 4);
+            for (let i = 0; i < 20; i++) {
+                const size = Math.random() * 2 + 1;
+                // Mix of Icosahedrons and Toruses for a synthwave feel
+                const isRing = Math.random() > 0.5;
+                const geo = isRing ? new THREE.TorusGeometry(size, 0.1, 8, 20) : new THREE.IcosahedronGeometry(size, 0);
 
                 const mat = new THREE.MeshBasicMaterial({
-                    color: Math.random() > 0.5 ? COLORS.parallax : 0xff0055,
+                    color: Math.random() > 0.5 ? COLORS.parallax : COLORS.groundGrid,
                     transparent: true,
-                    opacity: 0.1 + Math.random() * 0.15,
-                    wireframe: true,
-                    wireframeLinewidth: 2
+                    opacity: 0.15 + Math.random() * 0.1,
+                    wireframe: true
                 });
-
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(
-                    (Math.random() - 0.5) * 120, // Spread widely across X
-                    groundY + height / 2 - 2, // Sitting near the horizon
-                    -20 - Math.random() * 30 // Deep in the background
+                    (Math.random() - 0.5) * 80,
+                    Math.random() * 20 - 5,
+                    -15 - Math.random() * 20
                 );
-
-                // Slightly tilt them back for perspective
-                mesh.rotation.x = -0.1;
-                mesh.rotation.y = Math.PI / 4; // Rotate so we see the corner
-
                 mesh.userData = {
-                    speed: Math.random() * 0.3 + 0.05, // Much slower parallax for distant mountains
+                    speed: Math.random() * 0.5 + 0.1, // Slower than ground
+                    rotSpeedX: (Math.random() - 0.5) * 0.02,
+                    rotSpeedY: (Math.random() - 0.5) * 0.02,
+                    rotSpeedZ: (Math.random() - 0.5) * 0.02
                 };
                 scene.add(mesh);
                 parallaxObjects.push(mesh);
@@ -594,11 +590,15 @@
                 const time = Date.now() * 0.0005;
                 scene.fog.color.setHSL(0.7 + Math.sin(time) * 0.1, 0.6, 0.1);
 
-                // Update Parallax (Synthwave Mountains)
+                // Update Parallax (Floating Shapes)
                 parallaxObjects.forEach(p => {
                     p.position.x -= speed * p.userData.speed;
-                    if (p.position.x < camera.left - 20) {
-                        p.position.x = camera.right + 20 + Math.random() * 40; // Spawn far right
+                    p.rotation.x += p.userData.rotSpeedX;
+                    p.rotation.y += p.userData.rotSpeedY;
+                    p.rotation.z += p.userData.rotSpeedZ;
+                    if (p.position.x < camera.left - 10) {
+                        p.position.x = camera.right + 10;
+                        p.position.y = Math.random() * 20 - 5;
                     }
                 });
             }
