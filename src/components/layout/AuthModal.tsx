@@ -34,9 +34,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         setLoading(true);
         try {
             // Determine the correct redirect URL based on environment
-            const redirectUrl = window.location.hostname === 'localhost'
-                ? 'http://localhost:5173'
-                : window.location.origin;
+            // Use window.location.origin to support any port (e.g., 3000, 5173) and production domains
+            const redirectUrl = window.location.origin;
 
             const { error } = await supabase.auth.signInWithOAuth({
                 provider,

@@ -44,29 +44,56 @@ export const useUserStore = create<UserState>()(
 );
 
 // Handle OAuth redirect hash parsing before HashRouter intercepts it
-if (typeof window !== 'undefined' && window.location.hash) {
+if (typeof window !== 'undefined') {
     const hash = window.location.hash;
-    // HashRouter might make it '#/access_token=...', so we remove the leading '#/' or '#'
-    const hashParams = new URLSearchParams(hash.replace(/^#\/?/, ''));
+    const search = window.location.search;
 
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
+    // Check both hash and search for tokens (Supabase usually uses hash)
+    if (hash.includes('access_token=') || search.includes('access_token=')) {
+        console.log('Detected OAuth tokens in URL');
 
-    if (accessToken && refreshToken) {
-        supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-        }).then(({ data, error }) => {
-            if (!error && data.session) {
-                useUserStore.getState().setUser(data.session.user);
-            }
-        });
-        // Clean the URL hash so HashRouter doesn't get confused
-        window.history.replaceState(null, '', window.location.pathname);
+        const params = new URLSearchParams(
+            hash.includes('access_token=')
+                ? hash.replace(/^#\/?/, '')
+                : search.replace(/^\?/, '')
+        );
+
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const errorDescription = params.get('error_description');
+
+        if (errorDescription) {
+            console.error('OAuth Error:', errorDescription);
+            alert('Authentication Error: ' + errorDescription);
+        }
+
+        if (accessToken && refreshToken) {
+            console.log('Setting Supabase session...');
+            supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+            }).then(({ data, error }) => {
+                if (error) {
+                    console.error('Error setting session:', error.message);
+                    alert('Session Error: ' + error.message);
+                } else if (data.session) {
+                    console.log('Session established successfully');
+                    useUserStore.getState().setUser(data.session.user);
+                }
+            }).catch(err => {
+                console.error('Critical error during session setup:', err);
+                alert('Critical Error: ' + (err.message || 'Check console'));
+            });
+
+            // Clean the URL but keep the HashRouter structure if possible
+            const newUrl = window.location.origin + window.location.pathname + (window.location.hash.startsWith('#/') ? '#/' : '');
+            window.history.replaceState(null, '', newUrl);
+        }
     }
 }
 
 // Initialize auth listener outside the store to sync state on load / auth changes
-supabase.auth.onAuthStateChange((_event, session) => {
+supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Auth state changed:', event, session ? 'Session found' : 'No session');
     useUserStore.getState().setUser(session?.user || null);
 });
