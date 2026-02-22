@@ -43,6 +43,17 @@ export const useUserStore = create<UserState>()(
     )
 );
 
+// Handle OAuth redirect hash parsing before HashRouter intercepts it
+if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+            useUserStore.getState().setUser(session.user);
+        }
+        // Clean the URL hash so HashRouter doesn't get confused
+        window.history.replaceState(null, '', window.location.pathname);
+    });
+}
+
 // Initialize auth listener outside the store to sync state on load / auth changes
 supabase.auth.onAuthStateChange((_event, session) => {
     useUserStore.getState().setUser(session?.user || null);
