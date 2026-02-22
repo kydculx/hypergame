@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGameStore, type Game } from '../hooks/useGameStore';
 import { PokiHeader } from '../components/layout/PokiHeader';
 import { GameGrid } from '../components/layout/GameGrid';
+import { PortalBackground } from '../components/layout/PortalBackground';
 
 const Home: React.FC = () => {
     const games = useGameStore((state) => state.games);
@@ -15,11 +16,10 @@ const Home: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen relative z-0">
+            <PortalBackground />
             <PokiHeader />
             <GameGrid games={games} onGameSelect={handlePlay} />
-
-            {/* Background decoration if needed, but CSS body gradient handles most of it */}
         </div>
     );
 };
