@@ -145,22 +145,26 @@
     <script>
         // --- Constants ---
         const PLAYER_SIZE = 1;
-        const JUMP_FORCE = 0.36; // Increased from 0.32
-        const GRAVITY = 0.016; // Decreased from 0.018 for floatier jump
+        const JUMP_FORCE = 0.36;
+        const GRAVITY = 0.016;
         const GAME_SPEED_BASE = 0.18;
 
         const COLORS = {
-            bg: 0x1a1a2e,
-            player: 0xf1c40f,
-            ground: 0x16213e,
-            spike: 0xe94560,
-            block: 0x0f3460
+            bg: 0x0B0B1A,        // Deep space/synthwave night
+            player: 0x00f3ff,    // Neon Cyan
+            playerTrail: 0xff0055, // Hot Pink trail
+            groundGrid: 0xff0055,  // Hot Pink grid
+            groundBase: 0x050510,  // Dark base for ground
+            spike: 0xff0055,     // Neon Pink
+            block: 0x00f3ff,     // Neon Cyan
+            parallax: 0x4400aa   // Deep purple for background glowing shapes
         };
 
         let scene, camera, renderer;
-        let player;
+        let player, playerInner; // Player is now an outer wireframe and inner solid
         let obstacles = [];
         let particles = [];
+        let playerTrailParticles = [];
         let parallaxObjects = [];
         let score = 0;
         let gameState = 'START';
@@ -197,7 +201,7 @@
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(COLORS.bg);
-            scene.fog = new THREE.Fog(COLORS.bg, 10, 30);
+            scene.fog = new THREE.FogExp2(COLORS.bg, 0.03); // Use Exp2 fog for a smoother cyberpunk fade
 
             // Side View Orthographic
             const aspect = window.innerWidth / window.innerHeight;
@@ -206,51 +210,86 @@
             camera.position.set(0, 0, 20); // Side view
             camera.lookAt(0, 0, 0);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            // Need an anti-aliased WebGL renderer for clean glowing lines
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            // Optional: minimal fake bloom by boosting renderer tone mapping if needed, but basic color is fine for HTMl5 hypercasual
             document.body.appendChild(renderer.domElement);
 
-            // Light
-            const dl = new THREE.DirectionalLight(0xffffff, 0.8);
-            dl.position.set(5, 10, 10);
+            // Light - Synthwave lighting
+            const dl = new THREE.DirectionalLight(0xff0055, 0.8);
+            dl.position.set(5, 10, 5);
             scene.add(dl);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-            // Ground (Infinite scrolling visual)
+            const dl2 = new THREE.DirectionalLight(0x00f3ff, 0.6);
+            dl2.position.set(-5, 0, 10);
+            scene.add(dl2);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+
+            // Ground (Synthwave Grid)
+            const groundGroup = new THREE.Group();
+            groundGroup.position.set(0, groundY - 2.5, 0);
+
+            // Solid dark base
             const groundGeo = new THREE.BoxGeometry(100, 5, 10);
-            const groundMat = new THREE.MeshLambertMaterial({ color: COLORS.ground });
+            const groundMat = new THREE.MeshBasicMaterial({ color: COLORS.groundBase });
             const ground = new THREE.Mesh(groundGeo, groundMat);
-            ground.position.set(0, groundY - 2.5, 0);
-            scene.add(ground);
+            groundGroup.add(ground);
 
-            // Player
-            player = new THREE.Mesh(
-                playerGeo,
-                new THREE.MeshPhongMaterial({ color: COLORS.player, emissive: 0xaa8800 })
-            );
+            // Neon Grid Overlay
+            const gridGeo = new THREE.BoxGeometry(100, 5.1, 10.1); // Slightly larger to prevent Z-fighting
+            const gridMat = new THREE.MeshBasicMaterial({
+                color: COLORS.groundGrid,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.3
+            });
+            const grid = new THREE.Mesh(gridGeo, gridMat);
+            groundGroup.add(grid);
+            scene.add(groundGroup);
+
+            // Player (Glowing Composite Cube)
+            player = new THREE.Group();
             player.position.set(-6, groundY + PLAYER_SIZE / 2, 0);
+
+            // Outer Wireframe
+            const pOuterMat = new THREE.MeshBasicMaterial({ color: COLORS.player, wireframe: true, wireframeLinewidth: 2 });
+            const pOuter = new THREE.Mesh(playerGeo, pOuterMat);
+
+            // Inner Solid Core
+            const pInnerGeo = new THREE.BoxGeometry(PLAYER_SIZE * 0.7, PLAYER_SIZE * 0.7, PLAYER_SIZE * 0.7);
+            const pInnerMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: COLORS.player, emissiveIntensity: 0.8 });
+            playerInner = new THREE.Mesh(pInnerGeo, pInnerMat);
+
+            player.add(pOuter);
+            player.add(playerInner);
             scene.add(player);
 
-            // Background Parallax Objects
-            for (let i = 0; i < 15; i++) {
-                const size = Math.random() * 3 + 1;
-                const geo = new THREE.BoxGeometry(size, size, size);
+            // Background Parallax Objects (Neon Geometric Shapes)
+            for (let i = 0; i < 20; i++) {
+                const size = Math.random() * 2 + 1;
+                // Mix of Icosahedrons and Toruses for a synthwave feel
+                const isRing = Math.random() > 0.5;
+                const geo = isRing ? new THREE.TorusGeometry(size, 0.1, 8, 20) : new THREE.IcosahedronGeometry(size, 0);
+
                 const mat = new THREE.MeshBasicMaterial({
-                    color: 0xffffff,
+                    color: Math.random() > 0.5 ? COLORS.parallax : COLORS.groundGrid,
                     transparent: true,
-                    opacity: 0.03 + Math.random() * 0.05,
-                    wireframe: Math.random() > 0.5
+                    opacity: 0.15 + Math.random() * 0.1,
+                    wireframe: true
                 });
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(
                     (Math.random() - 0.5) * 80,
                     Math.random() * 20 - 5,
-                    -10 - Math.random() * 20
+                    -15 - Math.random() * 20
                 );
                 mesh.userData = {
-                    speed: Math.random() * 0.8 + 0.2, // relative speed multiplier to game speed
+                    speed: Math.random() * 0.5 + 0.1, // Slower than ground
                     rotSpeedX: (Math.random() - 0.5) * 0.02,
-                    rotSpeedY: (Math.random() - 0.5) * 0.02
+                    rotSpeedY: (Math.random() - 0.5) * 0.02,
+                    rotSpeedZ: (Math.random() - 0.5) * 0.02
                 };
                 scene.add(mesh);
                 parallaxObjects.push(mesh);
@@ -320,25 +359,40 @@
         function spawnObstacle(xOffset) {
             // Random pattern
             const type = Math.random() < 0.7 ? 'SPIKE' : 'BLOCK';
-            let mesh;
+            let meshGroup = new THREE.Group();
 
             if (type === 'SPIKE') {
-                const mat = new THREE.MeshLambertMaterial({ color: COLORS.spike });
-                mesh = new THREE.Mesh(spikeGeo, mat);
-                mesh.position.set(xOffset, groundY + 0.5, 0);
-                mesh.userData = { type: 'SPIKE', width: 0.5, height: 0.5 }; // Hitbox size (half-extents)
+                // Neon Spike (Solid Inner, Wire Outer)
+                const sInnerMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: COLORS.spike, emissiveIntensity: 0.8 });
+                const sOuterMat = new THREE.MeshBasicMaterial({ color: COLORS.spike, wireframe: true, wireframeLinewidth: 2 });
+
+                const sOuter = new THREE.Mesh(spikeGeo, sOuterMat);
+                const sInner = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 4), sInnerMat);
+
+                meshGroup.add(sOuter);
+                meshGroup.add(sInner);
+                meshGroup.position.set(xOffset, groundY + 0.5, 0);
+                meshGroup.userData = { type: 'SPIKE', width: 0.5, height: 0.5 }; // Hitbox size (half-extents)
             } else {
-                // Block
+                // Neon Block
                 const height = Math.random() < 0.5 ? 1 : 1.5;
                 const geo = new THREE.BoxGeometry(1, height, 1);
-                const mat = new THREE.MeshLambertMaterial({ color: COLORS.block });
-                mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(xOffset, groundY + height / 2, 0);
-                mesh.userData = { type: 'BLOCK', width: 0.5, height: height / 2 };
+
+                const bInnerMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: COLORS.block, emissiveIntensity: 0.7 });
+                const bOuterMat = new THREE.MeshBasicMaterial({ color: COLORS.block, wireframe: true, wireframeLinewidth: 2 });
+
+                const bOuter = new THREE.Mesh(geo, bOuterMat);
+                const innerGeo = new THREE.BoxGeometry(0.8, height * 0.8, 0.8);
+                const bInner = new THREE.Mesh(innerGeo, bInnerMat);
+
+                meshGroup.add(bOuter);
+                meshGroup.add(bInner);
+                meshGroup.position.set(xOffset, groundY + height / 2, 0);
+                meshGroup.userData = { type: 'BLOCK', width: 0.5, height: height / 2 };
             }
 
-            scene.add(mesh);
-            obstacles.push(mesh);
+            scene.add(meshGroup);
+            obstacles.push(meshGroup);
         }
 
         function spawnParticles(x, y, color, count = 5) {
@@ -371,6 +425,27 @@
             location.reload();
         }
 
+        function spawnTrailParticle(x, y) {
+            // Additive blending for neon glow effect
+            const mat = new THREE.MeshBasicMaterial({
+                color: COLORS.playerTrail,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            const mesh = new THREE.Mesh(particleGeo, mat);
+            // Spawn slightly behind and below center
+            mesh.position.set(x - 0.5 + (Math.random() * 0.2), y - 0.2 + (Math.random() * 0.2), 0);
+            scene.add(mesh);
+            playerTrailParticles.push({
+                mesh,
+                vx: -0.05 - Math.random() * 0.1, // Float left
+                vy: (Math.random() - 0.5) * 0.05,
+                life: 1.0,
+                mat
+            });
+        }
+
         function animate() {
             requestAnimationFrame(animate);
 
@@ -379,11 +454,16 @@
                 velocityY -= GRAVITY;
                 player.position.y += velocityY;
 
+                // Spawn trail frequently when moving
+                if (Math.random() > 0.4) { // 60% chance per frame to spawn a trail particle
+                    spawnTrailParticle(player.position.x, player.position.y);
+                }
+
                 // Ground Collision
                 if (player.position.y <= groundY + PLAYER_SIZE / 2) {
                     if (!isGrounded) {
-                        // Just landed
-                        spawnParticles(player.position.x, groundY + 0.5, COLORS.ground, 10);
+                        // Just landed - hard impact particles
+                        spawnParticles(player.position.x, groundY + 0.5, COLORS.player, 15);
                     }
                     player.position.y = groundY + PLAYER_SIZE / 2;
                     velocityY = 0;
@@ -391,14 +471,18 @@
 
                     // Smooth snap rotation
                     const nearest90 = Math.round(player.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
-                    player.rotation.z += (nearest90 - player.rotation.z) * 0.25; // Smooth lerp
+                    player.rotation.z += (nearest90 - player.rotation.z) * 0.25;
                 } else {
                     // Rotate while jumping
                     player.rotation.z -= 0.15;
                 }
 
+                // Subtle pulse on the inner core
+                if (playerInner) {
+                    playerInner.material.emissiveIntensity = 0.8 + Math.sin(Date.now() * 0.01) * 0.2;
+                }
+
                 // Move Obstacles (Player moves visually, but conceptually we move world left)
-                // Actually easier to keep player at X and move obstacles left
                 const speed = currentSpeed;
                 score += speed * 10;
                 document.getElementById('score').textContent = Math.floor(score);
@@ -408,12 +492,9 @@
                     const lastObs = obstacles[obstacles.length - 1];
                     if (lastObs.position.x < 15) { // Spawn ahead
                         // Dynamic Gap Logic
-                        // Initial gap: 15-25 (Sparse)
-                        // Final gap: 6-11 (Dense)
-                        // Reaches max density at score 3000 (~30 seconds)
                         const progress = Math.min(1.0, score / 3000);
-                        const minGap = 15 - (9 * progress); // Linear decay from 15 to 6
-                        const variance = 10 - (5 * progress); // Linear decay from 10 to 5
+                        const minGap = 15 - (9 * progress);
+                        const variance = 10 - (5 * progress);
 
                         const gap = minGap + Math.random() * variance;
                         spawnObstacle(lastObs.position.x + gap);
@@ -424,8 +505,7 @@
                     const obs = obstacles[i];
                     obs.position.x -= speed;
 
-                    // Cleanup - dynamic based on camera
-                    // Safely remove when clearly off screen to the left
+                    // Cleanup
                     if (obs.position.x < camera.left - 5) {
                         safeRemove(obs);
                         obstacles.splice(i, 1);
@@ -433,8 +513,7 @@
                     }
 
                     // Collision Detection (AABB)
-                    // Player AABB
-                    const pHalf = PLAYER_SIZE / 2 * 0.8; // slightly smaller box forgiving
+                    const pHalf = PLAYER_SIZE / 2 * 0.8;
                     const px = player.position.x;
                     const py = player.position.y;
 
@@ -452,16 +531,16 @@
                 // Speed up
                 currentSpeed += 0.00005;
 
-                // Color Pulse background
-                const time = Date.now() * 0.001;
-                scene.background.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
-                scene.fog.color.setHSL(0.6 + Math.sin(time * 0.2) * 0.1, 0.5, 0.1);
+                // Color Pulse background - subtle shifting hue for synthwave fog
+                const time = Date.now() * 0.0005;
+                scene.fog.color.setHSL(0.7 + Math.sin(time) * 0.1, 0.6, 0.1);
 
                 // Update Parallax
                 parallaxObjects.forEach(p => {
                     p.position.x -= speed * p.userData.speed;
                     p.rotation.x += p.userData.rotSpeedX;
                     p.rotation.y += p.userData.rotSpeedY;
+                    p.rotation.z += p.userData.rotSpeedZ;
                     if (p.position.x < camera.left - 10) {
                         p.position.x = camera.right + 10;
                         p.position.y = Math.random() * 20 - 5;
@@ -469,17 +548,32 @@
                 });
             }
 
-            // Particles
+            // Explosion Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.mesh.position.x += p.vx;
                 p.mesh.position.y += p.vy;
-                p.mesh.scale.multiplyScalar(0.9);
-                p.life -= 0.05;
+                p.mesh.scale.multiplyScalar(0.92);
+                p.life -= 0.03;
                 if (p.life <= 0) {
                     if (p.mesh.material) p.mesh.material.dispose();
                     scene.remove(p.mesh);
                     particles.splice(i, 1);
+                }
+            }
+
+            // Trail Particles
+            for (let i = playerTrailParticles.length - 1; i >= 0; i--) {
+                const p = playerTrailParticles[i];
+                p.mesh.position.x += p.vx;
+                p.mesh.position.y += p.vy;
+                p.mesh.scale.multiplyScalar(0.85); // Shrink fast
+                p.mat.opacity = p.life;
+                p.life -= 0.08;
+                if (p.life <= 0) {
+                    if (p.mat) p.mat.dispose();
+                    scene.remove(p.mesh);
+                    playerTrailParticles.splice(i, 1);
                 }
             }
 
