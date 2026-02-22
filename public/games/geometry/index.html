@@ -121,6 +121,19 @@
             transform: translateY(4px);
             box-shadow: none;
         }
+
+        .fullscreen-info {
+            display: none;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .fullscreen-info {
+                display: block;
+            }
+        }
     </style>
 </head>
 
@@ -133,6 +146,7 @@
         <h1>GEOMETRY DASH</h1>
         <p>Jump over the spikes!<br>Time your jumps perfectly.</p>
         <button class="start-btn" onclick="startGame()">PLAY</button>
+        <div class="fullscreen-info">전체화면으로 실행됩니다</div>
     </div>
 
     <div id="game-over">
@@ -327,6 +341,20 @@
         }
 
         function startGame() {
+            // Request fullscreen on mobile
+            if (window.innerWidth <= 768) {
+                try {
+                    const doc = window.document;
+                    const docEl = doc.documentElement;
+                    const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+                    if (requestFullScreen) {
+                        requestFullScreen.call(docEl);
+                    }
+                } catch (e) {
+                    console.warn('Fullscreen request failed:', e);
+                }
+            }
+
             if (audioCtx.state === 'suspended') audioCtx.resume();
             document.getElementById('start-screen').style.display = 'none';
             gameState = 'PLAYING';
