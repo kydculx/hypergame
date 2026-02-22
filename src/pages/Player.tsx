@@ -12,6 +12,15 @@ const Player: React.FC = () => {
   const navigate = useNavigate();
 
   const [score, setScore] = useState(0);
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Capture initial dimensions on mount to prevent layout shifts on mobile
+  useEffect(() => {
+    setDimensions({
+      width: window.innerWidth,
+      height: window.innerHeight
+    });
+  }, []);
 
   // If page is refreshed, find the game from store
   useEffect(() => {
@@ -44,12 +53,12 @@ const Player: React.FC = () => {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [gameId, addScore, score]);
 
   if (!currentGame) return null;
 
   return (
-    <div className="flex flex-col h-screen w-full bg-black overflow-hidden" style={{ overscrollBehavior: 'none', touchAction: 'none' }}>
+    <div className="flex flex-col h-screen w-full bg-black overflow-hidden justify-center items-center" style={{ overscrollBehavior: 'none', touchAction: 'none' }}>
       {/* Close Button */}
       <button
         onClick={() => navigate('/')}
@@ -59,7 +68,10 @@ const Player: React.FC = () => {
       </button>
 
       {/* Game Container */}
-      <div className="flex-1 relative overflow-hidden bg-gray-900">
+      <div
+        className="relative overflow-hidden bg-gray-900"
+        style={dimensions ? { width: `${dimensions.width}px`, height: `${dimensions.height}px` } : { width: '100%', height: '100%' }}
+      >
         <iframe
           src={currentGame.gameUrl}
           className="w-full h-full border-none"
