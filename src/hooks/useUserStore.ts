@@ -48,10 +48,7 @@ if (typeof window !== 'undefined') {
     const hash = window.location.hash;
     const search = window.location.search;
 
-    // Check both hash and search for tokens (Supabase usually uses hash)
     if (hash.includes('access_token=') || search.includes('access_token=')) {
-        console.log('Detected OAuth tokens in URL');
-
         const params = new URLSearchParams(
             hash.includes('access_token=')
                 ? hash.replace(/^#\/?/, '')
@@ -64,25 +61,20 @@ if (typeof window !== 'undefined') {
 
         if (errorDescription) {
             console.error('OAuth Error:', errorDescription);
-            alert('Authentication Error: ' + errorDescription);
         }
 
         if (accessToken && refreshToken) {
-            console.log('Setting Supabase session...');
             supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken
             }).then(({ data, error }) => {
                 if (error) {
                     console.error('Error setting session:', error.message);
-                    alert('Session Error: ' + error.message);
                 } else if (data.session) {
-                    console.log('Session established successfully');
                     useUserStore.getState().setUser(data.session.user);
                 }
             }).catch(err => {
                 console.error('Critical error during session setup:', err);
-                alert('Critical Error: ' + (err.message || 'Check console'));
             });
 
             // Clean the URL but keep the HashRouter structure if possible
@@ -93,7 +85,6 @@ if (typeof window !== 'undefined') {
 }
 
 // Initialize auth listener outside the store to sync state on load / auth changes
-supabase.auth.onAuthStateChange((event, session) => {
-    console.log('Auth state changed:', event, session ? 'Session found' : 'No session');
+supabase.auth.onAuthStateChange((_event, session) => {
     useUserStore.getState().setUser(session?.user || null);
 });
