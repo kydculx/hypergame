@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Trophy, X } from 'lucide-react';
+import { Trophy, X } from 'lucide-react';
 import { UserProfile } from './UserProfile';
 import Leaderboard from '../Leaderboard';
 
@@ -25,11 +25,6 @@ export const PokiHeader: React.FC = () => {
                         className="bg-white p-3 rounded-full shadow-lg text-amber-500 hover:text-amber-600 hover:scale-105 transition-all duration-200"
                     >
                         <Trophy size={24} />
-                    </button>
-
-                    {/* Search Button */}
-                    <button className="bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-500 hover:scale-105 transition-all duration-200">
-                        <Search size={24} />
                     </button>
 
                     {/* User Profile */}
