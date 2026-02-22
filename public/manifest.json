@@ -1,0 +1,16 @@
+{
+    "name": "WCGames",
+    "short_name": "WCGames",
+    "start_url": "./",
+    "display": "standalone",
+    "background_color": "#0A0B1A",
+    "theme_color": "#0A0B1A",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/images/wc-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ]
+}

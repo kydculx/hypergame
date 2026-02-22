@@ -20,6 +20,19 @@ const Player: React.FC = () => {
       if (game) setCurrentGame(game);
       else navigate('/');
     }
+
+    // Attempt to lock orientation to portrait
+    const lockOrientation = async () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).lock) {
+          await (screen.orientation as any).lock('portrait');
+        }
+      } catch (error) {
+        console.log('Orientation lock failed:', error);
+      }
+    };
+
+    lockOrientation();
   }, [gameId, currentGame, games, setCurrentGame, navigate]);
 
   useEffect(() => {
