@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { supabase } from '../lib/supabase';
 
 export interface Game {
   id: string;
@@ -28,9 +29,10 @@ interface GameState {
   leaderboard: Record<string, ScoreEntry[]>;
   userProfile: UserProfile;
   setCurrentGame: (game: Game | null) => void;
-  addScore: (gameId: string, score: number) => void;
+  addScore: (gameId: string, score: number) => Promise<void>;
   getBestScore: (gameId: string) => number;
   setNickname: (nickname: string) => void;
+  fetchLeaderboard: (gameId: string) => Promise<void>;
 }
 
 const getRandomColor = () => {
@@ -109,17 +111,36 @@ export const useGameStore = create<GameState>()(
         joinedAt: Date.now(),
       },
       setCurrentGame: (game) => set({ currentGame: game }),
-      addScore: (gameId, score) => {
+
+      addScore: async (gameId, score) => {
+        const nickname = get().userProfile.nickname;
+
+        // 1. Submit to Supabase
+        try {
+          const { error } = await supabase
+            .from('scores')
+            .insert([
+              { game_id: gameId, user_name: nickname, score: score }
+            ]);
+
+          if (error) {
+            console.error('Error inserting score to Supabase:', error);
+          }
+        } catch (e) {
+          console.error('Supabase exception:', e);
+        }
+
+        // 2. Also update local state for immediate feedback
         const currentBoard = get().leaderboard[gameId] || [];
         const newEntry: ScoreEntry = {
-          userId: get().userProfile.nickname,
+          userId: nickname,
           score,
           date: Date.now()
         };
 
         const updatedBoard = [...currentBoard, newEntry]
           .sort((a, b) => b.score - a.score)
-          .slice(0, 5); // Keep top 5
+          .slice(0, 5); // Keep top 5 locally
 
         set((state) => ({
           leaderboard: {
@@ -127,6 +148,40 @@ export const useGameStore = create<GameState>()(
             [gameId]: updatedBoard,
           },
         }));
+      },
+
+      fetchLeaderboard: async (gameId) => {
+        try {
+          const { data, error } = await supabase
+            .from('scores')
+            .select('*')
+            .eq('game_id', gameId)
+            .order('score', { ascending: false })
+            .limit(5);
+
+          if (error) {
+            console.error('Error fetching leaderboard from Supabase:', error);
+            return;
+          }
+
+          if (data) {
+            // Map Supabase layout back to our ScoreEntry layout
+            const formattedBoard: ScoreEntry[] = data.map((item: any) => ({
+              userId: item.user_name,
+              score: item.score,
+              date: new Date(item.created_at).getTime()
+            }));
+
+            set((state) => ({
+              leaderboard: {
+                ...state.leaderboard,
+                [gameId]: formattedBoard,
+              }
+            }));
+          }
+        } catch (e) {
+          console.error('Supabase fetch exception:', e);
+        }
       },
       getBestScore: (gameId) => {
         const board = get().leaderboard[gameId] || [];

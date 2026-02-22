@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useGameStore } from '../hooks/useGameStore';
 import { Trophy, Medal, Clock } from 'lucide-react';
 
 const Leaderboard: React.FC = () => {
-  const { games, leaderboard } = useGameStore();
+  const { games, leaderboard, fetchLeaderboard } = useGameStore();
+
+  useEffect(() => {
+    // Fetch latest global scores for all games when leaderboard opens
+    games.forEach(game => {
+      fetchLeaderboard(game.id);
+    });
+  }, [games, fetchLeaderboard]);
 
   return (
     <div className="bg-gray-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-8 shadow-2xl">
@@ -15,7 +22,7 @@ const Leaderboard: React.FC = () => {
       <div className="space-y-12">
         {games.map((game) => {
           const scores = leaderboard[game.id] || [];
-          
+
           return (
             <div key={game.id}>
               <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
@@ -26,11 +33,10 @@ const Leaderboard: React.FC = () => {
               {scores.length > 0 ? (
                 <div className="space-y-2">
                   {scores.map((entry, index) => (
-                    <div 
-                      key={entry.date} 
-                      className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                        index === 0 ? 'bg-amber-400/10 border border-amber-400/20' : 'bg-white/5 border border-transparent'
-                      }`}
+                    <div
+                      key={entry.date}
+                      className={`flex items-center justify-between p-3 rounded-lg transition-colors ${index === 0 ? 'bg-amber-400/10 border border-amber-400/20' : 'bg-white/5 border border-transparent'
+                        }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-8 flex justify-center">
@@ -43,7 +49,7 @@ const Leaderboard: React.FC = () => {
                           {entry.userId}
                         </span>
                       </div>
-                      
+
                       <div className="flex items-center gap-6">
                         <div className="flex items-center gap-1.5 text-gray-500">
                           <Clock size={12} />
@@ -51,9 +57,8 @@ const Leaderboard: React.FC = () => {
                             {new Date(entry.date).toLocaleDateString()}
                           </span>
                         </div>
-                        <span className={`font-mono font-bold text-lg ${
-                          index === 0 ? 'text-amber-400' : 'text-indigo-300'
-                        }`}>
+                        <span className={`font-mono font-bold text-lg ${index === 0 ? 'text-amber-400' : 'text-indigo-300'
+                          }`}>
                           {entry.score.toLocaleString()}
                         </span>
                       </div>
