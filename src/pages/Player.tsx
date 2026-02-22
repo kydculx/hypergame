@@ -49,16 +49,32 @@ const Player: React.FC = () => {
   if (!currentGame) return null;
 
   return (
-    <div className="flex flex-col h-screen w-full bg-black overflow-hidden" style={{ overscrollBehavior: 'none', touchAction: 'none' }}>
-      {/* Close Button */}
-      <button
-        onClick={() => navigate('/')}
-        className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-all backdrop-blur-sm"
+    <div
+      className="flex flex-col w-full bg-black overflow-hidden"
+      style={{
+        height: '100dvh',
+        overscrollBehavior: 'none',
+        touchAction: 'none'
+      }}
+    >
+      {/* Absolute UI Layer for Relative Positioning within Safe Area */}
+      <div
+        className="pointer-events-none absolute inset-0 z-50 flex flex-col justify-start items-end"
+        style={{
+          paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
+          paddingRight: 'calc(env(safe-area-inset-right) + 1rem)',
+        }}
       >
-        <X size={24} />
-      </button>
+        {/* Close Button - Now positioned relative to Safe Area */}
+        <button
+          onClick={() => navigate('/')}
+          className="pointer-events-auto p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-all backdrop-blur-sm"
+        >
+          <X size={24} />
+        </button>
+      </div>
 
-      {/* Game Container */}
+      {/* Game Container - Fills the dynamic viewport completely */}
       <div className="flex-1 relative overflow-hidden bg-gray-900">
         <iframe
           src={currentGame.gameUrl}
