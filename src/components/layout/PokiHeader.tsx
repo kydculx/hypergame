@@ -10,10 +10,8 @@ export const PokiHeader: React.FC = () => {
         <>
             <header className="fixed top-0 left-0 w-full z-40 flex items-center justify-between p-4 pointer-events-none">
                 {/* Logo Container */}
-                <div className="bg-white rounded-full p-2 pr-4 pl-4 shadow-lg flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform duration-200 pointer-events-auto">
-                    <div className="bg-blue-600 w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-lg pb-0.5">
-                        W
-                    </div>
+                <div className="bg-white rounded-full p-2 pr-4 pl-2 shadow-lg flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform duration-200 pointer-events-auto">
+                    <img src="/images/wc-icon.png" alt="WCGames" className="w-8 h-8 rounded-full shadow-sm" />
                     <span className="font-bold text-gray-800 text-xl tracking-tight hidden sm:block">WCGames</span>
                 </div>
 

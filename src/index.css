@@ -17,11 +17,8 @@
 
 body {
   margin: 0;
-  overflow: hidden;
-  position: fixed;
-  width: 100%;
   min-width: 320px;
-  height: 100%;
+  min-height: 100vh;
   /* background color replaced by PortalBackground component */
   background-color: #0A0B1A;
   color: #ffffff;
