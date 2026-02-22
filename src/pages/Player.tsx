@@ -50,7 +50,7 @@ const Player: React.FC = () => {
 
   return (
     <div
-      className="flex flex-col w-full bg-black overflow-hidden"
+      className="fixed inset-0 w-full bg-black overflow-hidden flex flex-col"
       style={{
         height: '100dvh',
         overscrollBehavior: 'none',

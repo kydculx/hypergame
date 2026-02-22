@@ -5,7 +5,7 @@ import Player from './pages/Player';
 function App() {
   return (
     <Router>
-      <div className="w-full min-h-screen">
+      <div className="w-full h-full">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/play/:gameId" element={<Player />} />
