@@ -145,7 +145,7 @@
     <script>
         // --- Constants ---
         const PLAYER_SIZE = 1;
-        const JUMP_FORCE = 0.36;
+        const JUMP_FORCE = 0.27;
         const GRAVITY = 0.016;
         const GAME_SPEED_BASE = 0.18;
 
@@ -166,6 +166,7 @@
         let particles = [];
         let playerTrailParticles = [];
         let parallaxObjects = [];
+        let scrollingGrid;
         let score = 0;
         let gameState = 'START';
 
@@ -229,24 +230,34 @@
 
             // Ground (Synthwave Grid)
             const groundGroup = new THREE.Group();
-            groundGroup.position.set(0, groundY - 2.5, 0);
+            groundGroup.position.set(0, groundY - 10, -0.5); // Push down 10 units and slightly back
 
-            // Solid dark base
-            const groundGeo = new THREE.BoxGeometry(100, 5, 10);
+            // Solid dark base to block the sky below
+            const groundGeo = new THREE.PlaneGeometry(200, 20); // 20 units high (from -10 to +10 relative to group)
             const groundMat = new THREE.MeshBasicMaterial({ color: COLORS.groundBase });
             const ground = new THREE.Mesh(groundGeo, groundMat);
             groundGroup.add(ground);
 
-            // Neon Grid Overlay
-            const gridGeo = new THREE.BoxGeometry(100, 5.1, 10.1); // Slightly larger to prevent Z-fighting
+            // Neon Grid Overlay (Plane wireframe to look like a flat wall/2D grid)
+            // 200 width / 100 segments = 2 units per square
+            // 20 height / 10 segments = 2 units per square
+            const gridGeo = new THREE.PlaneGeometry(200, 20, 100, 10);
             const gridMat = new THREE.MeshBasicMaterial({
                 color: COLORS.groundGrid,
                 wireframe: true,
                 transparent: true,
                 opacity: 0.3
             });
-            const grid = new THREE.Mesh(gridGeo, gridMat);
-            groundGroup.add(grid);
+            scrollingGrid = new THREE.Mesh(gridGeo, gridMat);
+            groundGroup.add(scrollingGrid);
+
+            // Bright Neon Border line at the top of the ground
+            const borderGeo = new THREE.BoxGeometry(200, 0.2, 0.2);
+            const borderMat = new THREE.MeshBasicMaterial({ color: COLORS.groundGrid });
+            const border = new THREE.Mesh(borderGeo, borderMat);
+            border.position.set(0, 10, 0.5); // Top edge of the 20-high plane (which goes -10 to 10 relative to group)
+            groundGroup.add(border);
+
             scene.add(groundGroup);
 
             // Player (Glowing Composite Cube)
@@ -482,8 +493,18 @@
                     playerInner.material.emissiveIntensity = 0.8 + Math.sin(Date.now() * 0.01) * 0.2;
                 }
 
-                // Move Obstacles (Player moves visually, but conceptually we move world left)
                 const speed = currentSpeed;
+
+                // Scroll ground grid seamlessly
+                if (scrollingGrid) {
+                    scrollingGrid.position.x -= speed;
+                    // Our grid squares are 2 units wide (200 width / 100 segments), snap back every 2 units
+                    if (scrollingGrid.position.x <= -2) {
+                        scrollingGrid.position.x += 2;
+                    }
+                }
+
+                // Move Obstacles (Player moves visually, but conceptually we move world left)
                 score += speed * 10;
                 document.getElementById('score').textContent = Math.floor(score);
 
