@@ -12,11 +12,7 @@ const GoogleIcon = () => (
     </svg>
 );
 
-const AppleIcon = () => (
-    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.01-.13-.01-.22 0-1.22.527-2.32 1.183-3.08.744-.89 1.96-1.54 2.96-1.54.12 0 .23.02.3.03.033.06.04.14.04.21zm-4.435 4.69c-1.37 0-2.45.89-3.23 1.83-.9 1.07-1.57 2.76-1.57 4.54 0 2.22 1.25 4.94 3.08 6.94 1.1 1.2 2.38 2.37 3.86 2.38 1.43.01 2.02-.85 3.84-.85 1.84 0 2.37.86 3.86.83 1.52-.03 2.66-1.12 3.75-2.29 1.25-1.34 1.77-2.65 1.81-2.73-.02-.02-2.5-1.02-2.52-3.83-.02-2.38 1.87-3.4 1.9-3.41-.01-.02-1.17-1.74-3.03-1.93-1.34-.14-2.64.79-3.32.79-.68 0-1.72-.75-2.82-.71z" />
-    </svg>
-);
+
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -33,7 +29,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     if (!isOpen) return null;
 
-    const handleOAuthLogin = async (provider: 'google' | 'apple') => {
+    const handleOAuthLogin = async (provider: 'google') => {
         setError(null);
         setLoading(true);
         try {
@@ -181,15 +177,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                             <GoogleIcon />
                             Google
                         </button>
-
-                        <button
-                            onClick={() => handleOAuthLogin('apple')}
-                            disabled={loading}
-                            className="w-full py-3 px-4 bg-black hover:bg-gray-900 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:pointer-events-none"
-                        >
-                            <AppleIcon />
-                            Apple
-                        </button>
                     </div>
                 </div>
 
@@ -206,6 +193,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
