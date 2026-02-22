@@ -44,14 +44,26 @@ export const useUserStore = create<UserState>()(
 );
 
 // Handle OAuth redirect hash parsing before HashRouter intercepts it
-if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-            useUserStore.getState().setUser(session.user);
-        }
+if (typeof window !== 'undefined' && window.location.hash) {
+    const hash = window.location.hash;
+    // HashRouter might make it '#/access_token=...', so we remove the leading '#/' or '#'
+    const hashParams = new URLSearchParams(hash.replace(/^#\/?/, ''));
+
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+
+    if (accessToken && refreshToken) {
+        supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+        }).then(({ data, error }) => {
+            if (!error && data.session) {
+                useUserStore.getState().setUser(data.session.user);
+            }
+        });
         // Clean the URL hash so HashRouter doesn't get confused
         window.history.replaceState(null, '', window.location.pathname);
-    });
+    }
 }
 
 // Initialize auth listener outside the store to sync state on load / auth changes
