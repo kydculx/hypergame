@@ -33,10 +33,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         setError(null);
         setLoading(true);
         try {
+            // Determine the correct redirect URL based on environment
+            const redirectUrl = window.location.hostname === 'localhost'
+                ? 'http://localhost:5173'
+                : window.location.origin;
+
             const { error } = await supabase.auth.signInWithOAuth({
                 provider,
                 options: {
-                    redirectTo: window.location.origin
+                    redirectTo: redirectUrl
                 }
             });
             if (error) throw error;
