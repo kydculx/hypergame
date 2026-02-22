@@ -88,6 +88,39 @@
             transform: translateY(4px);
             box-shadow: none;
         }
+
+        #start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            z-index: 30;
+            min-width: 250px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .start-btn {
+            background: #e74c3c;
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #c0392b;
+        }
+
+        .start-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
     </style>
 </head>
 
@@ -95,10 +128,17 @@
     <div id="ui">
         <div id="score">0</div>
     </div>
+
+    <div id="start-screen">
+        <h1>GEOMETRY DASH</h1>
+        <p>Jump over the spikes!<br>Time your jumps perfectly.</p>
+        <button class="start-btn" onclick="startGame()">PLAY</button>
+    </div>
+
     <div id="game-over">
         <h1>GAME OVER</h1>
         <p>Score: <span id="final-score">0</span></p>
-        <button onclick="restartGame()">RETRY</button>
+        <button class="start-btn" onclick="restartGame()">RETRY</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -124,6 +164,11 @@
         let parallaxObjects = [];
         let score = 0;
         let gameState = 'START';
+
+        // Reusable Geometries
+        const spikeGeo = new THREE.ConeGeometry(0.5, 1, 4);
+        const playerGeo = new THREE.BoxGeometry(PLAYER_SIZE, PLAYER_SIZE, PLAYER_SIZE);
+        const particleGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2); // Uniform size for reuse
 
         // Physics
         let velocityY = 0;
@@ -180,7 +225,7 @@
 
             // Player
             player = new THREE.Mesh(
-                new THREE.BoxGeometry(PLAYER_SIZE, PLAYER_SIZE, PLAYER_SIZE),
+                playerGeo,
                 new THREE.MeshPhongMaterial({ color: COLORS.player, emissive: 0xaa8800 })
             );
             player.position.set(-6, groundY + PLAYER_SIZE / 2, 0);
@@ -220,10 +265,15 @@
             window.addEventListener('resize', updateLayout);
 
             // Start
-            gameState = 'PLAYING';
             updateLayout(); // Initial layout set
             animate();
             window.parent.postMessage({ type: 'GAME_READY' }, '*');
+        }
+
+        function startGame() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            document.getElementById('start-screen').style.display = 'none';
+            gameState = 'PLAYING';
         }
 
         function updateLayout() {
@@ -248,10 +298,23 @@
                 velocityY = JUMP_FORCE;
                 isGrounded = false;
                 playTone(400, 'square');
-
-                // Rotate visual logic start
-                // We want to rotate 180 degrees per jump?
             }
+        }
+
+        function safeRemove(obj, disposeMat = true) {
+            if (!obj) return;
+            // Only dispose geometry if it's NOT a shared one
+            const isSharedGeo = obj.geometry === spikeGeo || obj.geometry === playerGeo || obj.geometry === particleGeo;
+            if (obj.geometry && !isSharedGeo) obj.geometry.dispose();
+
+            if (disposeMat && obj.material) {
+                if (Array.isArray(obj.material)) {
+                    obj.material.forEach(m => m.dispose());
+                } else {
+                    obj.material.dispose();
+                }
+            }
+            scene.remove(obj);
         }
 
         function spawnObstacle(xOffset) {
@@ -260,15 +323,12 @@
             let mesh;
 
             if (type === 'SPIKE') {
-                const geo = new THREE.ConeGeometry(0.5, 1, 4);
                 const mat = new THREE.MeshLambertMaterial({ color: COLORS.spike });
-                mesh = new THREE.Mesh(geo, mat);
+                mesh = new THREE.Mesh(spikeGeo, mat);
                 mesh.position.set(xOffset, groundY + 0.5, 0);
                 mesh.userData = { type: 'SPIKE', width: 0.5, height: 0.5 }; // Hitbox size (half-extents)
             } else {
                 // Block
-                // Can be low or high? 
-                // Simple block on ground
                 const height = Math.random() < 0.5 ? 1 : 1.5;
                 const geo = new THREE.BoxGeometry(1, height, 1);
                 const mat = new THREE.MeshLambertMaterial({ color: COLORS.block });
@@ -282,18 +342,17 @@
         }
 
         function spawnParticles(x, y, color, count = 5) {
+            const mat = new THREE.MeshBasicMaterial({ color: color });
             for (let i = 0; i < count; i++) {
-                const size = Math.random() * 0.3 + 0.1;
-                const geo = new THREE.BoxGeometry(size, size, size);
-                const mat = new THREE.MeshBasicMaterial({ color: color });
-                const mesh = new THREE.Mesh(geo, mat);
+                const mesh = new THREE.Mesh(particleGeo, mat);
                 mesh.position.set(x + (Math.random() - 0.5), y + (Math.random() - 0.5), 0);
                 scene.add(mesh);
                 particles.push({
                     mesh,
                     vx: (Math.random() - 0.5) * 0.3,
                     vy: Math.random() * 0.3,
-                    life: 1.0
+                    life: 1.0,
+                    mat // Store mat to dispose later if it's not shared (though here it's created once per batch)
                 });
             }
         }
@@ -368,7 +427,7 @@
                     // Cleanup - dynamic based on camera
                     // Safely remove when clearly off screen to the left
                     if (obs.position.x < camera.left - 5) {
-                        scene.remove(obs);
+                        safeRemove(obs);
                         obstacles.splice(i, 1);
                         continue;
                     }
@@ -418,6 +477,7 @@
                 p.mesh.scale.multiplyScalar(0.9);
                 p.life -= 0.05;
                 if (p.life <= 0) {
+                    if (p.mesh.material) p.mesh.material.dispose();
                     scene.remove(p.mesh);
                     particles.splice(i, 1);
                 }

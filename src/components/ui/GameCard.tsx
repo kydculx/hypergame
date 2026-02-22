@@ -29,8 +29,10 @@ export const GameCard: React.FC<GameCardProps> = ({
         <div
             onClick={onClick}
             className={`
-        group relative rounded-2xl overflow-hidden shadow-sm hover:shadow-xl 
-        transition-all duration-300 transform hover:scale-[1.03] hover:z-10 cursor-pointer bg-white
+        group relative rounded-2xl overflow-hidden bg-white cursor-pointer
+        shadow-[0_5px_0_rgba(0,0,0,0.2)] transition-all duration-150
+        hover:-translate-y-1 hover:shadow-[0_9px_0_rgba(0,0,0,0.2)]
+        active:translate-y-[5px] active:shadow-none
         ${sizeClasses[size]}
         ${className}
       `}

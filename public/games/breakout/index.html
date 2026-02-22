@@ -96,6 +96,39 @@
             transform: translateY(4px);
             box-shadow: none;
         }
+
+        #start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            z-index: 30;
+            min-width: 250px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .start-btn {
+            background: #ff00ff;
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #cc00cc;
+        }
+
+        .start-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
     </style>
 </head>
 
@@ -103,10 +136,17 @@
     <div id="ui">
         <div id="score">0</div>
     </div>
+
+    <div id="start-screen">
+        <h1>NEON BREAKOUT</h1>
+        <p>Smash all the bricks!<br>Catch power-ups to grow.</p>
+        <button class="start-btn" onclick="startGame()">PLAY</button>
+    </div>
+
     <div id="game-over">
         <h1>GAME OVER</h1>
         <p>SCORE: <span id="final-score">0</span></p>
-        <button onclick="location.reload()">RETRY</button>
+        <button class="start-btn" onclick="location.reload()">RETRY</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -184,7 +224,11 @@
         let combo = 0;
         let shake = 0;
         let glowPulse = 0; // New: for brick animation
-        let stars = []; // New: for background
+
+        // Aurora Background Components
+        let auroraBlobs = [];
+        let backgroundPulse = 0;
+        let auroraGradients = []; // Cache for radial gradients
 
         // Brick Patterns (1: brick, 0: empty)
         const patterns = [
@@ -339,26 +383,25 @@
             initBricks();
             resetBall();
 
-            // Initialize Stars
-            stars = [];
-            for (let i = 0; i < 100; i++) {
-                stars.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    size: Math.random() * 2 + 0.5,
-                    speed: Math.random() * 0.5 + 0.1
-                });
-            }
+            // Initialize Aurora Blobs
+            auroraBlobs = [
+                { x: canvas.width * 0.2, y: canvas.height * 0.3, radius: 300, color: '#4f46e5', vx: 0.5, vy: 0.3 },
+                { x: canvas.width * 0.8, y: canvas.height * 0.7, radius: 400, color: '#9333ea', vx: -0.4, vy: -0.2 },
+                { x: canvas.width * 0.5, y: canvas.height * 0.5, radius: 350, color: '#2563eb', vx: 0.3, vy: -0.4 }
+            ];
+
+            // Pre-calculate gradients to avoid expensive real-time blur
+            auroraGradients = auroraBlobs.map(blob => {
+                const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, blob.radius);
+                grad.addColorStop(0, blob.color);
+                grad.addColorStop(1, 'transparent');
+                return grad;
+            });
         }
         window.addEventListener('resize', resize);
 
         function handleAction(e) {
-            audio.init();
-            if (isGameOver) return;
-            if (!isStarted) {
-                isStarted = true;
-                return;
-            }
+            if (isGameOver || !isStarted) return;
             if (e.type === 'mousemove' || e.type === 'touchmove') {
                 const clientX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
                 paddleX = clientX - PADDLE_WIDTH / 2;
@@ -370,6 +413,12 @@
         window.addEventListener('mousemove', handleAction);
         window.addEventListener('touchmove', handleAction);
         window.addEventListener('mousedown', handleAction);
+
+        function startGame() {
+            audio.init();
+            document.getElementById('start-screen').style.display = 'none';
+            isStarted = true;
+        }
 
         function createParticles(x, y, color) {
             for (let i = 0; i < 8; i++) {
@@ -434,8 +483,9 @@
 
                                 b.status = 0;
                                 combo++;
-                                score += combo; // Bonus points for combo
-                                shake = 5; // Reduced shake for bricks
+                                score += combo;
+                                shake = 5;
+                                backgroundPulse = 1.0; // Trigger background reactive pulse
                                 scoreEl.textContent = score;
                                 createParticles(bx + brickWidth / 2, by + brickHeight / 2, b.color);
                                 spawnItem(bx + brickWidth / 2, by + brickHeight / 2);
@@ -468,7 +518,7 @@
                                         if (Math.abs(b.dy) < 1) b.dy = b.dy > 0 ? 1 : -1;
                                     });
 
-                                    audio.playNote([400, 800, 1200], 'square', 0.5, 0.3);
+                                    audio.playNote([400, 800], 'square', 0.3, 0.3);
 
                                     initBricks();
                                     return; // Stop processing collision for this frame
@@ -547,6 +597,7 @@
             }
 
             if (shake > 0) shake *= 0.9; // Decay shake
+            if (backgroundPulse > 0) backgroundPulse *= 0.95; // Decay background pulse
 
             // Life check - Instant Game Over
             if (balls.length === 0) {
@@ -600,27 +651,54 @@
                 p.life -= 0.012; // Lasts longer
                 if (p.life <= 0) particles.splice(i, 1);
             }
+
+            // Update Aurora Blobs
+            auroraBlobs.forEach(blob => {
+                blob.x += blob.vx;
+                blob.y += blob.vy;
+                if (blob.x < 0 || blob.x > canvas.width) blob.vx *= -1;
+                if (blob.y < 0 || blob.y > canvas.height) blob.vy *= -1;
+            });
         }
 
         function draw() {
             // Trail Effect
-            ctx.fillStyle = 'rgba(5, 5, 5, 0.25)';
+            ctx.fillStyle = '#050505';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Stars Background
-            ctx.fillStyle = '#ffffff';
-            stars.forEach(star => {
-                ctx.globalAlpha = star.speed; // Parallax effect: slower stars are dimmer (farther away)
+            // Draw Aurora Background (Optimized with Gradients)
+            auroraBlobs.forEach((blob, i) => {
+                const pulseScale = 1 + (backgroundPulse * 0.2);
+                ctx.globalAlpha = 0.4 + (backgroundPulse * 0.2);
+
+                ctx.save();
+                ctx.translate(blob.x, blob.y);
+                ctx.scale(pulseScale, pulseScale);
+                ctx.fillStyle = auroraGradients[i];
                 ctx.beginPath();
-                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.arc(0, 0, blob.radius, 0, Math.PI * 2);
                 ctx.fill();
-                star.y += star.speed;
-                if (star.y > canvas.height) {
-                    star.y = 0;
-                    star.x = Math.random() * canvas.width;
-                }
+                ctx.restore();
             });
             ctx.globalAlpha = 1.0;
+
+            // Draw Frosted Glass Texture (Noise/Grain - Batched)
+            ctx.globalAlpha = 0.05;
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 30; i++) {
+                ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
+            }
+            ctx.globalAlpha = 1.0;
+
+            // Draw Scanning Lines (Batched for Performance)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i < canvas.height; i += 4) {
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+            }
+            ctx.stroke();
 
             // Apply screen shake
             if (shake > 0.5) {

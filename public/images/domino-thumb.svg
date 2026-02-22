@@ -34,7 +34,7 @@
     </g>
 
     <filter id="shadow" dx="0" dy="5" stdDeviation="5">
-      <feDropShadow dx="-2" dy="8" stdDeviation="4" flood-color="#000" flood-opacity="0.2"/>
+      <feDropShadow dx="-2" dy="12" stdDeviation="6" flood-color="#000" flood-opacity="0.4" />
     </filter>
   </defs>
 

@@ -9,7 +9,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: #0a0a1a;
+            background: #34495e;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
             -webkit-user-select: none;
@@ -34,11 +34,6 @@
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
-        #instructions {
-            font-size: 18px;
-            opacity: 0.8;
-            margin-top: 10px;
-        }
 
         #game-over {
             position: absolute;
@@ -96,19 +91,57 @@
         button:hover {
             background: #535bf2;
         }
+
+        #start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            z-index: 30;
+            min-width: 250px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .start-btn {
+            background: #646cff;
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #4b51bf;
+        }
+
+        .start-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
     </style>
 </head>
 
 <body>
     <div id="ui">
         <div id="score">0</div>
-        <div id="instructions">Click to Start</div>
+    </div>
+
+    <div id="start-screen">
+        <h1>STACK TOWER</h1>
+        <p>Build the tallest tower!<br>Tap to stack the blocks.</p>
+        <button class="start-btn" onclick="startGame()">PLAY</button>
     </div>
 
     <div id="game-over">
         <h1>GAME OVER</h1>
         <p>Your Score: <span id="final-score">0</span></p>
-        <button onclick="restartGame()">RETRY</button>
+        <button class="start-btn" onclick="restartGame()">RETRY</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -129,6 +162,9 @@
         let targetCameraY = 10;
         let targetCameraZoom = 1; // For game over zoom out
         let currentCameraZoom = 1;
+
+        // Particle System variables
+        let particles, particleData;
 
         // Audio Manager
         class AudioManager {
@@ -174,7 +210,7 @@
             scene = new THREE.Scene();
 
             // Premium background color (Deep Midnight)
-            scene.background = new THREE.Color(0x0a0a1a);
+            scene.background = new THREE.Color(0x34495e);
 
             // Lights
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -198,6 +234,12 @@
 
             // Foundation
             addBlock(0, 0, 0, INITIAL_WIDTH, INITIAL_DEPTH, false);
+
+            // Ambient Snow Particles
+            initParticles();
+
+            // Spawn the first moving block immediately so it's visible at start
+            startNewRound();
 
             window.addEventListener('resize', onWindowResize);
             window.addEventListener('pointerdown', handleAction);
@@ -229,12 +271,7 @@
 
         function handleAction() {
             audio.init();
-            if (gameState === 'OVER') return;
-            if (gameState === 'START') {
-                gameState = 'PLAYING';
-                startNewRound();
-                return;
-            }
+            if (gameState !== 'PLAYING') return;
 
             // Place Block
             const topBlock = stack[stack.length - 1];
@@ -359,6 +396,12 @@
             location.reload();
         }
 
+        function startGame() {
+            audio.init();
+            document.getElementById('start-screen').style.display = 'none';
+            gameState = 'PLAYING';
+        }
+
         function onWindowResize() {
             const aspect = window.innerWidth / window.innerHeight;
             const d = 10;
@@ -380,12 +423,67 @@
             // Give it a subtle initial push in the direction it was cut
             const vx = direction === 'x' ? diff * 0.1 : 0;
             const vz = direction === 'z' ? diff * 0.1 : 0;
-
             debris.push({ mesh, velocity: { x: vx, y: 0, z: vz, r: (Math.random() - 0.5) * 0.1 } });
+        }
+
+        function safeRemove(obj) {
+            if (!obj) return;
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+                if (Array.isArray(obj.material)) {
+                    obj.material.forEach(m => m.dispose());
+                } else {
+                    obj.material.dispose();
+                }
+            }
+            scene.remove(obj);
+        }
+
+        function initParticles() {
+            const count = 100;
+            const geo = new THREE.IcosahedronGeometry(0.1, 0);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+            particles = new THREE.InstancedMesh(geo, mat, count);
+            particleData = [];
+
+            const dummy = new THREE.Object3D();
+            for (let i = 0; i < count; i++) {
+                const x = (Math.random() - 0.5) * 40;
+                const y = Math.random() * 40;
+                const z = (Math.random() - 0.5) * 40;
+                dummy.position.set(x, y, z);
+                dummy.updateMatrix();
+                particles.setMatrixAt(i, dummy.matrix);
+
+                particleData.push({
+                    x, y, z,
+                    yspeed: 0.02 + Math.random() * 0.05,
+                    offset: Math.random() * Math.PI * 2
+                });
+            }
+            scene.add(particles);
+        }
+
+        function updateParticles() {
+            if (!particles) return;
+            const dummy = new THREE.Object3D();
+            for (let i = 0; i < particleData.length; i++) {
+                const p = particleData[i];
+                p.y -= p.yspeed;
+                if (p.y < (camera.position.y - 15)) p.y = camera.position.y + 25;
+
+                const sineX = Math.sin(Date.now() * 0.001 + p.offset) * 0.5;
+
+                dummy.position.set(p.x + sineX, p.y, p.z);
+                dummy.updateMatrix();
+                particles.setMatrixAt(i, dummy.matrix);
+            }
+            particles.instanceMatrix.needsUpdate = true;
         }
 
         function animate() {
             requestAnimationFrame(animate);
+            updateParticles();
 
             if (gameState === 'PLAYING' && activeBlock) {
                 activeBlock.mesh.position[direction] += speed;
@@ -413,7 +511,7 @@
                     d.mesh.position.y += d.velocity.y;
                     d.mesh.material.opacity = d.life;
                     if (d.life <= 0) {
-                        scene.remove(d.mesh);
+                        safeRemove(d.mesh);
                         debris.splice(i, 1);
                     }
                 } else {
@@ -425,7 +523,7 @@
                     d.mesh.rotation.z += d.velocity.r;
 
                     if (d.mesh.position.y < targetCameraY - 20) {
-                        scene.remove(d.mesh);
+                        safeRemove(d.mesh);
                         debris.splice(i, 1);
                     }
                 }

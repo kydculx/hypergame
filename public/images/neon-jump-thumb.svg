@@ -1,16 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
-  <!-- Background: #050505 -->
-  <rect width="400" height="300" fill="#050505" />
-
-  <!-- Grid lines -->
-  <g stroke="#111" stroke-width="1">
-    <path d="M 0 50 l 400 0 M 0 100 l 400 0 M 0 150 l 400 0 M 0 200 l 400 0 M 0 250 l 400 0" />
-    <path d="M 50 0 l 0 300 M 100 0 l 0 300 M 150 0 l 0 300 M 200 0 l 0 300 M 250 0 l 0 300 M 300 0 l 0 300 M 350 0 l 0 300" />
-  </g>
-
-  <!-- Pipes (Cyan #00ffff with glow) -->
   <defs>
+    <!-- Richer Background -->
+    <radialGradient id="bgGradNeon" cx="50%" cy="50%" r="70%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#1a0b33" />
+      <stop offset="100%" stop-color="#050011" />
+    </radialGradient>
     <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#00ffff" flood-opacity="0.2" />
       <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
@@ -18,6 +14,7 @@
       </feMerge>
     </filter>
     <filter id="magentaGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#ff00ff" flood-opacity="0.3" />
       <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
@@ -25,6 +22,9 @@
       </feMerge>
     </filter>
   </defs>
+
+  <!-- Background -->
+  <rect width="400" height="300" fill="url(#bgGradNeon)" />
 
   <!-- Moving Pipes Group -->
   <g filter="url(#cyanGlow)">

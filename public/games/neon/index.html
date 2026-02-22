@@ -96,6 +96,39 @@
             transform: translateY(4px);
             box-shadow: none;
         }
+
+        #start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            z-index: 30;
+            min-width: 250px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .start-btn {
+            background: #ff00ff;
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #cc00cc;
+        }
+
+        .start-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
     </style>
 </head>
 
@@ -103,10 +136,17 @@
     <div id="ui">
         <div id="score">0</div>
     </div>
+
+    <div id="start-screen">
+        <h1>NEON JUMP</h1>
+        <p>Fly through the gaps!<br>Don't hit the neon pipes.</p>
+        <button class="start-btn" onclick="startGame()">PLAY</button>
+    </div>
+
     <div id="game-over">
         <h1>GAME OVER</h1>
         <p>SCORE: <span id="final-score">0</span></p>
-        <button onclick="location.reload()">RETRY</button>
+        <button class="start-btn" onclick="location.reload()">RETRY</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -164,22 +204,53 @@
         let isGameOver = false;
         let isStarted = false;
         let bgScrollX = 0; // Scrolling grid
+        let stars = [];
+        let bgGrad, horizonGrad; // Cached gradients
+
+        // Explicitly set flags to false on load
+        isStarted = false;
+        isGameOver = false;
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 150; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2,
+                    opacity: Math.random(),
+                    speed: 0.2 + Math.random() * 0.5
+                });
+            }
+        }
+        initStars();
 
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            initStars();
+
+            // Cache gradients
+            bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGrad.addColorStop(0, '#050515');
+            bgGrad.addColorStop(1, '#1a0525');
+
+            const horizonY = canvas.height * 0.5;
+            horizonGrad = ctx.createLinearGradient(0, horizonY - 50, 0, horizonY + 2);
+            horizonGrad.addColorStop(0, 'transparent');
+            horizonGrad.addColorStop(1, '#00ffff');
+
             if (!isStarted) player.y = canvas.height / 2;
         }
         window.addEventListener('resize', resize);
         resize();
 
+        // Spawn first pipe in advance so it's visible behind the start screen
+        createPipe();
+
         function handleAction() {
             audio.init();
-            if (isGameOver) return;
-            if (!isStarted) {
-                isStarted = true;
-                return;
-            }
+            if (isGameOver || !isStarted) return;
             player.velocity = JUMP_FORCE;
             audio.playNote(440, 'sine', 0.1, 0.1);
         }
@@ -202,8 +273,8 @@
             player.y += player.velocity;
 
             // Background Scroll
-            bgScrollX -= PIPE_SPEED * 0.5;
-            if (bgScrollX <= -60) bgScrollX = 0;
+            bgScrollX -= PIPE_SPEED * 0.8;
+            if (bgScrollX <= -100) bgScrollX = 0;
 
             // Ghost Trail
             if (frames % 3 === 0 && player.velocity < 5 && player.velocity > -10) {
@@ -216,7 +287,7 @@
             }
 
             // Pipe Management
-            if (frames % PIPE_SPAWN_RATE === 0) createPipe();
+            if (frames > 0 && frames % PIPE_SPAWN_RATE === 0) createPipe();
 
             for (let i = pipes.length - 1; i >= 0; i--) {
                 const pipe = pipes[i];
@@ -250,50 +321,110 @@
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Layer 1: Cosmic Gradient (Cached)
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Background (Scrolling Grid)
-            ctx.strokeStyle = '#1a1a1a';
+            // Layer 2: Flickering Starfield (Optimized to fillRect)
+            for (let i = 0; i < stars.length; i++) {
+                const s = stars[i];
+                s.opacity += (Math.random() - 0.5) * 0.1;
+                s.opacity = Math.max(0.1, Math.min(1, s.opacity));
+                ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+                s.x -= s.speed;
+                if (s.x < -s.size) s.x = canvas.width;
+            }
+
+            // Layer 3: 3D Perspective Grid (Batched Lines)
+            const horizonY = canvas.height * 0.5;
+            ctx.strokeStyle = '#220044'; // Darker grid
             ctx.lineWidth = 1;
             ctx.beginPath();
-            for (let i = bgScrollX; i < canvas.width; i += 60) {
-                ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height);
-            }
-            for (let i = 0; i < canvas.height; i += 60) {
-                ctx.moveTo(0, i); ctx.lineTo(canvas.width, i);
+
+            // Vanishing lines
+            const vpX = canvas.width / 2;
+            const lineCount = 24;
+            for (let i = 0; i <= lineCount; i++) {
+                const x = (canvas.width / lineCount) * i;
+                ctx.moveTo(vpX, horizonY);
+                ctx.lineTo(x, canvas.height);
             }
             ctx.stroke();
 
-            // Draw Ghosts
+            // Horizontal receding lines (Batched with alpha)
+            for (let i = 0; i < 15; i++) {
+                const y = horizonY + (Math.pow(i / 15, 2) * (canvas.height - horizonY));
+                const scrollY = (bgScrollX % 50) / 50 * (horizonY / 15);
+                const finalY = y + scrollY;
+                if (finalY > canvas.height) continue;
+
+                ctx.globalAlpha = (i / 15);
+                ctx.beginPath();
+                ctx.moveTo(0, finalY);
+                ctx.lineTo(canvas.width, finalY);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+
+            // Layer 4: Horizon Glow (Cached)
+            ctx.fillStyle = horizonGrad;
+            ctx.globalAlpha = 0.2; // Reduced alpha
+            ctx.fillRect(0, horizonY - 50, canvas.width, 52);
+            ctx.globalAlpha = 1;
+
+            ctx.strokeStyle = '#004444'; // Extremely subtle cyan
+            ctx.lineWidth = 1; // Thinner line
+            // Removed expensive shadowBlur from here
+            ctx.beginPath();
+            ctx.moveTo(0, horizonY);
+            ctx.lineTo(canvas.width, horizonY);
+            ctx.stroke();
+
+            // Draw Ghosts (Batched)
             ctx.shadowBlur = 0;
+            ctx.globalAlpha = 0.4;
+            ctx.fillStyle = '#ff00ff';
             for (let i = ghosts.length - 1; i >= 0; i--) {
                 const g = ghosts[i];
-                ctx.fillStyle = `rgba(255, 0, 255, ${g.life * 0.4})`;
                 ctx.fillRect(g.x, g.y, g.w, g.h);
                 g.life -= 0.04;
                 g.x -= PIPE_SPEED;
                 if (g.life <= 0) ghosts.splice(i, 1);
             }
+            ctx.globalAlpha = 1;
 
-            // Draw Pipes
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#00ffff';
-            ctx.strokeStyle = '#00ffff';
-            ctx.lineWidth = 3;
-            pipes.forEach(pipe => {
-                ctx.strokeRect(pipe.x, pipe.y, pipe.w, pipe.h);
-                // Glow effect inside
-                ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
-                ctx.fillRect(pipe.x, pipe.y, pipe.w, pipe.h);
-            });
+            // Draw Pipes (Batched for Performance)
+            if (pipes.length > 0) {
+                // Batch 1: Outer Neon Strokes with Glow
+                ctx.shadowBlur = isStarted ? 10 : 0;
+                ctx.shadowColor = '#00ffff';
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                pipes.forEach(pipe => {
+                    ctx.rect(pipe.x, pipe.y, pipe.w, pipe.h);
+                });
+                ctx.stroke();
+
+                // Batch 2: Inner Fills (No Glow)
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.1)';
+                ctx.beginPath();
+                pipes.forEach(pipe => {
+                    ctx.rect(pipe.x, pipe.y, pipe.w, pipe.h);
+                });
+                ctx.fill();
+            }
 
             // Draw Player
             ctx.shadowBlur = 20;
             ctx.shadowColor = '#ff00ff';
             ctx.strokeStyle = '#ff00ff';
-            ctx.fillStyle = '#ff00ff';
+            ctx.lineWidth = 2;
             ctx.strokeRect(player.x, player.y, player.w, player.h);
             ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+            ctx.shadowBlur = 0;
             ctx.fillRect(player.x, player.y, player.w, player.h);
 
             if (!isStarted) {
@@ -317,6 +448,12 @@
             finalScoreEl.textContent = score;
             audio.playNote([220, 55], 'sawtooth', 0.4, 0.2);
             window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+        }
+
+        function startGame() {
+            audio.init();
+            document.getElementById('start-screen').style.display = 'none';
+            isStarted = true;
         }
 
         draw();

@@ -9,10 +9,85 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: #2c3e50;
-            font-family: sans-serif;
+            background: #0a0a0c;
+            /* Deep dark base */
+            font-family: 'Segoe UI', sans-serif;
             user-select: none;
             touch-action: none;
+        }
+
+        /* Aurora Background */
+        .aurora-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0a0a0c 100%);
+        }
+
+        .aurora-blob {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.4;
+            mix-blend-mode: screen;
+            animation: move 20s infinite alternate ease-in-out;
+        }
+
+        .blob-1 {
+            background: #4f46e5;
+            top: -100px;
+            left: -100px;
+            animation-duration: 25s;
+        }
+
+        .blob-2 {
+            background: #9333ea;
+            bottom: -100px;
+            right: -100px;
+            animation-duration: 30s;
+            animation-delay: -5s;
+        }
+
+        .blob-3 {
+            background: #06b6d4;
+            top: 40%;
+            left: 30%;
+            width: 400px;
+            height: 400px;
+            animation-duration: 22s;
+            animation-delay: -10s;
+        }
+
+        @keyframes move {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            100% {
+                transform: translate(100px, 50px) scale(1.2);
+            }
+        }
+
+        /* Frosted Glass Texture (Noise/Grain) */
+        .glass-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            background:
+                url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>'),
+                repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 4px);
+            opacity: 0.15;
+            mix-blend-mode: overlay;
         }
 
         #ui {
@@ -95,18 +170,82 @@
         button:hover {
             background: #c0392b;
         }
+
+        #start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            z-index: 30;
+            min-width: 250px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .start-btn {
+            background: #e74c3c;
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 4px 0 #c0392b;
+        }
+
+        .start-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        #combo-ui {
+            position: absolute;
+            top: 100px;
+            width: 100%;
+            text-align: center;
+            color: #ffeb3b;
+            font-size: 24px;
+            /* Reduced from 32px */
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
+            pointer-events: none;
+            z-index: 10;
+            display: none;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s;
+        }
     </style>
 </head>
 
 <body>
+    <!-- Aurora Background Layers -->
+    <div class="aurora-bg">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+        <div class="aurora-blob blob-3"></div>
+    </div>
+    <div class="glass-overlay"></div>
+
     <div id="ui">
         <div id="score">0</div>
-        <div id="level">Level 1</div>
     </div>
+    <div id="combo-ui">COMBO x2</div>
+
+    <div id="start-screen">
+        <h1>HELIX JUMP</h1>
+        <p>Fall through the gaps!<br>Don't touch the red zones.</p>
+        <button class="start-btn" onclick="startGame()">PLAY</button>
+    </div>
+
     <div id="game-over">
         <h1>GAME OVER</h1>
         <p>Score: <span id="final-score">0</span></p>
-        <button onclick="restartGame()">RETRY</button>
+        <button class="start-btn" onclick="restartGame()">RETRY</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -116,9 +255,10 @@
         const POLE_RADIUS = 1.2;
         const PLATFORM_WIDTH = 2;
         const FLOOR_HEIGHT = 4;
-        const GRAVITY = 0.018;
-        const BOUNCE_FORCE = 0.35;
-        const GAP_SIZE = 1.2; // Radians
+        const FALL_SPEED = 0.15; // Constant falling speed (replaces gravity)
+        const BOUNCE_FORCE = 0.22;
+        const BASE_GAP_SIZE = 1.5;
+        const BASE_DANGER_PROB = 0.15;
 
         const COLORS = {
             bg: 0x222222,
@@ -139,7 +279,15 @@
 
         let ballY = 2;
         let ballDy = 0;
-        let poleY = 0; // Move pole up to simulate ball falling
+        let lastGeneratedY = 0; // Track last platform height
+
+        // Shared Materials
+        const splatMaterial = new THREE.MeshBasicMaterial({
+            color: COLORS.splat,
+            transparent: true,
+            opacity: 0.8,
+            depthWrite: false
+        });
 
         // Input
         let lastX;
@@ -164,15 +312,16 @@
 
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(COLORS.bg);
-            scene.fog = new THREE.Fog(COLORS.bg, 10, 30);
+            // scene.background = new THREE.Color(COLORS.bg); // Use CSS background
+            scene.fog = new THREE.Fog(0x0a0a0c, 10, 40); // Darker fog to match aurora
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 5, 10);
-            camera.lookAt(0, 1, 0);
+            camera.position.set(0, 8, 12); // Higher and slightly further for better top-down perspective
+            camera.lookAt(0, 0, 0);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // Support transparency
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0); // Transparent canvas
             document.body.appendChild(renderer.domElement);
 
             // Light
@@ -197,7 +346,7 @@
             window.addEventListener('pointermove', e => {
                 if (!isDrag || gameState !== 'PLAYING') return;
                 const x = e.clientX || e.touches[0].clientX;
-                pole.rotation.y += (x - lastX) * 0.01;
+                pole.rotation.y += (x - lastX) * 0.008; // Slightly smoother rotation (was 0.01)
                 lastX = x;
             });
             window.addEventListener('resize', () => {
@@ -207,9 +356,14 @@
             });
 
             // Start
-            gameState = 'PLAYING';
             animate();
             window.parent.postMessage({ type: 'GAME_READY' }, '*');
+        }
+
+        function startGame() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            document.getElementById('start-screen').style.display = 'none';
+            gameState = 'PLAYING';
         }
 
         function createPole() {
@@ -218,16 +372,17 @@
 
             // Core Cylinder
             const cyl = new THREE.Mesh(
-                new THREE.CylinderGeometry(POLE_RADIUS, POLE_RADIUS, 200, 32),
+                new THREE.CylinderGeometry(POLE_RADIUS, POLE_RADIUS, 1000, 32), // Much longer pole
                 new THREE.MeshLambertMaterial({ color: COLORS.pole })
             );
-            cyl.position.y = -90; // Extend down
+            cyl.position.y = -450;
             pole.add(cyl);
 
-            // Platforms
-            for (let i = 0; i < 30; i++) {
+            // Initial Platforms
+            for (let i = 0; i < 15; i++) {
                 createFloor(i);
             }
+            lastGeneratedY = 14;
         }
 
         function createFloor(index) {
@@ -237,8 +392,14 @@
             group.rotation.y = Math.random() * Math.PI * 2;
             group.userData = { id: index, passed: false };
 
+            // Progressive Difficulty Logic
+            // Gap tightens slightly as you go deeper (min 1.1)
+            const gapAngle = Math.max(1.1, BASE_GAP_SIZE - (index * 0.015));
+
+            // Danger probability increases as you go deeper (max 0.4)
+            const dangerProb = Math.min(0.4, BASE_DANGER_PROB + (index * 0.01));
+
             // Gap
-            const gapAngle = GAP_SIZE;
             // We create a torus arc? No, Extrude arc.
             // Create full circle minus gap
             const shape = new THREE.Shape();
@@ -250,8 +411,12 @@
             shape.absarc(0, 0, POLE_RADIUS + PLATFORM_WIDTH, startAngle, endAngle, false);
             shape.absarc(0, 0, POLE_RADIUS, endAngle, startAngle, true); // Inner hole
 
-            const isDanger = index > 0 && Math.random() < 0.3;
-            const mat = new THREE.MeshLambertMaterial({ color: isDanger ? COLORS.danger : COLORS.safe });
+            const isDanger = index > 0 && Math.random() < dangerProb;
+            const mat = new THREE.MeshLambertMaterial({
+                color: isDanger ? COLORS.danger : COLORS.safe,
+                transparent: true,
+                opacity: 1.0
+            });
             const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: false });
 
             const mesh = new THREE.Mesh(geo, mat);
@@ -265,8 +430,7 @@
 
         function createSplat(y, radiusFromCenter) {
             const geo = new THREE.CircleGeometry(BALL_RADIUS * 1.5, 16);
-            const mat = new THREE.MeshBasicMaterial({ color: COLORS.splat, transparent: true, opacity: 0.8, depthWrite: false });
-            const splat = new THREE.Mesh(geo, mat);
+            const splat = new THREE.Mesh(geo, splatMaterial);
             splat.rotation.x = -Math.PI / 2;
 
             // Calculate position on the pole relative to global rotation
@@ -278,16 +442,33 @@
 
             if (splats.length > 20) {
                 const old = splats.shift();
+                if (old.geometry) old.geometry.dispose();
                 pole.remove(old);
             }
+        }
+
+        function safeRemove(obj) {
+            if (!obj) return;
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material && obj.material !== splatMaterial) {
+                if (Array.isArray(obj.material)) {
+                    obj.material.forEach(m => m.dispose());
+                } else {
+                    obj.material.dispose();
+                }
+            }
+            scene.remove(obj);
         }
 
         function animate() {
             requestAnimationFrame(animate);
 
             if (gameState === 'PLAYING') {
-                // Ball Physics
-                ballDy -= GRAVITY;
+                // Ball Physics - Constant Speed (No Acceleration)
+                if (ballDy > -FALL_SPEED) {
+                    ballDy -= 0.02; // Quick transition to fall speed
+                    if (ballDy < -FALL_SPEED) ballDy = -FALL_SPEED;
+                }
                 ballY += ballDy;
 
                 // Camera Follow logic: Spring tension
@@ -327,9 +508,10 @@
                         relAngle = relAngle % (Math.PI * 2);
                         if (relAngle < 0) relAngle += Math.PI * 2;
 
-                        // Gap Check
-                        const start = GAP_SIZE / 2;
-                        const end = Math.PI * 2 - GAP_SIZE / 2;
+                        // Progressive Gap Size for Collision Check
+                        const currentGapSize = Math.max(1.1, BASE_GAP_SIZE - (p.userData.id * 0.015));
+                        const start = currentGapSize / 2;
+                        const end = Math.PI * 2 - currentGapSize / 2;
 
                         // In Solid Area?
                         if (relAngle > start && relAngle < end) {
@@ -361,9 +543,19 @@
                             // Hit Gap! Pass through.
                             if (!p.userData.passed) {
                                 p.userData.passed = true;
-                                score++;
                                 comboCount++;
+                                score += comboCount; // Combo multiplier logic: sum of sequence
                                 document.getElementById('score').textContent = score;
+
+                                // Show/Update Combo UI
+                                if (comboCount > 1) {
+                                    const comboEl = document.getElementById('combo-ui');
+                                    comboEl.textContent = `COMBO x${comboCount}`;
+                                    comboEl.style.display = 'block';
+                                    comboEl.style.opacity = '1';
+                                    comboEl.style.transform = `scale(${1 + comboCount * 0.05})`; // Reduced scaling (was 0.1)
+                                }
+
                                 playTone(500 + comboCount * 100, 'sine');
                                 window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
                             }
@@ -371,12 +563,56 @@
                     }
                 });
 
+                // Decay Combo UI
+                const comboEl = document.getElementById('combo-ui');
+                if (comboEl.style.display === 'block' && ballDy >= 0) {
+                    // Start fading when bouncing or moving up
+                    comboEl.style.opacity = Math.max(0, parseFloat(comboEl.style.opacity) - 0.02);
+                    if (parseFloat(comboEl.style.opacity) <= 0) comboEl.style.display = 'none';
+                }
+
                 splats.forEach(s => {
                     s.material.opacity = Math.max(0, s.material.opacity - 0.005); // Slowly fade
                 });
 
+                // Visibility / Highlighting Logic
+                platforms.forEach(p => {
+                    const dist = Math.abs(p.position.y - ballY);
+                    const mesh = p.children[0];
+
+                    // Fade out distant platforms but keep them visible (prediction)
+                    // Immediate platform is semi-transparent to see through
+                    if (ballY > p.position.y) {
+                        // We are above this platform
+                        if (dist < 2) {
+                            // Currently bouncing on or passing this
+                            mesh.material.opacity = 0.6; // X-ray vision for the floor you're on
+                        } else if (dist < 15) {
+                            mesh.material.opacity = 0.9;
+                        } else {
+                            mesh.material.opacity = 0.3; // Faint distant floors
+                        }
+                    } else {
+                        // Already passed
+                        mesh.material.opacity = 0.2;
+                    }
+                });
+
                 ball.position.y = ballY;
-                if (ballY < -120) gameOver(); // Fall off world
+
+                // Dynamic Generation: Generate more floors if ball is near the end
+                const ballIndex = Math.floor(-ballY / FLOOR_HEIGHT);
+                if (ballIndex + 10 > lastGeneratedY) {
+                    for (let i = 0; i < 5; i++) {
+                        lastGeneratedY++;
+                        createFloor(lastGeneratedY);
+                    }
+                }
+
+                // Recycling: Optional but good for long runs
+                // (Omitted for simplicity in this pass, but typically remove p where p.y > ballY + 20)
+
+                if (ballY < -900) ballY = 2; // Safety reset if they fall too far off pole (unlikely with dynamic gen)
             }
 
             renderer.render(scene, camera);
