@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
+import { useUserStore } from './useUserStore';
 
 export interface Game {
   id: string;
@@ -113,14 +114,19 @@ export const useGameStore = create<GameState>()(
       setCurrentGame: (game) => set({ currentGame: game }),
 
       addScore: async (gameId, score) => {
-        const nickname = get().userProfile.nickname;
+        // Only allow score submission if the user is authenticated
+        const { user, userName } = useUserStore.getState();
+        if (!user) {
+          console.warn('Guest users cannot submit scores to the leaderboard.');
+          return; // Early return to prevent saving
+        }
 
         // 1. Submit to Supabase
         try {
           const { error } = await supabase
             .from('scores')
             .insert([
-              { game_id: gameId, user_name: nickname, score: score }
+              { game_id: gameId, user_name: userName, score: score }
             ]);
 
           if (error) {
@@ -133,7 +139,7 @@ export const useGameStore = create<GameState>()(
         // 2. Also update local state for immediate feedback
         const currentBoard = get().leaderboard[gameId] || [];
         const newEntry: ScoreEntry = {
-          userId: nickname,
+          userId: userName,
           score,
           date: Date.now()
         };
