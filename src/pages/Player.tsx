@@ -11,7 +11,29 @@ const Player: React.FC = () => {
   const addScore = useGameStore((state) => state.addScore);
   const navigate = useNavigate();
 
+  const [isLandscape, setIsLandscape] = useState(false);
   const [score, setScore] = useState(0);
+
+  // Check orientation
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        setIsLandscape(window.innerWidth > window.innerHeight);
+      } else {
+        setIsLandscape(false);
+      }
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
 
   // If page is refreshed, find the game from store
   useEffect(() => {
@@ -84,6 +106,20 @@ const Player: React.FC = () => {
         touchAction: 'none'
       }}
     >
+      {/* Rotation Overlay - Shows only in mobile landscape */}
+      {isLandscape && (
+        <div className="fixed inset-0 z-[100] bg-[#0A0B1A] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+          <div className="w-20 h-20 mb-6 text-cyan-400 animate-bounce">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <path d="M12 18h.01" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">세로 모드로 돌려주세요</h2>
+          <p className="text-gray-400">이 게임은 세로 모드에 최적화되어 있습니다.</p>
+        </div>
+      )}
+
       {/* Absolute UI Layer for Relative Positioning within Safe Area */}
       <div
         className="pointer-events-none absolute inset-0 z-50 flex flex-col justify-start items-end"
