@@ -166,7 +166,7 @@
         let particles = [];
         let playerTrailParticles = [];
         let parallaxObjects = [];
-        let scrollingGrid;
+        let highwayStripes = [];
         let score = 0;
         let gameState = 'START';
 
@@ -228,35 +228,40 @@
 
             scene.add(new THREE.AmbientLight(0xffffff, 0.2));
 
-            // Ground (Synthwave Grid)
+            // Ground (Premium Synthwave Highway)
             const groundGroup = new THREE.Group();
-            groundGroup.position.set(0, groundY - 10, -0.5); // Push down 10 units and slightly back
+            groundGroup.position.set(0, groundY - 10, -0.5);
 
             // Solid dark base to block the sky below
-            const groundGeo = new THREE.PlaneGeometry(200, 20); // 20 units high (from -10 to +10 relative to group)
-            const groundMat = new THREE.MeshBasicMaterial({ color: COLORS.groundBase });
+            const groundGeo = new THREE.BoxGeometry(200, 20, 20);
+            const groundMat = new THREE.MeshPhongMaterial({
+                color: 0x020205, // Very dark blue/black
+                shininess: 100
+            });
             const ground = new THREE.Mesh(groundGeo, groundMat);
             groundGroup.add(ground);
 
-            // Neon Grid Overlay (Plane wireframe to look like a flat wall/2D grid)
-            // 200 width / 100 segments = 2 units per square
-            // 20 height / 10 segments = 2 units per square
-            const gridGeo = new THREE.PlaneGeometry(200, 20, 100, 10);
-            const gridMat = new THREE.MeshBasicMaterial({
-                color: COLORS.groundGrid,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.3
-            });
-            scrollingGrid = new THREE.Mesh(gridGeo, gridMat);
-            groundGroup.add(scrollingGrid);
+            // Glowing Main Track Edge (Neon Cyan)
+            const edgeGeo = new THREE.BoxGeometry(200, 0.3, 0.5);
+            const edgeMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
+            const topEdge = new THREE.Mesh(edgeGeo, edgeMat);
+            topEdge.position.set(0, 10, 0.5); // Top front edge of the track
+            groundGroup.add(topEdge);
 
-            // Bright Neon Border line at the top of the ground
-            const borderGeo = new THREE.BoxGeometry(200, 0.2, 0.2);
-            const borderMat = new THREE.MeshBasicMaterial({ color: COLORS.groundGrid });
-            const border = new THREE.Mesh(borderGeo, borderMat);
-            border.position.set(0, 10, 0.5); // Top edge of the 20-high plane (which goes -10 to 10 relative to group)
-            groundGroup.add(border);
+            // Secondary glowing edge (Neon Pink) slightly lower
+            const edgeGeo2 = new THREE.BoxGeometry(200, 0.1, 0.5);
+            const edgeMat2 = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+            const lowerEdge = new THREE.Mesh(edgeGeo2, edgeMat2);
+            lowerEdge.position.set(0, 9.6, 0.8);
+            groundGroup.add(lowerEdge);
+
+            // Dynamic Highway Stripes (created and managed in animate loop, but container here)
+            highwayStripes = [];
+
+            // Generate initial stripes covering the track
+            for (let i = 0; i < 30; i++) {
+                createHighwayStripe((Math.random() - 0.5) * 100);
+            }
 
             scene.add(groundGroup);
 
@@ -277,30 +282,35 @@
             player.add(playerInner);
             scene.add(player);
 
-            // Background Parallax Objects (Neon Geometric Shapes)
-            for (let i = 0; i < 20; i++) {
-                const size = Math.random() * 2 + 1;
-                // Mix of Icosahedrons and Toruses for a synthwave feel
-                const isRing = Math.random() > 0.5;
-                const geo = isRing ? new THREE.TorusGeometry(size, 0.1, 8, 20) : new THREE.IcosahedronGeometry(size, 0);
+            // Background Parallax Objects (Synthwave Cyber-Mountains)
+            parallaxObjects = []; // Reset array
+            for (let i = 0; i < 25; i++) {
+                // Large wireframe Pyramids (tetrahedrons/cones) for that classic 80s outrun look
+                const radius = Math.random() * 8 + 4; // Big mountains
+                const height = Math.random() * 10 + 8;
+                const geo = new THREE.ConeGeometry(radius, height, 4);
 
                 const mat = new THREE.MeshBasicMaterial({
-                    color: Math.random() > 0.5 ? COLORS.parallax : COLORS.groundGrid,
+                    color: Math.random() > 0.5 ? COLORS.parallax : 0xff0055,
                     transparent: true,
-                    opacity: 0.15 + Math.random() * 0.1,
-                    wireframe: true
+                    opacity: 0.1 + Math.random() * 0.15,
+                    wireframe: true,
+                    wireframeLinewidth: 2
                 });
+
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(
-                    (Math.random() - 0.5) * 80,
-                    Math.random() * 20 - 5,
-                    -15 - Math.random() * 20
+                    (Math.random() - 0.5) * 120, // Spread widely across X
+                    groundY + height / 2 - 2, // Sitting near the horizon
+                    -20 - Math.random() * 30 // Deep in the background
                 );
+
+                // Slightly tilt them back for perspective
+                mesh.rotation.x = -0.1;
+                mesh.rotation.y = Math.PI / 4; // Rotate so we see the corner
+
                 mesh.userData = {
-                    speed: Math.random() * 0.5 + 0.1, // Slower than ground
-                    rotSpeedX: (Math.random() - 0.5) * 0.02,
-                    rotSpeedY: (Math.random() - 0.5) * 0.02,
-                    rotSpeedZ: (Math.random() - 0.5) * 0.02
+                    speed: Math.random() * 0.3 + 0.05, // Much slower parallax for distant mountains
                 };
                 scene.add(mesh);
                 parallaxObjects.push(mesh);
@@ -457,6 +467,29 @@
             });
         }
 
+        function createHighwayStripe(xPos) {
+            // Random length and color for variety
+            const length = Math.random() * 5 + 2;
+            const geo = new THREE.BoxGeometry(length, 0.1, 0.2);
+
+            // 70% chance of cyan, 30% pink
+            const color = Math.random() > 0.3 ? 0x00f3ff : 0xff0055;
+
+            const mat = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.6 + Math.random() * 0.4
+            });
+            const stripe = new THREE.Mesh(geo, mat);
+
+            // Position on the surface of the ground block (Y around -0.5 to -1, Z around 0.5 to 2)
+            // groundGroup is at Y = groundY - 10 (-12), Z = -0.5
+            // So world Y = -12 + 10 = -2, world Z = -0.5 + 2 = 1.5
+            stripe.position.set(xPos, groundY + 0.05, 1.5 + Math.random() * 4);
+            scene.add(stripe);
+            highwayStripes.push(stripe);
+        }
+
         function animate() {
             requestAnimationFrame(animate);
 
@@ -495,12 +528,17 @@
 
                 const speed = currentSpeed;
 
-                // Scroll ground grid seamlessly
-                if (scrollingGrid) {
-                    scrollingGrid.position.x -= speed;
-                    // Our grid squares are 2 units wide (200 width / 100 segments), snap back every 2 units
-                    if (scrollingGrid.position.x <= -2) {
-                        scrollingGrid.position.x += 2;
+                // Dynamic Highway Stripes Animation
+                for (let i = highwayStripes.length - 1; i >= 0; i--) {
+                    const stripe = highwayStripes[i];
+                    stripe.position.x -= speed * 1.5; // Stripes move slightly faster for speed illusion
+
+                    // Recycle stripes when they go off screen
+                    if (stripe.position.x < camera.left - 10) {
+                        stripe.position.x = camera.right + 10 + Math.random() * 20;
+                        stripe.position.z = 1.5 + Math.random() * 4; // Randomize depth across the track
+                        // Randomize color again
+                        stripe.material.color.setHex(Math.random() > 0.3 ? 0x00f3ff : 0xff0055);
                     }
                 }
 
@@ -556,15 +594,11 @@
                 const time = Date.now() * 0.0005;
                 scene.fog.color.setHSL(0.7 + Math.sin(time) * 0.1, 0.6, 0.1);
 
-                // Update Parallax
+                // Update Parallax (Synthwave Mountains)
                 parallaxObjects.forEach(p => {
                     p.position.x -= speed * p.userData.speed;
-                    p.rotation.x += p.userData.rotSpeedX;
-                    p.rotation.y += p.userData.rotSpeedY;
-                    p.rotation.z += p.userData.rotSpeedZ;
-                    if (p.position.x < camera.left - 10) {
-                        p.position.x = camera.right + 10;
-                        p.position.y = Math.random() * 20 - 5;
+                    if (p.position.x < camera.left - 20) {
+                        p.position.x = camera.right + 20 + Math.random() * 40; // Spawn far right
                     }
                 });
             }
