@@ -176,6 +176,9 @@
         // Audio Synthesizer
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         class SoundFX {
+            static engineOsc = null;
+            static engineGain = null;
+
             static playTone(freq, type, duration, vol = 0.1) {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const osc = audioCtx.createOscillator();
@@ -195,8 +198,37 @@
             static start() {
                 this.playTone(400, 'sine', 0.1, 0.1);
                 setTimeout(() => this.playTone(600, 'sine', 0.2, 0.1), 100);
+
+                // Start continuous engine hum
+                if (this.engineOsc) this.engineOsc.stop();
+                this.engineOsc = audioCtx.createOscillator();
+                this.engineGain = audioCtx.createGain();
+
+                this.engineOsc.type = 'sawtooth';
+                this.engineOsc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                this.engineGain.gain.setValueAtTime(0, audioCtx.currentTime); // Start silent
+
+                this.engineOsc.connect(this.engineGain);
+                this.engineGain.connect(audioCtx.destination);
+                this.engineOsc.start();
             }
+
+            static updateEngine(speedPercentage) {
+                if (!this.engineOsc || !this.engineGain) return;
+                // Minimum hum frequency is 80Hz, ramps up to 250Hz max based on user speed
+                const targetFreq = 80 + (speedPercentage * 170);
+                // Volume starts at 0, ramps up to 0.15
+                const targetVol = speedPercentage * 0.15;
+
+                // Smoothly slide to the new values to prevent clicking
+                this.engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
+                this.engineGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
+            }
+
             static explosion() {
+                if (this.engineGain) {
+                    this.engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05); // Fade out engine
+                }
                 this.playTone(150, 'sawtooth', 0.4, 0.3);
                 setTimeout(() => this.playTone(80, 'square', 0.6, 0.4), 100);
                 setTimeout(() => this.playTone(40, 'sawtooth', 0.8, 0.4), 200);
@@ -368,6 +400,10 @@
 
             player.x += player.vx;
             player.y += player.vy;
+
+            // Audio feedback based on velocity percentage (0 to 1)
+            const currentSpeedMag = Math.hypot(player.vx, player.vy);
+            SoundFX.updateEngine(currentSpeedMag / player.speed);
 
             // Boundaries
             player.x = Math.max(player.radius, Math.min(width - player.radius, player.x));
