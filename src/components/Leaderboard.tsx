@@ -60,7 +60,6 @@ const Leaderboard: React.FC = () => {
           <div className="animate-in fade-in duration-300">
             <div className="flex items-center justify-between mb-4 sticky top-0 bg-[#0f1123]/95 backdrop-blur-sm pb-2 z-10">
               <h3 className="text-lg font-bold text-cyan-400">{activeGame.title} Top 10</h3>
-              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold bg-white/5 px-2 py-1 rounded-md">Live Data</span>
             </div>
 
             {scores.length > 0 ? (
