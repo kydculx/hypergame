@@ -35,6 +35,8 @@ const Leaderboard: React.FC = () => {
         return `${minutes}m ${seconds}s`;
       }
       return `${positiveScore}s`;
+    } else if (gameId === 'bulletdodge') {
+      return (score / 100).toFixed(2) + 's';
     }
     return score.toLocaleString();
   };

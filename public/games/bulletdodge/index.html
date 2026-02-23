@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Bullet Dodge</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f1123;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        /* Scanline background for cyberpunk feel */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -2;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, transparent 30%, #050510 100%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #score-display {
+            font-size: 56px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 10px #38bdf8, 0 0 20px #38bdf8;
+            margin-top: 5px;
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 17, 35, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            text-align: center;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.6));
+        }
+
+        .btn {
+            padding: 12px 32px;
+            font-size: 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            color: white;
+            background: rgba(14, 165, 233, 0.2);
+            border: 2px solid rgba(14, 165, 233, 0.5);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.2);
+        }
+
+        .btn:hover {
+            background: rgba(14, 165, 233, 0.4);
+            box-shadow: 0 0 25px rgba(14, 165, 233, 0.6);
+            transform: scale(1.05);
+        }
+
+        #game-canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui">
+        <div id="score-display">0.00</div>
+    </div>
+
+    <div class="overlay active" id="start-screen">
+        <div class="title">BULLET<br>DODGE</div>
+        <button class="btn" id="start-btn">SURVIVE</button>
+    </div>
+
+    <div class="overlay" id="game-over-screen">
+        <div class="title" id="game-over-title"
+            style="color: #ef4444; background: none; -webkit-text-fill-color: #ef4444; filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.8));">
+            DESTROYED</div>
+        <div style="font-size: 24px; margin-bottom: 30px; color: #38bdf8; text-shadow: 0 0 10px #38bdf8;">
+            Time: <span id="final-score">0.00</span>s
+        </div>
+        <button class="btn" id="restart-btn">Try Again</button>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+
+        let width, height;
+
+        // Audio Synthesizer
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        class SoundFX {
+            static playTone(freq, type, duration, vol = 0.1) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            }
+
+            static start() {
+                this.playTone(400, 'sine', 0.1, 0.1);
+                setTimeout(() => this.playTone(600, 'sine', 0.2, 0.1), 100);
+            }
+            static explosion() {
+                this.playTone(150, 'sawtooth', 0.4, 0.3);
+                setTimeout(() => this.playTone(80, 'square', 0.6, 0.4), 100);
+                setTimeout(() => this.playTone(40, 'sawtooth', 0.8, 0.4), 200);
+            }
+        }
+
+        // Game State
+        let isPlaying = false;
+        let startTime = 0;
+        let survivedTime = 0;
+        let animationId;
+
+        // Entities
+        let player = { x: 0, y: 0, radius: 10, speed: 6, vx: 0, vy: 0, isShielded: false };
+        let bullets = [];
+        let particles = [];
+
+        // Difficulty controls
+        let spawnRate = 30; // frames
+        let frameCount = 0;
+        let difficultyMultiplier = 1;
+
+        // Virtual Joystick
+        let isDragging = false;
+        let joystickCenter = { x: 0, y: 0 };
+        let currentTouch = { x: 0, y: 0 };
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            if (!isPlaying) {
+                player.x = width / 2;
+                player.y = height / 2;
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Input handling
+        function handleInputStart(x, y) {
+            if (!isPlaying) return;
+            isDragging = true;
+            joystickCenter = { x, y };
+            currentTouch = { x, y };
+        }
+
+        function handleInputMove(x, y) {
+            if (!isDragging || !isPlaying) return;
+            currentTouch = { x, y };
+
+            // Calculate direction and magnitude from virtual joystick center
+            let dx = currentTouch.x - joystickCenter.x;
+            let dy = currentTouch.y - joystickCenter.y;
+            let distance = Math.hypot(dx, dy);
+
+            // Normalize and apply max speed if moving
+            const maxRadius = 50; // Max joystick drag distance to reach max speed
+            let speedPercentage = Math.min(distance / maxRadius, 1);
+
+            if (distance > 0) {
+                player.vx = (dx / distance) * player.speed * speedPercentage;
+                player.vy = (dy / distance) * player.speed * speedPercentage;
+            }
+
+            // Make the joystick dynamically follow if dragged too far (floating joystick pattern)
+            if (distance > maxRadius) {
+                joystickCenter.x = currentTouch.x - (dx / distance) * maxRadius;
+                joystickCenter.y = currentTouch.y - (dy / distance) * maxRadius;
+            }
+        }
+
+        function handleInputEnd() {
+            isDragging = false;
+            player.vx = 0;
+            player.vy = 0;
+        }
+
+        // Mouse Events
+        canvas.addEventListener('mousedown', (e) => handleInputStart(e.clientX, e.clientY));
+        window.addEventListener('mousemove', (e) => handleInputMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', handleInputEnd);
+        window.addEventListener('mouseleave', handleInputEnd);
+
+        // Touch Events
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleInputStart(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+        window.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            handleInputMove(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+        window.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleInputEnd();
+        });
+
+        function spawnBullet() {
+            let side = Math.floor(Math.random() * 4);
+            let x, y, vx, vy;
+            let speed = (3 + Math.random() * 4) * difficultyMultiplier;
+            let radius = 4 + Math.random() * 6;
+
+            // 0: top, 1: right, 2: bottom, 3: left
+            if (side === 0) {
+                x = Math.random() * width;
+                y = -radius;
+                vx = (Math.random() - 0.5) * speed;
+                vy = speed;
+            } else if (side === 1) {
+                x = width + radius;
+                y = Math.random() * height;
+                vx = -speed;
+                vy = (Math.random() - 0.5) * speed;
+            } else if (side === 2) {
+                x = Math.random() * width;
+                y = height + radius;
+                vx = (Math.random() - 0.5) * speed;
+                vy = -speed;
+            } else {
+                x = -radius;
+                y = Math.random() * height;
+                vx = speed;
+                vy = (Math.random() - 0.5) * speed;
+            }
+
+            // Aiming towards player occasionally
+            const aimChance = Math.min(0.3 + (survivedTime / 60), 0.8);
+            if (Math.random() < aimChance) {
+                let angle = Math.atan2(player.y - y, player.x - x);
+                // add some noise so it's not perfect aiming
+                angle += (Math.random() - 0.5) * 0.4;
+                vx = Math.cos(angle) * speed;
+                vy = Math.sin(angle) * speed;
+            }
+
+            bullets.push({ x, y, vx, vy, radius, color: '#ef4444' });
+        }
+
+        function spawnParticles(x, y, color) {
+            for (let i = 0; i < 30; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    life: 1,
+                    color
+                });
+            }
+        }
+
+        function update() {
+            if (!isPlaying) return;
+
+            // Time
+            survivedTime = (Date.now() - startTime) / 1000;
+            scoreDisplay.innerText = survivedTime.toFixed(2);
+
+            // Difficulty curve
+            difficultyMultiplier = 1 + (survivedTime / 20); // Speed scales up every 20s
+            // Spawn rate gets faster, minimum 5 frames
+            spawnRate = Math.max(5, Math.floor(25 - (survivedTime / 2)));
+
+            // Player movement
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Boundaries
+            player.x = Math.max(player.radius, Math.min(width - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(height - player.radius, player.y));
+
+            // Bullets
+            frameCount++;
+            if (frameCount >= spawnRate) {
+                spawnBullet();
+                frameCount = 0;
+
+                // Spawn extra bullets based on time
+                if (survivedTime > 15 && Math.random() > 0.5) spawnBullet();
+                if (survivedTime > 30) spawnBullet();
+                if (survivedTime > 60) { spawnBullet(); spawnBullet(); }
+            }
+
+            // Shield logic for first 2 seconds
+            player.isShielded = survivedTime < 2;
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+
+                // Remove off-screen bullets
+                if (b.x < -100 || b.x > width + 100 || b.y < -100 || b.y > height + 100) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Collision
+                let dx = player.x - b.x;
+                let dy = player.y - b.y;
+                let dist = Math.hypot(dx, dy);
+
+                // Smaller hitbox for player core
+                if (dist < (player.radius * 0.6) + b.radius && !player.isShielded) {
+                    gameOver();
+                }
+            }
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            if (!isPlaying && particles.length === 0) return;
+
+            // Draw player shield / trail
+            if (player.isShielded) {
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius + 10 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.fill();
+            }
+
+            // Draw player trail / glow
+            if (isPlaying) {
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius + 5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+                ctx.fill();
+            }
+
+            // Draw player core
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#38bdf8';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#38bdf8';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Draw Bullets
+            for (let b of bullets) {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = b.color;
+                ctx.fill();
+
+                // inner core
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius * 0.6, 0, Math.PI * 2);
+                ctx.fillStyle = b.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // Draw Particles
+            for (let p of particles) {
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            // Draw Virtual Joystick (debug/visual feedback)
+            if (isDragging && isPlaying) {
+                ctx.beginPath();
+                ctx.arc(joystickCenter.x, joystickCenter.y, 50, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(currentTouch.x, currentTouch.y, 20, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(joystickCenter.x, joystickCenter.y);
+                ctx.lineTo(currentTouch.x, currentTouch.y);
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            if (isPlaying || particles.length > 0) {
+                animationId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function startGame() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            SoundFX.start();
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('game-over-screen').classList.remove('active');
+
+            player.x = width / 2;
+            player.y = height / 2;
+            player.vx = 0;
+            player.vy = 0;
+            isDragging = false;
+
+            bullets = [];
+            particles = [];
+            frameCount = 0;
+            difficultyMultiplier = 1;
+            spawnRate = 30;
+
+            startTime = Date.now();
+            isPlaying = true;
+
+            cancelAnimationFrame(animationId);
+            gameLoop();
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            SoundFX.explosion();
+            spawnParticles(player.x, player.y, '#38bdf8');
+            spawnParticles(player.x, player.y, '#fff');
+
+            document.getElementById('final-score').innerText = survivedTime.toFixed(2);
+            document.getElementById('game-over-screen').classList.add('active');
+
+            // Send standard score to leaderboards, e.g. 15.34 seconds -> 1534 points
+            try {
+                let finalScore = Math.floor(survivedTime * 100);
+                window.parent.postMessage({ type: 'GAME_OVER', score: finalScore }, '*');
+            } catch (e) { }
+        }
+
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+
+        // Render initial frame
+        setTimeout(draw, 100);
+    </script>
+</body>
+
+</html>

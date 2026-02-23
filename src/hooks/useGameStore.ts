@@ -109,6 +109,14 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/minesweeper/index.html',
           category: 'puzzle',
         },
+        {
+          id: 'bulletdodge',
+          title: 'Bullet Dodge',
+          description: 'A relentless neon bullet hell survival game. Dodge thousands of lasers using joystick control and survive!',
+          thumbnailUrl: 'games/bulletdodge/thumb.png',
+          gameUrl: 'games/bulletdodge/index.html',
+          category: 'action',
+        },
 
       ],
 
