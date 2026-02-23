@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../hooks/useGameStore';
+import { useUserStore } from '../hooks/useUserStore';
 import { Trophy, Medal, Clock } from 'lucide-react';
 
 const Leaderboard: React.FC = () => {
   const { games, leaderboard, fetchLeaderboard } = useGameStore();
+  const { userName } = useUserStore();
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,6 +21,10 @@ const Leaderboard: React.FC = () => {
 
   const activeGame = games.find(g => g.id === activeGameId) || games[0];
   const scores = activeGame ? (leaderboard[activeGame.id] || []) : [];
+
+  const userRankIndex = scores.findIndex(s => s.userId === userName);
+  const isRanked = userRankIndex !== -1;
+  const userScore = isRanked ? scores[userRankIndex].score : 0;
 
   return (
     <div className="bg-[#0f1123]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col h-[600px] sm:h-[650px] max-h-[85vh] w-full">
@@ -101,6 +107,40 @@ const Leaderboard: React.FC = () => {
             )}
           </div>
         )}
+      </div>
+
+      {/* Fixed My Rank Section */}
+      <div className="mt-4 pt-4 border-t border-white/10 shrink-0">
+        <div className="bg-gradient-to-r from-cyan-900/40 to-[#0f1123] border border-cyan-500/30 rounded-xl p-3 flex items-center justify-between shadow-[0_0_15px_rgba(14,165,233,0.15)] relative overflow-hidden">
+          {/* Subtle glow effect */}
+          <div className="absolute inset-0 bg-cyan-500/5 mix-blend-overlay pointer-events-none"></div>
+
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="w-8 flex justify-center shrink-0">
+              {isRanked ? (
+                userRankIndex === 0 ? <Trophy size={20} className="text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]" /> :
+                  userRankIndex === 1 ? <Medal size={20} className="text-slate-300 drop-shadow-[0_0_5px_rgba(203,213,225,0.4)]" /> :
+                    userRankIndex === 2 ? <Medal size={20} className="text-amber-700/80 drop-shadow-[0_0_5px_rgba(180,83,9,0.4)]" /> :
+                      <span className="text-cyan-400 font-mono text-sm font-bold bg-cyan-950/80 border border-cyan-500/30 w-7 h-7 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(14,165,233,0.3)]">{userRankIndex + 1}</span>
+              ) : (
+                <span className="text-slate-500 font-mono text-sm font-bold bg-black/50 border border-white/10 w-7 h-7 rounded-full flex items-center justify-center">-</span>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-cyan-300">My Rank</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/20">{userName}</span>
+              </div>
+              {!isRanked && <p className="text-[10px] text-slate-400 mt-0.5">Not in Top 10</p>}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 relative z-10">
+            <span className={`font-mono font-black text-lg sm:text-xl tracking-tight ${isRanked ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(14,165,233,0.6)]' : 'text-slate-500'}`}>
+              {isRanked ? userScore.toLocaleString() : '---'}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
