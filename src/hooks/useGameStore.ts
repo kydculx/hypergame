@@ -134,20 +134,17 @@ export const useGameStore = create<GameState>()(
 
       addScore: async (gameId, score) => {
         const { user, userName } = useUserStore.getState();
-        console.log(`[useGameStore] addScore START - Game: ${gameId}, Score: ${score}, User: ${userName}, Auth: ${!!user}`);
+        console.log(`[useGameStore] addScore - Game: ${gameId}, Score: ${score}, User: ${userName}`);
 
         const currentBest = get().personalBests[gameId];
 
-        // High Score / Personal Best logic
-        // For most games: Higher is better (e.g. 5000 > 3000)
-        // For Minesweeper: Lower time is better (stored as negative, e.g. -10 > -20)
-        // If currentBest is undefined, any score is a record.
+        // 1. Check if this is a new personal best
+        // If currentBest is undefined or 0 (buggy residue), any legitimate score is a record.
         let isNewRecord = false;
-        if (currentBest === undefined) {
+        if (currentBest === undefined || (gameId === 'minesweeper' && currentBest === 0)) {
           isNewRecord = true;
         } else {
           // Both positive and negative scores work with standard > comparison for "better"
-          // Bullet Dodge: 5000 > 3000 -> Record
           // Mine Sweeper: -10 > -25 -> Record (10s faster than 25s)
           if (score > currentBest) {
             isNewRecord = true;
@@ -155,13 +152,13 @@ export const useGameStore = create<GameState>()(
         }
 
         if (!isNewRecord) {
-          console.log(`[useGameStore] Not a new record. Score ${score} <= Best ${currentBest}. Skipping.`);
+          console.log(`[useGameStore] Score ${score} is not better than Best ${currentBest}. Skipping.`);
           return;
         }
 
-        console.log(`[useGameStore] NEW RECORD detected for ${gameId}! Updating local and remote states.`);
+        console.log(`[useGameStore] NEW RECORD! Updating local state.`);
 
-        // 1. Update local state for immediate feedback (Guest & Auth)
+        // 2. Update local state immediately (for all users, including guests)
         set((state) => ({
           personalBests: {
             ...state.personalBests,
@@ -169,7 +166,7 @@ export const useGameStore = create<GameState>()(
           }
         }));
 
-        // 2. Update local leaderboard array for immediate visual update
+        // 3. Update local leaderboard for visual feedback
         const currentBoard = get().leaderboard[gameId] || [];
         const filteredBoard = currentBoard.filter(entry => entry.userId !== userName);
 
@@ -190,15 +187,14 @@ export const useGameStore = create<GameState>()(
           },
         }));
 
-        // 3. Submit to Supabase ONLY if authenticated
+        // 4. Submit to Supabase ONLY if authenticated
         if (!user) {
-          console.log('[useGameStore] Player is Guest. Skipping Supabase submission.');
+          console.log('[useGameStore] Guest user - score saved locally only.');
           return;
         }
 
         try {
-          console.log(`[useGameStore] Executing Supabase UPSERT for ${userName}...`);
-          // Note: Requires UNIQUE constraint on (game_id, user_name)
+          console.log(`[useGameStore] Syncing to Supabase...`);
           const { error } = await supabase
             .from('scores')
             .upsert(
@@ -207,15 +203,13 @@ export const useGameStore = create<GameState>()(
             );
 
           if (error) {
-            console.error('[useGameStore] Supabase error:', error.message, error.details);
-            if (error.code === '42P10') {
-              console.error('[CRITICAL] Unique constraint missing on table! Please run the ALTER TABLE SQL provided.');
-            }
+            console.error('[useGameStore] Supabase error:', error.message);
+            console.warn('[ACTION REQUIRED] scores 테이블에 UNIQUE 제약 조건이 없는 것 같습니다. supabase_schema.sql 에 있는 ALTER TABLE 구문을 Supabase 에 실행해주세요.');
           } else {
-            console.log('[useGameStore] Supabase sync SUCCESS!');
+            console.log('[useGameStore] Supabase sync successful!');
           }
         } catch (e) {
-          console.error('[useGameStore] Supabase exception during addScore:', e);
+          console.error('[useGameStore] Supabase exception:', e);
         }
       },
 
