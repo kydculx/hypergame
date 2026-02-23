@@ -101,6 +101,14 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/domino/index.html',
           category: 'puzzle',
         },
+        {
+          id: 'minesweeper',
+          title: 'Neon Sweeper',
+          description: 'Classic Minesweeper, neon style! Uncover safe tiles and flag the bombs.',
+          thumbnailUrl: 'games/minesweeper/thumb.png',
+          gameUrl: 'games/minesweeper/index.html',
+          category: 'puzzle',
+        },
 
       ],
 
