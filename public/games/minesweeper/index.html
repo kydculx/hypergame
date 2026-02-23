@@ -259,6 +259,40 @@
         const mineCountElement = document.getElementById('mine-count');
         const scoreElement = document.getElementById('score-display');
 
+        // Simple Sound Synthesizer using Web Audio API
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        class SoundFX {
+            static playTone(freq, type, duration, vol = 0.1) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            }
+
+            static click() { this.playTone(400, 'sine', 0.1, 0.05); }
+            static flag() { this.playTone(800, 'triangle', 0.15, 0.08); }
+            static unflag() { this.playTone(600, 'triangle', 0.15, 0.08); }
+            static explosion() {
+                this.playTone(100, 'sawtooth', 0.5, 0.2);
+                setTimeout(() => this.playTone(50, 'square', 0.8, 0.3), 50);
+            }
+            static win() {
+                this.playTone(400, 'sine', 0.2, 0.1);
+                setTimeout(() => this.playTone(600, 'sine', 0.2, 0.1), 150);
+                setTimeout(() => this.playTone(800, 'sine', 0.4, 0.15), 300);
+            }
+        }
+
         gridElement.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
 
         // Handle context menu to prevent default right click
@@ -349,6 +383,8 @@
 
         function handleCellClick(r, c, e) {
             if (gameOver) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
             if (e.button === 2) {
                 handleRightClick(r, c);
             } else {
@@ -368,6 +404,7 @@
             if (cell.isMine) {
                 triggerGameOver(false);
             } else {
+                SoundFX.click();
                 reveal(r, c);
                 checkWin();
             }
@@ -380,9 +417,11 @@
             cell.flagged = !cell.flagged;
             cell.element.innerText = cell.flagged ? '🚩' : '';
             if (cell.flagged) {
+                SoundFX.flag();
                 cell.element.classList.add('flagged');
                 flagsPlaced++;
             } else {
+                SoundFX.unflag();
                 cell.element.classList.remove('flagged');
                 flagsPlaced--;
             }
@@ -426,6 +465,9 @@
         function triggerGameOver(isWin) {
             gameOver = true;
 
+            if (isWin) SoundFX.win();
+            else SoundFX.explosion();
+
             // Reveal all mines
             for (let r = 0; r < ROWS; r++) {
                 for (let c = 0; c < COLS; c++) {
@@ -467,11 +509,15 @@
         }
 
         document.getElementById('start-btn').addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            SoundFX.click();
             document.getElementById('start-screen').classList.remove('active');
             initGame();
         });
 
         document.getElementById('restart-btn').addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            SoundFX.click();
             document.getElementById('game-over-screen').classList.remove('active');
             initGame();
         });
