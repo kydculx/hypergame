@@ -73,6 +73,9 @@ const Player: React.FC = () => {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type) {
+        console.log(`[Player] Received message: ${event.data.type}`, event.data);
+      }
       const { type, payload, score: topLevelScore } = event.data;
 
       // Unify the score from different game message formats

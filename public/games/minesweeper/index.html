@@ -555,6 +555,7 @@
             // Don't wait for the 1s timeout, as the user might close the window
             try {
                 if (isWin) {
+                    console.log(`[Minesweeper] Win! Posting score to parent: ${-timeElapsed}`);
                     window.parent.postMessage({ type: 'GAME_OVER', score: -timeElapsed }, '*');
                 }
             } catch (e) { }
