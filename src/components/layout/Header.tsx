@@ -58,8 +58,7 @@ export const Header: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     {/* Backdrop */}
                     <div
-                        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity cursor-pointer"
-                        onClick={() => setIsLeaderboardOpen(false)}
+                        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
                     ></div>
 
                     {/* Modal Content */}
