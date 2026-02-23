@@ -19,7 +19,7 @@
             touch-action: none;
         }
 
-        /* Scanline background for cyberpunk feel */
+        /* Dynamic space grid background */
         body::before {
             content: '';
             position: fixed;
@@ -27,10 +27,30 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px);
-            background-size: 30px 30px;
+            background:
+                linear-gradient(rgba(239, 68, 68, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(239, 68, 68, 0.03) 1px, transparent 1px),
+                radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0, 0, 0, 0)),
+                radial-gradient(1px 1px at 40px 70px, rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0)),
+                radial-gradient(1px 1px at 50px 160px, rgba(255, 255, 255, 0.6), rgba(0, 0, 0, 0)),
+                radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.9), rgba(0, 0, 0, 0)),
+                radial-gradient(1px 1px at 130px 80px, #ffffff, rgba(0, 0, 0, 0)),
+                radial-gradient(1px 1px at 160px 120px, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0));
+            background-repeat: repeat;
+            background-size: 40px 40px, 40px 40px, 200px 200px, 200px 200px, 200px 200px, 200px 200px, 200px 200px, 200px 200px;
+            animation: spaceScroll 20s linear infinite;
             z-index: -2;
+            opacity: 0.6;
+        }
+
+        @keyframes spaceScroll {
+            0% {
+                background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+            }
+
+            100% {
+                background-position: 40px 40px, 40px 40px, 0 100px, 0 150px, 0 200px, 0 50px, 0 120px, 0 80px;
+            }
         }
 
         body::after {
@@ -40,7 +60,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: radial-gradient(circle at center, transparent 30%, #050510 100%);
+            background: radial-gradient(circle at center, transparent 20%, rgba(5, 5, 16, 0.95) 100%);
             z-index: -1;
             pointer-events: none;
         }
@@ -475,21 +495,37 @@
 
             ctx.restore();
 
-            // Draw Bullets
+            // Draw Laser Bullets
             for (let b of bullets) {
+                let angle = Math.atan2(b.vy, b.vx);
+                let length = b.radius * 3; // Elongate the laser
+
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(angle);
+
+                // Outer glow & body
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#fff';
-                ctx.shadowBlur = 12;
+                ctx.roundRect(-length, -b.radius, length * 2, b.radius * 2, b.radius);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.shadowBlur = 15;
                 ctx.shadowColor = b.color;
                 ctx.fill();
 
-                // inner core
+                // Inner bright core
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, b.radius * 0.6, 0, Math.PI * 2);
+                ctx.roundRect(-length * 0.8, -b.radius * 0.4, length * 1.6, b.radius * 0.8, b.radius * 0.4);
                 ctx.fillStyle = b.color;
-                ctx.fill();
                 ctx.shadowBlur = 0;
+                ctx.fill();
+
+                // White hot center
+                ctx.beginPath();
+                ctx.roundRect(-length * 0.5, -b.radius * 0.2, length, b.radius * 0.4, b.radius * 0.2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+
+                ctx.restore();
             }
 
             // Draw Particles
