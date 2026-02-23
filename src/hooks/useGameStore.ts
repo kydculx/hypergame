@@ -28,6 +28,7 @@ interface GameState {
   games: Game[];
   currentGame: Game | null;
   leaderboard: Record<string, ScoreEntry[]>;
+  personalBests: Record<string, number>;
   userProfile: UserProfile;
   setCurrentGame: (game: Game | null) => void;
   addScore: (gameId: string, score: number) => Promise<void>;
@@ -122,6 +123,7 @@ export const useGameStore = create<GameState>()(
 
       currentGame: null,
       leaderboard: {},
+      personalBests: {},
       userProfile: {
         nickname: `Guest_${Math.floor(Math.random() * 9000) + 1000}`,
         avatarColor: getRandomColor(),
@@ -130,39 +132,61 @@ export const useGameStore = create<GameState>()(
       setCurrentGame: (game) => set({ currentGame: game }),
 
       addScore: async (gameId, score) => {
-        // Only allow score submission if the user is authenticated
         const { user, userName } = useUserStore.getState();
         if (!user) {
           console.warn('Guest users cannot submit scores to the leaderboard.');
-          return; // Early return to prevent saving
+          return;
         }
 
-        // 1. Submit to Supabase
+        const currentBest = get().personalBests[gameId] || 0;
+
+        // Check if this is a new personal best
+        // Note: For some games (like Mine Sweeper), lower might be better if we use negative values,
+        // but here's a generic "higher is better" check. Since Mine Sweeper uses -time, it works.
+        if (score <= currentBest && currentBest !== 0) {
+          console.log(`Score ${score} is not better than current best ${currentBest}. Not submitting.`);
+          return;
+        }
+
+        // 1. Submit to Supabase using upsert to maintain one record per user/game
         try {
+          // Note: This assumes a unique constraint on (game_id, user_name) in the 'scores' table
           const { error } = await supabase
             .from('scores')
-            .insert([
-              { game_id: gameId, user_name: userName, score: score }
-            ]);
+            .upsert(
+              { game_id: gameId, user_name: userName, score: score },
+              { onConflict: 'game_id,user_name' }
+            );
 
           if (error) {
-            console.error('Error inserting score to Supabase:', error);
+            console.error('Error upserting score to Supabase:', error);
           }
         } catch (e) {
           console.error('Supabase exception:', e);
         }
 
-        // 2. Also update local state for immediate feedback
+        // 2. Update local state
+        set((state) => ({
+          personalBests: {
+            ...state.personalBests,
+            [gameId]: score
+          }
+        }));
+
+        // 3. Update local leaderboard display
+        // We filter out the old entry for this user and add the new one
         const currentBoard = get().leaderboard[gameId] || [];
+        const filteredBoard = currentBoard.filter(entry => entry.userId !== userName);
+
         const newEntry: ScoreEntry = {
           userId: userName,
           score,
           date: Date.now()
         };
 
-        const updatedBoard = [...currentBoard, newEntry]
+        const updatedBoard = [...filteredBoard, newEntry]
           .sort((a, b) => b.score - a.score)
-          .slice(0, 5); // Keep top 5 locally
+          .slice(0, 5);
 
         set((state) => ({
           leaderboard: {
@@ -220,6 +244,7 @@ export const useGameStore = create<GameState>()(
       name: 'hyper-game-storage',
       partialize: (state) => ({
         leaderboard: state.leaderboard,
+        personalBests: state.personalBests,
         userProfile: state.userProfile
       }),
     }
