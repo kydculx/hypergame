@@ -87,4 +87,14 @@ if (typeof window !== 'undefined') {
 // Initialize auth listener outside the store to sync state on load / auth changes
 supabase.auth.onAuthStateChange((_event, session) => {
     useUserStore.getState().setUser(session?.user || null);
+
+    // If we have a session, fetch the user's personal records
+    if (session?.user) {
+        // We need to import useGameStore dynamically or ensure it's available
+        // Since this is at the module level and useGameStore is exported, we can use it.
+        // However, to avoid circular dependencies if any, we use it directly here.
+        import('./useGameStore').then(({ useGameStore }) => {
+            useGameStore.getState().fetchUserRecords();
+        });
+    }
 });

@@ -35,6 +35,7 @@ interface GameState {
   getBestScore: (gameId: string) => number;
   setNickname: (nickname: string) => void;
   fetchLeaderboard: (gameId: string) => Promise<void>;
+  fetchUserRecords: () => Promise<void>;
 }
 
 const getRandomColor = () => {
@@ -227,6 +228,33 @@ export const useGameStore = create<GameState>()(
           }
         } catch (e) {
           console.error('Supabase fetch exception:', e);
+        }
+      },
+      fetchUserRecords: async () => {
+        const { user, userName } = useUserStore.getState();
+        if (!user) return;
+
+        try {
+          const { data, error } = await supabase
+            .from('scores')
+            .select('game_id, score')
+            .eq('user_name', userName);
+
+          if (error) {
+            console.error('Error fetching user records from Supabase:', error);
+            return;
+          }
+
+          if (data) {
+            const records: Record<string, number> = {};
+            data.forEach((item: any) => {
+              records[item.game_id] = item.score;
+            });
+
+            set({ personalBests: records });
+          }
+        } catch (e) {
+          console.error('Supabase fetch records exception:', e);
         }
       },
       getBestScore: (gameId) => {
