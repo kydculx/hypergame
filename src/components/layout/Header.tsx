@@ -15,6 +15,19 @@ export const Header: React.FC = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
+    React.useEffect(() => {
+        if (isLeaderboardOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+
+        // Cleanup in case component unmounts while modal is open
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isLeaderboardOpen]);
+
     return (
         <>
             <header className={`fixed top-0 left-0 w-full z-40 transition-all duration-500 border-b ${scrolled ? 'bg-[#0A0B1A]/80 backdrop-blur-xl border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)] py-3' : 'bg-transparent border-transparent py-5'}`}>
