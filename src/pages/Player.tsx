@@ -12,7 +12,6 @@ const Player: React.FC = () => {
   const navigate = useNavigate();
 
   const [isLandscape, setIsLandscape] = useState(false);
-  const [score, setScore] = useState(0);
 
   // Check orientation
   useEffect(() => {
@@ -49,8 +48,8 @@ const Player: React.FC = () => {
         if (screen.orientation && (screen.orientation as any).lock) {
           await (screen.orientation as any).lock('portrait');
         }
-      } catch (error) {
-        console.log('Orientation lock failed:', error);
+      } catch {
+        // Orientation lock is not supported on most desktop browsers
       }
     };
 
@@ -73,9 +72,6 @@ const Player: React.FC = () => {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type) {
-        console.log(`[Player] Received message: ${event.data.type}`, event.data);
-      }
       const { type, payload, score: topLevelScore } = event.data;
 
       // Unify the score from different game message formats
@@ -84,21 +80,16 @@ const Player: React.FC = () => {
       switch (type) {
         case 'SUBMIT_SCORE':
         case 'GAME_OVER':
-          const finalScore = receivedScore ?? score;
-          if (gameId && typeof finalScore === 'number') {
-            addScore(gameId, finalScore);
+          if (gameId && typeof receivedScore === 'number') {
+            addScore(gameId, receivedScore);
           }
-          setScore(finalScore);
-          break;
-        case 'GAME_READY':
-          console.log('Game is ready');
           break;
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [gameId, addScore]);
 
   if (!currentGame) return null;
 

@@ -8,11 +8,6 @@ interface GameGridProps {
 }
 
 export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
-    // Helper to assign sizes - Force all to square as requested
-    const getSize = (_index: number): 'medium' => {
-        return 'medium';
-    };
-
     return (
         <div className="w-full max-w-[1400px] mx-auto p-4 pt-12 pb-12">
             {/* 
@@ -22,12 +17,12 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
         - Desktop: 6 columns 
       */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 auto-rows-[160px]">
-                {games.map((game, index) => (
+                {games.map((game) => (
                     <GameCard
                         key={game.id}
                         title={game.title}
-                        thumbnail={game.thumbnailUrl} // Note: Store uses thumbnailUrl matching GameCard prop? No GameCard uses 'thumbnail'
-                        size={getSize(index)}
+                        thumbnail={game.thumbnailUrl}
+                        size="medium"
                         category={game.category}
                         onClick={() => onGameSelect(game)}
                         className="bg-gray-100" // Fallback color if image loads slow

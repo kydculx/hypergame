@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '../hooks/useGameStore';
 import { useUserStore } from '../hooks/useUserStore';
 import { Trophy, Medal, Clock } from 'lucide-react';
@@ -7,6 +7,11 @@ const Leaderboard: React.FC = () => {
   const { games, leaderboard, fetchLeaderboard } = useGameStore();
   const { userName, user } = useUserStore();
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const scrollStartX = useRef(0);
+  const hasDragged = useRef(false);
 
   useEffect(() => {
     // Fetch latest global scores for all games when leaderboard opens
@@ -53,12 +58,37 @@ const Leaderboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Game Selection Tabs */}
-      <div className="flex overflow-x-auto hidden-scrollbar gap-2 mb-6 pb-2 shrink-0 border-b border-white/5">
+      {/* Game Selection Tabs - drag & wheel scroll */}
+      <div
+        ref={tabsRef}
+        className={`flex overflow-x-auto hidden-scrollbar gap-2 mb-6 pb-2 shrink-0 border-b border-white/5 select-none ${isDragging.current ? 'cursor-grabbing' : 'cursor-grab'}`}
+        onWheel={(e) => {
+          if (tabsRef.current) {
+            e.preventDefault();
+            tabsRef.current.scrollLeft += e.deltaY;
+          }
+        }}
+        onMouseDown={(e) => {
+          isDragging.current = true;
+          hasDragged.current = false;
+          dragStartX.current = e.pageX;
+          scrollStartX.current = tabsRef.current?.scrollLeft ?? 0;
+        }}
+        onMouseMove={(e) => {
+          if (!isDragging.current || !tabsRef.current) return;
+          const dx = e.pageX - dragStartX.current;
+          if (Math.abs(dx) > 3) hasDragged.current = true;
+          tabsRef.current.scrollLeft = scrollStartX.current - dx;
+        }}
+        onMouseUp={() => { isDragging.current = false; }}
+        onMouseLeave={() => { isDragging.current = false; }}
+      >
         {games.map((game) => (
           <button
             key={game.id}
-            onClick={() => setActiveGameId(game.id)}
+            onClick={() => {
+              if (!hasDragged.current) setActiveGameId(game.id);
+            }}
             className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-bold transition-all duration-200 ${activeGameId === game.id
               ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)]'
               : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'

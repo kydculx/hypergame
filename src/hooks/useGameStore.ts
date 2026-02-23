@@ -134,7 +134,6 @@ export const useGameStore = create<GameState>()(
 
       addScore: async (gameId, score) => {
         const { user, userName } = useUserStore.getState();
-        console.log(`[useGameStore] addScore - Game: ${gameId}, Score: ${score}, User: ${userName}`);
 
         const currentBest = get().personalBests[gameId];
 
@@ -151,12 +150,9 @@ export const useGameStore = create<GameState>()(
           }
         }
 
-        if (!isNewRecord) {
-          console.log(`[useGameStore] Score ${score} is not better than Best ${currentBest}. Skipping.`);
-          return;
-        }
+        if (!isNewRecord) return;
 
-        console.log(`[useGameStore] NEW RECORD! Updating local state.`);
+
 
         // 2. Update local state immediately (for all users, including guests)
         set((state) => ({
@@ -188,13 +184,9 @@ export const useGameStore = create<GameState>()(
         }));
 
         // 4. Submit to Supabase ONLY if authenticated
-        if (!user) {
-          console.log('[useGameStore] Guest user - score saved locally only.');
-          return;
-        }
+        if (!user) return;
 
         try {
-          console.log(`[useGameStore] Syncing to Supabase...`);
           const { error } = await supabase
             .from('scores')
             .upsert(
@@ -203,10 +195,7 @@ export const useGameStore = create<GameState>()(
             );
 
           if (error) {
-            console.error('[useGameStore] Supabase error:', error.message);
-            console.warn('[ACTION REQUIRED] scores 테이블에 UNIQUE 제약 조건이 없는 것 같습니다. supabase_schema.sql 에 있는 ALTER TABLE 구문을 Supabase 에 실행해주세요.');
-          } else {
-            console.log('[useGameStore] Supabase sync successful!');
+            console.error('[useGameStore] Supabase upsert error:', error.message);
           }
         } catch (e) {
           console.error('[useGameStore] Supabase exception:', e);
