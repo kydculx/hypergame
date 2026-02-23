@@ -73,20 +73,22 @@ const Player: React.FC = () => {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      const { type, payload } = event.data;
+      const { type, payload, score: topLevelScore } = event.data;
+
+      // Unify the score from different game message formats
+      const receivedScore = topLevelScore !== undefined ? topLevelScore : payload?.score;
 
       switch (type) {
         case 'SUBMIT_SCORE':
-          // We still update the local display score, but don't call addScore here
-          if (payload?.score !== undefined) setScore(payload.score);
+        case 'GAME_OVER':
+          const finalScore = receivedScore ?? score;
+          if (gameId && typeof finalScore === 'number') {
+            addScore(gameId, finalScore);
+          }
+          setScore(finalScore);
           break;
         case 'GAME_READY':
           console.log('Game is ready');
-          break;
-        case 'GAME_OVER':
-          const finalScore = payload?.score ?? score;
-          if (gameId) addScore(gameId, finalScore);
-          setScore(finalScore);
           break;
       }
     };
