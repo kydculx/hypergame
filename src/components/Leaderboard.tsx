@@ -49,7 +49,7 @@ const Leaderboard: React.FC = () => {
       </div>
 
       {/* Active Game Leaderboard */}
-      <div className="flex-1 overflow-y-auto hidden-scrollbar min-h-[300px]">
+      <div className="flex-1 overflow-y-auto hidden-scrollbar h-[550px] sm:h-[600px]">
         {activeGame && (
           <div className="animate-in fade-in duration-300">
             <div className="flex items-center justify-between mb-4 sticky top-0 bg-[#0f1123]/95 backdrop-blur-sm pb-2 z-10">
@@ -93,7 +93,7 @@ const Leaderboard: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-48 text-center bg-white/5 rounded-xl border border-white/5 border-dashed">
+              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center bg-white/5 rounded-xl border border-white/5 border-dashed">
                 <Trophy className="text-slate-600 mb-3" size={32} />
                 <p className="text-slate-400 text-sm font-medium">No records yet.</p>
                 <p className="text-cyan-600 text-xs mt-1">Be the first to claim the #1 spot!</p>
