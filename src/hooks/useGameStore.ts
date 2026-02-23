@@ -48,6 +48,14 @@ export const useGameStore = create<GameState>()(
     (set, get) => ({
       games: [
         {
+          id: '2048',
+          title: 'Neon 2048',
+          description: 'Swipe to merge numbers and reach the 2048 tile in this neon-infused puzzle classic!',
+          thumbnailUrl: 'games/2048/thumb.svg',
+          gameUrl: 'games/2048/index.html',
+          category: 'puzzle',
+        },
+        {
           id: 'stack-tower',
           title: 'Stack Tower',
           description: 'Stack blocks as high as you can in this 3D hyper-casual game!',
