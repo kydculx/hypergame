@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Domino Match - Hyper Casual</title>
+
     <style>
         body {
             margin: 0;
@@ -225,6 +226,7 @@
     <div id="game-over">
         <h1>GAME OVER!</h1>
         <p>Score: <span id="final-score">0</span></p>
+
         <button class="replay-btn" onclick="location.reload()">RETRY</button>
     </div>
 
@@ -314,6 +316,7 @@
         let gameState = 'START';
         let score = 0;
         let combo = 0;
+
         const dominos = [];
         let currentFocusIndex = 0;
         let cameraLookAtX = 0;
@@ -762,8 +765,10 @@
             document.getElementById('game-over').style.display = 'block';
             document.getElementById('final-score').textContent = score;
 
+
             window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
         }
+
 
         function updateFocusCamera() {
             if (currentFocusIndex >= dominos.length) return;
@@ -861,6 +866,7 @@
         btnM.addEventListener('pointerdown', (e) => { e.preventDefault(); handlePlayerInput('M'); });
         btnL.addEventListener('pointerdown', (e) => { e.preventDefault(); handlePlayerInput('L'); });
 
+
         window.addEventListener('keydown', (e) => {
             if (e.code === 'KeyZ' || e.code === 'ArrowLeft') handlePlayerInput('S');
             if (e.code === 'KeyX' || e.code === 'ArrowDown') handlePlayerInput('M');
@@ -953,13 +959,13 @@
         animate();
 
     </script>
-    <!-- Google Ads Container -->
-    <div id="ad-container"
-        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+    <!-- Bottom Banner Container -->
+    <div id="bottom-banner"
+        style="position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: center; z-index: 1000; background: rgba(0,0,0,0.5); padding: 5px 0;">
         <script async
             src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6684397532194817"
             crossorigin="anonymous"></script>
-        <!-- Horizontal Banner -->
+        <!-- HyperGame_Bottom_Banner -->
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-6684397532194817" data-ad-slot="8181343233"></ins>
         <script>

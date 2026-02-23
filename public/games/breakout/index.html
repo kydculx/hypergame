@@ -822,13 +822,13 @@
         draw();
         window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>
-    <!-- Google Ads Container -->
-    <div id="ad-container"
-        style="position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; z-index: 100;">
+    <!-- Bottom Banner Container -->
+    <div id="bottom-banner"
+        style="position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: center; z-index: 1000; background: rgba(0,0,0,0.5); padding: 5px 0;">
         <script async
             src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6684397532194817"
             crossorigin="anonymous"></script>
-        <!-- Horizontal Banner -->
+        <!-- HyperGame_Bottom_Banner -->
         <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px"
             data-ad-client="ca-pub-6684397532194817" data-ad-slot="8181343233"></ins>
         <script>
