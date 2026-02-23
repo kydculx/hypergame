@@ -35,6 +35,5 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
                 ))}
             </div>
         </div>
-        </div >
     );
 };
