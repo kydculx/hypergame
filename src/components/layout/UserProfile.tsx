@@ -38,7 +38,7 @@ export const UserProfile: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col items-start cursor-pointer justify-center">
-                    <span className={`font-bold text-sm max-w-[100px] truncate transition-colors ${user ? 'text-cyan-400' : 'text-gray-300 group-hover:text-white mt-1'}`}>
+                    <span className={`font-bold text-sm max-w-[100px] truncate transition-colors ${user ? 'text-cyan-600' : 'text-slate-600 group-hover:text-slate-900 mt-1'}`}>
                         {user ? userName : 'LOGIN'}
                     </span>
                 </div>

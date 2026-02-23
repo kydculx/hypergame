@@ -24,8 +24,8 @@ export const Header: React.FC = () => {
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                         className="flex items-center gap-3 cursor-pointer group"
                     >
-                        <div className={`p-1.5 rounded-2xl transition-all duration-300 ${scrolled ? 'bg-white/10 border border-white/10 shadow-lg' : 'bg-white/5 border border-white/5'} backdrop-blur-md group-hover:bg-white/20 group-hover:border-white/30 group-hover:scale-105`}>
-                            <img src="/images/wc-icon.png" alt="WCGames" className="w-8 h-8 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(14,165,233,0.6)]" />
+                        <div className={`p-1 transition-all duration-300 ${scrolled ? 'bg-white/10 border border-white/10 shadow-lg' : 'bg-transparent border border-transparent'} rounded-full backdrop-blur-md group-hover:bg-white/20 group-hover:border-white/30 group-hover:scale-105 flex items-center justify-center`}>
+                            <img src="/images/wc-icon.png" alt="WCGames" className="w-9 h-9 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(14,165,233,0.6)]" style={{ borderRadius: '50%' }} />
                         </div>
                         <span className="font-extrabold text-white text-2xl tracking-tight hidden sm:block drop-shadow-md group-hover:text-cyan-400 transition-colors">
                             WCGames
