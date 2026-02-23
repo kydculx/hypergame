@@ -15,10 +15,10 @@ export const PokiHeader: React.FC = () => {
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                         className="flex items-center gap-3 cursor-pointer group"
                     >
-                        <div className="bg-white p-1.5 rounded-xl shadow-lg group-hover:scale-105 transition-transform duration-300">
-                            <img src="/images/wc-icon.png" alt="WCGames" className="w-7 h-7" />
+                        <div className="bg-white/5 border border-white/10 p-1.5 rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.5)] backdrop-blur-md group-hover:bg-white/10 group-hover:border-white/20 group-hover:scale-105 transition-all duration-300">
+                            <img src="/images/wc-icon.png" alt="WCGames" className="w-8 h-8 drop-shadow-lg" />
                         </div>
-                        <span className="font-extrabold text-white text-xl tracking-tight hidden sm:block drop-shadow-sm group-hover:text-cyan-400 transition-colors">
+                        <span className="font-extrabold text-white text-2xl tracking-tight hidden sm:block drop-shadow-md group-hover:text-cyan-400 transition-colors">
                             WCGames
                         </span>
                     </div>
