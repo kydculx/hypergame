@@ -59,7 +59,7 @@ const Leaderboard: React.FC = () => {
         {activeGame && (
           <div className="animate-in fade-in duration-300">
             <div className="flex items-center justify-between mb-4 sticky top-0 bg-[#0f1123]/95 backdrop-blur-sm pb-2 z-10">
-              <h3 className="text-lg font-bold text-cyan-400">{activeGame.title} Top 10</h3>
+              <h3 className="text-lg font-bold text-cyan-400">{activeGame.title}</h3>
             </div>
 
             {scores.length > 0 ? (
