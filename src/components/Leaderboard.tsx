@@ -21,7 +21,7 @@ const Leaderboard: React.FC = () => {
   const scores = activeGame ? (leaderboard[activeGame.id] || []) : [];
 
   return (
-    <div className="bg-[#0f1123]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col h-full max-h-[80vh]">
+    <div className="bg-[#0f1123]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col h-[600px] sm:h-[650px] max-h-[85vh] w-full">
       <div className="flex items-center gap-3 mb-6 shrink-0">
         <div className="bg-amber-500/20 p-2 rounded-xl">
           <Trophy className="text-amber-400" size={28} />
