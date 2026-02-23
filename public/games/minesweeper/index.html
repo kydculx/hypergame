@@ -549,14 +549,15 @@
 
                 document.getElementById('final-score').innerText = timeElapsed;
                 document.getElementById('game-over-screen').classList.add('active');
-
-                // Post score to parent window ONLY if the player wins
-                try {
-                    if (isWin) {
-                        window.parent.postMessage({ type: 'GAME_OVER', score: -timeElapsed }, '*');
-                    }
-                } catch (e) { }
             }, 1000);
+
+            // Post score to parent window IMMEDIATELY if the player wins
+            // Don't wait for the 1s timeout, as the user might close the window
+            try {
+                if (isWin) {
+                    window.parent.postMessage({ type: 'GAME_OVER', score: -timeElapsed }, '*');
+                }
+            } catch (e) { }
         }
 
         function updateStats() {
