@@ -91,64 +91,64 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-            <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 animate-in fade-in zoom-in duration-200">
+            <div className="relative w-full max-w-md bg-[#0f1123]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 animate-in fade-in zoom-in duration-200">
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"
                 >
                     <X size={20} />
                 </button>
 
                 <div className="mb-8 text-center">
-                    <h2 className="text-3xl font-black tracking-tight text-gray-900">
+                    <h2 className="text-3xl font-black tracking-tight text-white">
                         {isLogin ? 'Welcome Back' : 'Create Account'}
                     </h2>
-                    <p className="text-gray-500 mt-2">
+                    <p className="text-slate-400 mt-2 font-medium text-sm">
                         {isLogin ? 'Sign in to save your high scores!' : 'Join to climb the global leaderboards!'}
                     </p>
                 </div>
 
                 {error && (
-                    <div className="mb-6 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                    <div className="mb-6 p-3 bg-red-500/20 text-red-200 text-sm font-medium rounded-lg border border-red-500/30">
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {!isLogin && (
-                        <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                        <div className="relative group">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-cyan-400" size={20} />
                             <input
                                 type="text"
                                 placeholder="Public Username"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all font-medium"
                                 required={!isLogin}
                             />
                         </div>
                     )}
 
-                    <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <div className="relative group">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-cyan-400" size={20} />
                         <input
                             type="email"
                             placeholder="Email Address"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all font-medium"
                             required
                         />
                     </div>
 
-                    <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <div className="relative group">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-cyan-400" size={20} />
                         <input
                             type="password"
                             placeholder="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all font-medium"
                             required
                             minLength={6}
                         />
@@ -157,7 +157,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                        className="w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(14,165,233,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:pointer-events-none disabled:hover:scale-100 mt-2"
                     >
                         {loading && <Loader2 size={18} className="animate-spin" />}
                         {isLogin ? 'Sign In' : 'Sign Up'}
@@ -167,16 +167,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 {/* OAuth Dividers & Buttons */}
                 <div className="mt-8">
                     <div className="relative flex items-center mb-6">
-                        <div className="flex-grow border-t border-gray-200"></div>
-                        <span className="flex-shrink-0 mx-4 text-gray-400 text-sm">or continue with</span>
-                        <div className="flex-grow border-t border-gray-200"></div>
+                        <div className="flex-grow border-t border-white/10"></div>
+                        <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase tracking-wider">or continue with</span>
+                        <div className="flex-grow border-t border-white/10"></div>
                     </div>
 
                     <div className="space-y-3">
                         <button
                             onClick={() => handleOAuthLogin('google')}
                             disabled={loading}
-                            className="w-full py-3 px-4 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:pointer-events-none"
+                            className="w-full py-3 px-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:pointer-events-none disabled:hover:scale-100"
                         >
                             <GoogleIcon />
                             Google
@@ -184,14 +184,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 </div>
 
-                <div className="mt-6 text-center text-sm text-gray-500">
+                <div className="mt-6 text-center text-sm text-slate-400">
                     {isLogin ? "Don't have an account? " : "Already have an account? "}
                     <button
                         onClick={() => {
                             setIsLogin(!isLogin);
                             setError(null);
                         }}
-                        className="text-blue-600 font-bold hover:underline"
+                        className="text-cyan-400 font-bold hover:text-cyan-300 hover:underline transition-colors"
                     >
                         {isLogin ? 'Create one' : 'Sign in'}
                     </button>
