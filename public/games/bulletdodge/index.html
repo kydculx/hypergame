@@ -656,12 +656,15 @@
             spawnParticles(player.x, player.y, '#38bdf8');
             spawnParticles(player.x, player.y, '#fff');
 
-            document.getElementById('final-score').innerText = survivedTime.toFixed(2);
+            // Freeze the exact survived time
+            const finalTime = (Date.now() - startTime) / 1000;
+
+            document.getElementById('final-score').innerText = finalTime.toFixed(2);
             document.getElementById('game-over-screen').classList.add('active');
 
             // Send standard score to leaderboards, e.g. 15.34 seconds -> 1534 points
             try {
-                let finalScore = Math.floor(survivedTime * 100);
+                let finalScore = Math.floor(finalTime * 100);
                 window.parent.postMessage({ type: 'GAME_OVER', score: finalScore }, '*');
             } catch (e) { }
         }
