@@ -39,8 +39,8 @@ const Leaderboard: React.FC = () => {
             key={game.id}
             onClick={() => setActiveGameId(game.id)}
             className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-bold transition-all duration-200 ${activeGameId === game.id
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)]'
-                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
+              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)]'
+              : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
               }`}
           >
             {game.title}
@@ -53,7 +53,7 @@ const Leaderboard: React.FC = () => {
         {activeGame && (
           <div className="animate-in fade-in duration-300">
             <div className="flex items-center justify-between mb-4 sticky top-0 bg-[#0f1123]/95 backdrop-blur-sm pb-2 z-10">
-              <h3 className="text-lg font-bold text-cyan-400">{activeGame.title} Top 5</h3>
+              <h3 className="text-lg font-bold text-cyan-400">{activeGame.title} Top 10</h3>
               <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold bg-white/5 px-2 py-1 rounded-md">Live Data</span>
             </div>
 
