@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore, type Game } from '../hooks/useGameStore';
-import { PokiHeader } from '../components/layout/PokiHeader';
+import { Header } from '../components/layout/Header';
 import { GameGrid } from '../components/layout/GameGrid';
 import { PortalBackground } from '../components/layout/PortalBackground';
 
@@ -18,7 +18,7 @@ const Home: React.FC = () => {
     return (
         <div className="min-h-screen relative z-0">
             <PortalBackground />
-            <PokiHeader />
+            <Header />
 
             {/* Hero Section */}
             <section className="relative pt-32 pb-12 px-6 flex flex-col items-center justify-center text-center max-w-4xl mx-auto z-10 w-full">
