@@ -176,8 +176,19 @@
         // Audio Synthesizer
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         class SoundFX {
-            static engineOsc = null;
+            static engineNoise = null;
+            static engineFilter = null;
             static engineGain = null;
+
+            static createWhiteNoise() {
+                const bufferSize = audioCtx.sampleRate * 2; // 2 seconds of noise
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                return buffer;
+            }
 
             static playTone(freq, type, duration, vol = 0.1) {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -199,29 +210,37 @@
                 this.playTone(400, 'sine', 0.1, 0.1);
                 setTimeout(() => this.playTone(600, 'sine', 0.2, 0.1), 100);
 
-                // Start continuous engine hum
-                if (this.engineOsc) this.engineOsc.stop();
-                this.engineOsc = audioCtx.createOscillator();
-                this.engineGain = audioCtx.createGain();
+                // Start continuous engine noise (swoosh effect)
+                if (this.engineNoise) {
+                    this.engineNoise.stop();
+                    this.engineNoise.disconnect();
+                }
 
-                this.engineOsc.type = 'sawtooth';
-                this.engineOsc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                this.engineNoise = audioCtx.createBufferSource();
+                this.engineNoise.buffer = this.createWhiteNoise();
+                this.engineNoise.loop = true;
+
+                this.engineFilter = audioCtx.createBiquadFilter();
+                this.engineFilter.type = 'lowpass';
+                this.engineFilter.frequency.setValueAtTime(200, audioCtx.currentTime); // Base muffled sound
+
+                this.engineGain = audioCtx.createGain();
                 this.engineGain.gain.setValueAtTime(0, audioCtx.currentTime); // Start silent
 
-                this.engineOsc.connect(this.engineGain);
+                this.engineNoise.connect(this.engineFilter);
+                this.engineFilter.connect(this.engineGain);
                 this.engineGain.connect(audioCtx.destination);
-                this.engineOsc.start();
+                this.engineNoise.start();
             }
 
             static updateEngine(speedPercentage) {
-                if (!this.engineOsc || !this.engineGain) return;
-                // Minimum hum frequency is 80Hz, ramps up to 250Hz max based on user speed
-                const targetFreq = 80 + (speedPercentage * 170);
-                // Volume starts at 0, ramps up to 0.15
-                const targetVol = speedPercentage * 0.15;
+                if (!this.engineFilter || !this.engineGain) return;
 
-                // Smoothly slide to the new values to prevent clicking
-                this.engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
+                // Muffled wind/thrust at low speed, sharp swoosh at high speed
+                const targetFreq = 200 + (speedPercentage * 1800); // 200Hz -> 2000Hz sweep
+                const targetVol = speedPercentage * 0.4; // Max volume for the swoosh
+
+                this.engineFilter.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
                 this.engineGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
             }
 
