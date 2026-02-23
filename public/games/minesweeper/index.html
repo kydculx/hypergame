@@ -24,6 +24,13 @@
             margin: 0;
             padding: 0;
             background-color: var(--bg-color);
+            background-image:
+                radial-gradient(circle at 50% 100%, rgba(14, 165, 233, 0.15) 0%, transparent 50%),
+                linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+            background-position: 0 0, 0 0, 0 0;
+            animation: bgScroll 20s linear infinite;
             color: var(--text-color);
             font-family: 'Orbitron', sans-serif;
             display: flex;
@@ -34,6 +41,32 @@
             overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
+            position: relative;
+        }
+
+        @keyframes bgScroll {
+            0% {
+                background-position: 0 0, 0 0, 0 0;
+            }
+
+            100% {
+                background-position: 0 0, 0 40px, 40px 0;
+            }
+        }
+
+        /* Scanline effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.1) 51%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.3;
         }
 
         .game-container {
