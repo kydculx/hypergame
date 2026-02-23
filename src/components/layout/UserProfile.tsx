@@ -37,11 +37,10 @@ export const UserProfile: React.FC = () => {
                     <User size={20} className={`transition-colors ${user ? 'text-blue-600' : 'text-gray-500'}`} />
                 </div>
 
-                <div className="flex flex-col items-start cursor-pointer">
-                    <span className={`font-bold text-sm max-w-[100px] truncate transition-colors ${user ? 'text-blue-700' : 'text-gray-700'}`}>
-                        {userName}
+                <div className="flex flex-col items-start cursor-pointer justify-center">
+                    <span className={`font-bold text-sm max-w-[100px] truncate transition-colors ${user ? 'text-cyan-400' : 'text-gray-300 group-hover:text-white mt-1'}`}>
+                        {user ? userName : 'LOGIN'}
                     </span>
-                    {!user && <span className="text-[10px] text-gray-400 font-medium -mt-1 tracking-wide">Click to Login</span>}
                 </div>
             </button>
 
