@@ -8,25 +8,39 @@ export const PokiHeader: React.FC = () => {
 
     return (
         <>
-            <header className="fixed top-0 left-0 w-full z-40 flex items-center justify-between p-4 pointer-events-none">
-                {/* Logo Container */}
-                <div className="bg-white rounded-full p-2 pr-4 pl-2 shadow-lg flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform duration-200 pointer-events-auto">
-                    <img src="/images/wc-icon.png" alt="WCGames" className="w-8 h-8 rounded-full shadow-sm" />
-                    <span className="font-bold text-gray-800 text-xl tracking-tight hidden sm:block">WCGames</span>
-                </div>
-
-                {/* Right Side Actions */}
-                <div className="flex items-center gap-2 pointer-events-auto">
-                    {/* Leaderboard Button */}
-                    <button
-                        onClick={() => setIsLeaderboardOpen(true)}
-                        className="bg-white p-3 rounded-full shadow-lg text-amber-500 hover:text-amber-600 hover:scale-105 transition-all duration-200"
+            <header className="fixed top-0 left-0 w-full z-40 bg-black/20 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+                <div className="max-w-[1400px] mx-auto flex items-center justify-between p-4 px-6">
+                    {/* Logo Container */}
+                    <div
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                        className="flex items-center gap-3 cursor-pointer group"
                     >
-                        <Trophy size={24} />
-                    </button>
+                        <div className="bg-white p-1.5 rounded-xl shadow-lg group-hover:scale-105 transition-transform duration-300">
+                            <img src="/images/wc-icon.png" alt="WCGames" className="w-7 h-7" />
+                        </div>
+                        <span className="font-extrabold text-white text-xl tracking-tight hidden sm:block drop-shadow-sm group-hover:text-cyan-400 transition-colors">
+                            WCGames
+                        </span>
+                    </div>
 
-                    {/* User Profile */}
-                    <UserProfile />
+                    {/* Right Side Actions */}
+                    <div className="flex items-center gap-4 border border-white/10 bg-black/20 rounded-full p-1.5">
+                        {/* Leaderboard Button */}
+                        <button
+                            onClick={() => setIsLeaderboardOpen(true)}
+                            className="bg-white/5 hover:bg-white/20 p-2.5 rounded-full text-amber-500 hover:text-amber-400 hover:scale-105 transition-all duration-300 backdrop-blur-sm"
+                            title="Leaderboard"
+                        >
+                            <Trophy size={20} className="drop-shadow-sm" />
+                        </button>
+
+                        <div className="w-[1px] h-6 bg-white/10"></div>
+
+                        {/* User Profile */}
+                        <div className="pr-1">
+                            <UserProfile />
+                        </div>
+                    </div>
                 </div>
             </header>
 

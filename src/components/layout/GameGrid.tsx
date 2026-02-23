@@ -14,7 +14,7 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
     };
 
     return (
-        <div className="w-full max-w-[1400px] mx-auto p-4 pt-24 pb-12">
+        <div className="w-full max-w-[1400px] mx-auto p-4 pt-12 pb-12">
             {/* 
         Grid setup:
         - Mobile: 2 columns
