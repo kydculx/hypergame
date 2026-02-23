@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Mail, Lock, User, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -87,8 +88,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    return createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
             <div className="relative w-full max-w-md bg-[#0f1123]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 animate-in fade-in zoom-in duration-200 mt-[-10vh]">
@@ -197,6 +198,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     </button>
                 </div>
             </div>
-        </div >
+        </div>,
+        document.body
     );
 };
