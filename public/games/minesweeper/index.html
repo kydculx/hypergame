@@ -505,10 +505,11 @@
                 document.getElementById('final-score').innerText = timeElapsed;
                 document.getElementById('game-over-screen').classList.add('active');
 
-                // Post score to parent window
-                // Lower time is better! Need to invert or inform leaderboard.
+                // Post score to parent window ONLY if the player wins
                 try {
-                    window.parent.postMessage({ type: 'GAME_OVER', score: -timeElapsed }, '*');
+                    if (isWin) {
+                        window.parent.postMessage({ type: 'GAME_OVER', score: -timeElapsed }, '*');
+                    }
                 } catch (e) { }
             }, 1000);
         }
