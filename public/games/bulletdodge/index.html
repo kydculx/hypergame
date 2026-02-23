@@ -669,8 +669,19 @@
             } catch (e) { }
         }
 
-        document.getElementById('start-btn').addEventListener('click', startGame);
-        document.getElementById('restart-btn').addEventListener('click', startGame);
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+
+        function onUiClick(e) {
+            e.preventDefault(); // Prevent double firing on touch devices
+            startGame();
+        }
+
+        startBtn.addEventListener('click', onUiClick);
+        startBtn.addEventListener('touchstart', onUiClick, { passive: false });
+
+        restartBtn.addEventListener('click', onUiClick);
+        restartBtn.addEventListener('touchstart', onUiClick, { passive: false });
 
         // Render initial frame
         setTimeout(draw, 100);
