@@ -58,10 +58,6 @@ const Leaderboard: React.FC = () => {
       <div className="flex-1 overflow-y-auto hidden-scrollbar h-[550px] sm:h-[600px]">
         {activeGame && (
           <div className="animate-in fade-in duration-300">
-            <div className="flex items-center justify-between mb-4 sticky top-0 bg-[#0f1123]/95 backdrop-blur-sm pb-2 z-10">
-              <h3 className="text-lg font-bold text-cyan-400">{activeGame.title}</h3>
-            </div>
-
             {scores.length > 0 ? (
               <div className="space-y-2">
                 {scores.map((entry, index) => (
