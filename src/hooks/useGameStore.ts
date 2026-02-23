@@ -134,39 +134,20 @@ export const useGameStore = create<GameState>()(
 
       addScore: async (gameId, score) => {
         const { user, userName } = useUserStore.getState();
-        if (!user) {
-          console.warn('Guest users cannot submit scores to the leaderboard.');
-          return;
-        }
+        console.log(`[useGameStore] addScore called for ${gameId}. Score: ${score}, User: ${userName}, Auth: ${!!user}`);
 
         const currentBest = get().personalBests[gameId] || 0;
+        console.log(`[useGameStore] Current best for ${gameId} is ${currentBest}`);
 
         // Check if this is a new personal best
-        // Note: For some games (like Mine Sweeper), lower might be better if we use negative values,
-        // but here's a generic "higher is better" check. Since Mine Sweeper uses -time, it works.
         if (score <= currentBest && currentBest !== 0) {
-          console.log(`Score ${score} is not better than current best ${currentBest}. Not submitting.`);
+          console.log(`[useGameStore] Score ${score} is not better than ${currentBest}. Skipping.`);
           return;
         }
 
-        // 1. Submit to Supabase using upsert to maintain one record per user/game
-        try {
-          // Note: This assumes a unique constraint on (game_id, user_name) in the 'scores' table
-          const { error } = await supabase
-            .from('scores')
-            .upsert(
-              { game_id: gameId, user_name: userName, score: score },
-              { onConflict: 'game_id,user_name' }
-            );
+        console.log(`[useGameStore] New Record detected! Updating state...`);
 
-          if (error) {
-            console.error('Error upserting score to Supabase:', error);
-          }
-        } catch (e) {
-          console.error('Supabase exception:', e);
-        }
-
-        // 2. Update local state
+        // 1. Update local state immediately for all users (including guests)
         set((state) => ({
           personalBests: {
             ...state.personalBests,
@@ -174,8 +155,7 @@ export const useGameStore = create<GameState>()(
           }
         }));
 
-        // 3. Update local leaderboard display
-        // We filter out the old entry for this user and add the new one
+        // 2. Update local leaderboard display
         const currentBoard = get().leaderboard[gameId] || [];
         const filteredBoard = currentBoard.filter(entry => entry.userId !== userName);
 
@@ -195,6 +175,32 @@ export const useGameStore = create<GameState>()(
             [gameId]: updatedBoard,
           },
         }));
+
+        // 3. Submit to Supabase ONLY if authenticated
+        if (!user) {
+          console.log('[useGameStore] Guest user - skipping Supabase submission.');
+          return;
+        }
+
+        try {
+          console.log(`[useGameStore] Upserting to Supabase...`);
+          // Note: This assumes a unique constraint on (game_id, user_name) in the 'scores' table
+          const { error } = await supabase
+            .from('scores')
+            .upsert(
+              { game_id: gameId, user_name: userName, score: score },
+              { onConflict: 'game_id,user_name' }
+            );
+
+          if (error) {
+            console.error('[useGameStore] Supabase upsert error:', error);
+            console.error('Note: If "onConflict" failed, please ensure you have run the UNIQUE constraint SQL: ALTER TABLE scores ADD CONSTRAINT unique_user_game UNIQUE (game_id, user_name);');
+          } else {
+            console.log('[useGameStore] Supabase upsert successful!');
+          }
+        } catch (e) {
+          console.error('[useGameStore] Supabase exception:', e);
+        }
       },
 
       fetchLeaderboard: async (gameId) => {
