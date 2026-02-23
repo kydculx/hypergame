@@ -26,6 +26,19 @@ const Leaderboard: React.FC = () => {
   const isRanked = userRankIndex !== -1;
   const userScore = isRanked ? scores[userRankIndex].score : 0;
 
+  const renderScore = (gameId: string | undefined, score: number) => {
+    if (gameId === 'minesweeper') {
+      const positiveScore = Math.abs(score);
+      const minutes = Math.floor(positiveScore / 60);
+      const seconds = positiveScore % 60;
+      if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+      }
+      return `${positiveScore}s`;
+    }
+    return score.toLocaleString();
+  };
+
   return (
     <div className="bg-[#0f1123]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col h-[600px] sm:h-[650px] max-h-[85vh] w-full">
       <div className="flex items-center gap-3 mb-6 shrink-0">
@@ -87,7 +100,7 @@ const Leaderboard: React.FC = () => {
                       </div>
                       <span className={`font-mono font-black text-lg sm:text-xl tracking-tight ${index === 0 ? 'text-amber-400' : 'text-blue-300'
                         }`}>
-                        {entry.score.toLocaleString()}
+                        {renderScore(activeGame?.id, entry.score)}
                       </span>
                     </div>
                   </div>
@@ -133,7 +146,7 @@ const Leaderboard: React.FC = () => {
 
             <div className="flex items-center gap-4 relative z-10">
               <span className={`font-mono font-black text-lg sm:text-xl tracking-tight ${isRanked ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(14,165,233,0.6)]' : 'text-slate-500'}`}>
-                {isRanked ? userScore.toLocaleString() : '---'}
+                {isRanked ? renderScore(activeGame?.id, userScore) : '---'}
               </span>
             </div>
           </div>

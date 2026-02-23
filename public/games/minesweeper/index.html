@@ -230,7 +230,7 @@
             style="color: #ef4444; background: none; -webkit-text-fill-color: #ef4444; filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.8));">
             GAME OVER</div>
         <div style="font-size: 24px; margin-bottom: 30px; color: #38bdf8; text-shadow: 0 0 10px #38bdf8;">
-            Score: <span id="final-score">0</span>
+            Time: <span id="final-score">0</span>s
         </div>
         <button class="btn" id="restart-btn">Try Again</button>
     </div>
@@ -238,7 +238,7 @@
     <div class="game-container">
         <div class="header">
             <div class="stat-box" title="Mines Remaining">💣 <span id="mine-count">0</span></div>
-            <div class="stat-box" title="Score">⭐ <span id="score-display">0</span></div>
+            <div class="stat-box" title="Time (s)">⏱️ <span id="score-display">0</span></div>
         </div>
         <div class="grid" id="grid"></div>
     </div>
@@ -252,7 +252,8 @@
         let numRevealed = 0;
         let flagsPlaced = 0;
         let gameOver = false;
-        let score = 0;
+        let timeElapsed = 0;
+        let timerInterval = null;
         let firstClick = true;
 
         const gridElement = document.getElementById('grid');
@@ -299,11 +300,12 @@
         document.addEventListener('contextmenu', event => event.preventDefault());
 
         function initGame() {
+            if (timerInterval) clearInterval(timerInterval);
             gridElement.innerHTML = '';
             grid = [];
             numRevealed = 0;
             flagsPlaced = 0;
-            score = 0;
+            timeElapsed = 0;
             gameOver = false;
             firstClick = true;
             updateStats();
@@ -347,6 +349,18 @@
                 }
                 grid.push(row);
             }
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timeElapsed = 0;
+            updateStats();
+            timerInterval = setInterval(() => {
+                if (!gameOver) {
+                    timeElapsed++;
+                    updateStats();
+                }
+            }, 1000);
         }
 
         function placeMines(firstR, firstC) {
@@ -399,6 +413,7 @@
             if (firstClick) {
                 placeMines(r, c);
                 firstClick = false;
+                startTimer();
             }
 
             if (cell.isMine) {
@@ -437,10 +452,6 @@
             cell.element.classList.add('revealed');
             numRevealed++;
 
-            // Score calculations
-            score += 10;
-            updateStats();
-
             if (cell.neighborMines > 0) {
                 cell.element.innerText = cell.neighborMines;
                 cell.element.classList.add(`num-${cell.neighborMines}`);
@@ -456,8 +467,6 @@
 
         function checkWin() {
             if (numRevealed === (ROWS * COLS) - MINES) {
-                score += 1000; // Win bonus
-                updateStats();
                 triggerGameOver(true);
             }
         }
@@ -493,19 +502,20 @@
                     title.style.filter = "drop-shadow(0 0 20px rgba(239, 68, 68, 0.8))";
                 }
 
-                document.getElementById('final-score').innerText = score;
+                document.getElementById('final-score').innerText = timeElapsed;
                 document.getElementById('game-over-screen').classList.add('active');
 
                 // Post score to parent window
+                // Lower time is better! Need to invert or inform leaderboard.
                 try {
-                    window.parent.postMessage({ type: 'GAME_OVER', score: score }, '*');
+                    window.parent.postMessage({ type: 'GAME_OVER', score: -timeElapsed }, '*');
                 } catch (e) { }
             }, 1000);
         }
 
         function updateStats() {
             mineCountElement.innerText = Math.max(0, MINES - flagsPlaced);
-            scoreElement.innerText = score;
+            scoreElement.innerText = timeElapsed;
         }
 
         document.getElementById('start-btn').addEventListener('click', () => {
