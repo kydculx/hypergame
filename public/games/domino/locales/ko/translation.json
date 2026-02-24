@@ -1,0 +1,9 @@
+{
+  "title": "도미노 매치",
+  "instruction": "알맞은 크기의 도미노를 전략적으로 배치하여 회로를 완성하고 완벽한 연쇄 반응을 일으키세요.",
+  "play": "시작",
+  "game_over": "게임오버",
+  "final_score": "점수: ",
+  "play_again": "다시하기",
+  "category": "퍼즐"
+}

@@ -1,0 +1,9 @@
+{
+  "title": "Helix Jump",
+  "instruction": "Plunge your bouncing ball all the way to the bottom of the spiral tower while avoiding the dangerously colored platforms.",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "ACTION"
+}

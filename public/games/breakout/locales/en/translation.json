@@ -1,0 +1,9 @@
+{
+  "title": "Breakout",
+  "instruction": "Bounce the ball to break all the glowing neon bricks and clear the level.",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "ACTION"
+}

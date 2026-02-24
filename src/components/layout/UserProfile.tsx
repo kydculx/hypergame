@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { User, LogOut, Loader2 } from 'lucide-react';
 import { useUserStore } from '../../hooks/useUserStore';
 import { AuthModal } from './AuthModal';
+import { useTranslation } from 'react-i18next';
 
 export const UserProfile: React.FC = () => {
+    const { t } = useTranslation();
     const { userName, user, logout } = useUserStore();
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -39,7 +41,7 @@ export const UserProfile: React.FC = () => {
 
                 <div className="flex flex-col items-start cursor-pointer justify-center">
                     <span className={`font-bold text-sm max-w-[100px] truncate transition-colors ${user ? 'text-cyan-600' : 'text-slate-600 group-hover:text-slate-900 mt-1'}`}>
-                        {user ? userName : 'LOGIN'}
+                        {user ? userName : t('header.login')}
                     </span>
                 </div>
             </button>
@@ -58,7 +60,7 @@ export const UserProfile: React.FC = () => {
                             disabled={isLoggingOut}
                             className="w-full flex items-center justify-between px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                         >
-                            <span className="font-semibold">Sign Out</span>
+                            <span className="font-semibold">{t('header.logout')}</span>
                             {isLoggingOut ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
                         </button>
                     </div>

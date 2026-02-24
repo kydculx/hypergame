@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../hooks/useGameStore';
 import { useNavigate, useParams } from 'react-router-dom';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Player: React.FC = () => {
+  const { t } = useTranslation();
   const { gameId } = useParams<{ gameId: string }>();
   const currentGame = useGameStore((state) => state.currentGame);
   const games = useGameStore((state) => state.games);
@@ -111,8 +113,8 @@ const Player: React.FC = () => {
               <path d="M12 18h.01" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">세로 모드로 돌려주세요</h2>
-          <p className="text-gray-400">이 게임은 세로 모드에 최적화되어 있습니다.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">{t('player.rotate_title')}</h2>
+          <p className="text-gray-400">{t('player.rotate_desc')}</p>
         </div>
       )}
 
@@ -138,7 +140,7 @@ const Player: React.FC = () => {
         <iframe
           src={currentGame.gameUrl}
           className="w-full h-full border-none"
-          title={currentGame.title}
+          title={t(`games.${currentGame.id}.title`)}
           allow="autoplay; fullscreen"
         />
       </div>

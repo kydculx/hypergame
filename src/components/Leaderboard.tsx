@@ -2,8 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '../hooks/useGameStore';
 import { useUserStore } from '../hooks/useUserStore';
 import { Trophy, Medal, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Leaderboard: React.FC = () => {
+  const { t } = useTranslation();
   const { games, leaderboard, fetchLeaderboard } = useGameStore();
   const { userName, user } = useUserStore();
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
@@ -53,8 +55,8 @@ const Leaderboard: React.FC = () => {
           <Trophy className="text-amber-400" size={28} />
         </div>
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-white uppercase leading-none">Global Rankings</h2>
-          <p className="text-slate-400 text-xs mt-1">Top players across all games</p>
+          <h2 className="text-2xl font-black tracking-tight text-white uppercase leading-none">{t('board.title')}</h2>
+          <p className="text-slate-400 text-xs mt-1">{t('board.subtitle')}</p>
         </div>
       </div>
 
@@ -94,7 +96,7 @@ const Leaderboard: React.FC = () => {
               : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5'
               }`}
           >
-            {game.title}
+            {t(`games.${game.id}.title`)}
           </button>
         ))}
       </div>
@@ -141,8 +143,8 @@ const Leaderboard: React.FC = () => {
             ) : (
               <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center bg-white/5 rounded-xl border border-white/5 border-dashed">
                 <Trophy className="text-slate-600 mb-3" size={32} />
-                <p className="text-slate-400 text-sm font-medium">No records yet.</p>
-                <p className="text-cyan-600 text-xs mt-1">Be the first to claim the #1 spot!</p>
+                <p className="text-slate-400 text-sm font-medium">{t('board.empty_title')}</p>
+                <p className="text-cyan-600 text-xs mt-1">{t('board.empty_desc')}</p>
               </div>
             )}
           </div>
@@ -169,10 +171,10 @@ const Leaderboard: React.FC = () => {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-cyan-300">My Rank</span>
+                  <span className="font-bold text-sm text-cyan-300">{t('board.my_rank')}</span>
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/20">{userName}</span>
                 </div>
-                {!isRanked && <p className="text-[10px] text-slate-400 mt-0.5">Not in Top 10</p>}
+                {!isRanked && <p className="text-[10px] text-slate-400 mt-0.5">{t('board.not_in_top10')}</p>}
               </div>
             </div>
 

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Trophy, X } from 'lucide-react';
+import { Trophy, X, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { UserProfile } from './UserProfile';
 import Leaderboard from '../Leaderboard';
 
 export const Header: React.FC = () => {
     const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+    const { i18n } = useTranslation();
 
     // Apply a scroll listener for a more dynamic header
     const [scrolled, setScrolled] = useState(false);
@@ -46,7 +48,27 @@ export const Header: React.FC = () => {
                     </div>
 
                     {/* Right Side Actions */}
-                    <div className="flex items-center gap-3 md:gap-4 bg-white/5 border border-white/10 rounded-full p-1.5 backdrop-blur-md shadow-inner transition-colors hover:bg-white/10 hover:border-white/20">
+                    <div className="flex items-center gap-2 md:gap-3 bg-white/5 border border-white/10 rounded-full p-1.5 backdrop-blur-md shadow-inner transition-colors hover:bg-white/10 hover:border-white/20">
+                        {/* Language Selector */}
+                        <button
+                            onClick={() => {
+                                const newLng = i18n.language.startsWith('ko') ? 'en' : 'ko';
+                                i18n.changeLanguage(newLng);
+                                // Broadcast language change to iframe games
+                                const message = { type: 'LANGUAGE_CHANGED', payload: { lang: newLng } };
+                                document.querySelectorAll('iframe').forEach(iframe => {
+                                    if (iframe.contentWindow) iframe.contentWindow.postMessage(message, '*');
+                                });
+                            }}
+                            className="flex items-center gap-1.5 bg-black/20 hover:bg-cyan-500/20 px-3 py-1.5 md:py-2 rounded-full text-cyan-400 hover:text-cyan-300 transition-all duration-300 group/lang font-bold text-sm tracking-wide"
+                            title="Toggle Language"
+                        >
+                            <Globe size={16} className="drop-shadow-sm group-hover/lang:rotate-12 transition-transform" />
+                            <span className="uppercase">{i18n.language.startsWith('ko') ? 'KO' : 'EN'}</span>
+                        </button>
+
+                        <div className="hidden sm:block w-[1px] h-6 bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
+
                         {/* Leaderboard Button */}
                         <button
                             onClick={() => setIsLeaderboardOpen(true)}

@@ -127,7 +127,6 @@
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-transform: uppercase;
             box-shadow: 0 0 15px rgba(14, 165, 233, 0.2);
         }
 
@@ -141,6 +140,214 @@
             display: block;
         }
     </style>
+
+
+<!-- WCGames Popup Theming -->
+<style id="wcgames-popup-theme">
+    :root {
+        --theme-color: #f43f5e !important;
+        --theme-glow: rgba(244, 63, 94, 0.4) !important;
+    }
+    
+    /* Strict override for the overlay containers */
+    .wcg-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: none !important;
+        background: rgba(10, 11, 26, 0.7) !important;
+        backdrop-filter: blur(5px) !important;
+        -webkit-backdrop-filter: blur(5px) !important;
+        display: flex !important; /* Force flex, we manage vis via opacity */
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 9999 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transition: opacity 0.3s ease !important;
+        border: none !important;
+        transform: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        text-align: center !important;
+    }
+
+    /* ONLY show if has .wcg-visible */
+    .wcg-overlay.wcg-visible {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+    
+    /* The Glassmorphism Popup Box */
+    .wcg-popup {
+        background: rgba(15, 17, 35, 0.85) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 24px !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--theme-glow) !important;
+        padding: 40px 30px !important;
+        width: 85% !important;
+        max-width: 400px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        transform: scale(0.95) translateY(10px);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Popup entry animation */
+    .wcg-overlay.wcg-visible .wcg-popup {
+        transform: scale(1) translateY(0);
+    }
+
+    /* Typography inside popup */
+    .wcg-popup h1, .wcg-popup h2, .wcg-popup .title {
+        font-family: 'Inter', 'Orbitron', 'Segoe UI', sans-serif !important;
+        font-size: 36px !important;
+        font-weight: 900 !important;
+        margin: 0 0 16px 0 !important;
+        color: #fff !important;
+        background: linear-gradient(to bottom right, #fff, var(--theme-color)) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        filter: drop-shadow(0 0 10px var(--theme-glow)) !important;
+        line-height: 1.2 !important;
+        border: none !important;
+    }
+
+    .wcg-popup p, .wcg-popup .instructions, .wcg-popup div[style*="font-size: 24px"], .wcg-popup div:not(.title):not(.btn) {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 16px !important;
+        color: #cbd5e1 !important;
+        line-height: 1.6 !important;
+        margin: 0 0 32px 0 !important;
+        max-width: 100% !important;
+        text-shadow: none !important;
+        font-weight: 400 !important;
+        background: none !important;
+        -webkit-text-fill-color: initial !important;
+        filter: none !important;
+    }
+    
+    .wcg-popup div[style*="font-size: 24px"] {
+        font-size: 20px !important;
+        color: #fff !important;
+        font-weight: 700 !important;
+        margin-bottom: 30px !important;
+    }
+    .wcg-popup div[style*="font-size: 24px"] span, .wcg-popup #final-score {
+        color: var(--theme-color) !important;
+    }
+
+    /* Buttons */
+    .wcg-popup button, .wcg-popup .btn, .wcg-popup .start-btn, .wcg-popup .btn-start, .wcg-popup .btn-restart {
+        font-family: 'Inter', 'Orbitron', sans-serif !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid var(--theme-color) !important;
+        color: #fff !important;
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        padding: 16px 40px !important;
+        border-radius: 100px !important;
+        cursor: pointer !important;
+        letter-spacing: 1px !important;
+        box-shadow: 0 0 20px var(--theme-glow), inset 0 0 10px var(--theme-glow) !important;
+        transition: all 0.2s ease !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 250px !important;
+        -webkit-text-fill-color: initial !important;
+    }
+
+    .wcg-popup button:hover, .wcg-popup .btn:hover, .wcg-popup .start-btn:hover, .wcg-popup .btn-start:hover, .wcg-popup .btn-restart:hover {
+        background: var(--theme-color) !important;
+        color: #0f1123 !important;
+        box-shadow: 0 0 30px var(--theme-color), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
+        transform: scale(1.05) translateY(-2px) !important;
+    }
+
+    .wcg-popup button:active, .wcg-popup .btn:active, .wcg-popup .start-btn:active, .wcg-popup .btn-start:active, .wcg-popup .btn-restart:active {
+        transform: scale(0.95) !important;
+    }
+
+    /* Anti-FOUC safeguard: hide target popups until themed */
+    body:not(.wcg-ready) #start-screen,
+    body:not(.wcg-ready) #game-over,
+    body:not(.wcg-ready) #game-over-screen {
+        opacity: 0 !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+    }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    ['start-screen', 'game-over', 'game-over-screen'].forEach(id => {
+        const el = document.getElementById(id);
+        if(!el) return;
+        
+        // 1. Wrap content natively
+        if(!el.querySelector('.wcg-popup')) {
+             const popup = document.createElement('div');
+             popup.className = 'wcg-popup';
+             while(el.firstChild) popup.appendChild(el.firstChild);
+             el.appendChild(popup);
+        }
+
+        // 2. Discover initial visibility state BEFORE applying overlay
+        const comp = window.getComputedStyle(el);
+        let isVisible = (comp.display !== 'none' && comp.opacity !== '0' && comp.visibility !== 'hidden') || el.classList.contains('active');
+        
+        if (isVisible) {
+            el.classList.add('wcg-visible');
+        }
+
+        // 3. Apply the flex override overlay class
+        el.classList.add('wcg-overlay');
+
+        // 4. Setup MutationObserver to watch the game's native logic
+        const observer = new MutationObserver((mutations) => {
+            let visibilityChanged = false;
+            let shouldBeVisible = el.classList.contains('wcg-visible');
+
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'class') {
+                    if (el.classList.contains('active')) {
+                        shouldBeVisible = true;
+                    } else if (mutation.oldValue && mutation.oldValue.match(/\bactive\b/) && !el.classList.contains('active')) {
+                        shouldBeVisible = false;
+                    }
+                }
+                if (mutation.attributeName === 'style') {
+                    if (el.style.display === 'none' || el.style.opacity === '0') {
+                        shouldBeVisible = false;
+                    } else if (el.style.display === 'block' || el.style.display === 'flex' || el.style.opacity === '1') {
+                        shouldBeVisible = true;
+                    }
+                }
+            });
+
+            if (shouldBeVisible !== el.classList.contains('wcg-visible')) {
+                if (shouldBeVisible) {
+                    el.classList.add('wcg-visible');
+                } else {
+                    el.classList.remove('wcg-visible');
+                }
+            }
+        });
+        observer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
+    });
+    
+    // Reveal the completely themed popups
+    document.body.classList.add('wcg-ready');
+});
+</script>
+<!-- End WCGames Popup Theming -->
 </head>
 
 <body>
@@ -150,18 +357,22 @@
     </div>
 
     <div class="overlay active" id="start-screen">
-        <div class="title">BULLET<br>DODGE</div>
-        <button class="btn" id="start-btn">SURVIVE</button>
+        <div class="title" data-i18n="title">BULLET<br>DODGE</div>
+        <div class="instructions" data-i18n="instruction"
+            style="max-width: 400px; text-align: center; margin-bottom: 30px; line-height: 1.5; color: #94a3b8; font-size: 16px;">
+            Instructions go here
+        </div>
+        <button class="btn" id="start-btn" data-i18n="play">SURVIVE</button>
     </div>
 
     <div class="overlay" id="game-over-screen">
-        <div class="title" id="game-over-title"
+        <div class="title" id="game-over-title" data-i18n="game_over"
             style="color: #ef4444; background: none; -webkit-text-fill-color: #ef4444; filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.8));">
             DESTROYED</div>
         <div style="font-size: 24px; margin-bottom: 30px; color: #38bdf8; text-shadow: 0 0 10px #38bdf8;">
-            Time: <span id="final-score">0.00</span>s
+            <span data-i18n="final_score">Time: </span><span id="final-score">0.00</span>
         </div>
-        <button class="btn" id="restart-btn">Try Again</button>
+        <button class="btn" id="restart-btn" data-i18n="play_again">Try Again</button>
     </div>
 
     <canvas id="game-canvas"></canvas>
@@ -686,6 +897,8 @@
         // Render initial frame
         setTimeout(draw, 100);
     </script>
+
+    <script src="/shared/i18n.js"></script>
 </body>
 
 </html>

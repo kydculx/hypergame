@@ -11,6 +11,7 @@ description: WCGames 프로젝트의 네온(Neon) & 글래스모피즘(Glassmorp
    - 예시: `border border-white/10` 또는 `border border-cyan-500/30`
 4. **네온 글로우 (Neon Glow)**: `hover` 액션 시에는 단색 배경이 바뀌는 대신, 형광(시안/앰버/핑크) 계열의 그림자(`shadow`)나 링(`ring`)이 은은하게 퍼지도록 처리합니다.
    - 예시: `hover:shadow-[0_8px_30px_rgba(14,165,233,0.5)]`
+5. **각 게임 특성에 맞게 디자인
 
 ## 컴포넌트 제작 시 필수 수칙
 - **절대 투박한 Solid Border 사용 금지**: `border-white` 등 투명도가 없는 선은 피하세요.

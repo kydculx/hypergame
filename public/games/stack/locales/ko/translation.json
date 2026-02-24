@@ -1,0 +1,9 @@
+{
+  "title": "스택",
+  "instruction": "움직이는 블록을 정확히 쌓아 올려 세상에서 가장 높은 타워를 만드세요.",
+  "play": "시작",
+  "game_over": "게임오버",
+  "final_score": "점수: ",
+  "play_again": "다시하기",
+  "category": "액션"
+}

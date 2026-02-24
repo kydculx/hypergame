@@ -5,11 +5,8 @@ import { useUserStore } from './useUserStore';
 
 export interface Game {
   id: string;
-  title: string;
-  description: string;
   thumbnailUrl: string;
   gameUrl: string;
-  category: 'action' | 'puzzle' | 'casual';
 }
 
 export interface ScoreEntry {
@@ -49,85 +46,54 @@ export const useGameStore = create<GameState>()(
       games: [
         {
           id: '2048',
-          title: 'Neon 2048',
-          description: 'Swipe to merge numbers and reach the 2048 tile in this neon-infused puzzle classic!',
           thumbnailUrl: 'games/2048/thumb.svg',
           gameUrl: 'games/2048/index.html',
-          category: 'puzzle',
         },
         {
           id: 'stack-tower',
-          title: 'Stack Tower',
-          description: 'Stack blocks as high as you can in this 3D hyper-casual game!',
           thumbnailUrl: 'games/stack/thumb.svg',
           gameUrl: 'games/stack/index.html',
-          category: 'action',
         },
         {
           id: 'zigzag',
-          title: 'ZigZag',
-          description: 'Stay on the wall and do as many zigzags as you can!',
           thumbnailUrl: 'games/zigzag/thumb.svg',
           gameUrl: 'games/zigzag/index.html',
-          category: 'action',
         },
         {
           id: 'neon-jump',
-          title: 'Neon Jump',
-          description: 'Navigate the neon pipes.',
           thumbnailUrl: 'games/neon/thumb.svg',
           gameUrl: 'games/neon/index.html',
-          category: 'action',
         },
         {
           id: 'neon-breakout',
-          title: 'Neon Breakout',
-          description: 'Classic brick-breaking action with high-octane neon visuals and particles!',
           thumbnailUrl: 'games/breakout/thumb.svg',
           gameUrl: 'games/breakout/index.html',
-          category: 'action',
         },
         {
           id: 'helix',
-          title: 'Helix Jump',
-          description: 'Rotate the tower and guide the bouncing ball to the bottom!',
           thumbnailUrl: 'games/helix/thumb.svg',
           gameUrl: 'games/helix/index.html',
-          category: 'action',
         },
         {
           id: 'geometry',
-          title: 'Geometry Dash',
-          description: 'Jump and fly through danger in this rhythm-based action platformer!',
           thumbnailUrl: 'games/geometry/thumb.svg',
           gameUrl: 'games/geometry/index.html',
-          category: 'action',
         },
         {
           id: 'domino',
-          title: 'Domino Match',
-          description: 'Bridge the gaps with the right size domino to keep the chain reacting!',
           thumbnailUrl: 'games/domino/thumb.svg',
           gameUrl: 'games/domino/index.html',
-          category: 'puzzle',
         },
         {
           id: 'minesweeper',
-          title: 'Mine Sweeper',
-          description: 'Classic Minesweeper, neon style! Uncover safe tiles and flag the bombs.',
           thumbnailUrl: 'games/minesweeper/thumb.png',
           gameUrl: 'games/minesweeper/index.html',
-          category: 'puzzle',
         },
         {
           id: 'bulletdodge',
-          title: 'Bullet Dodge',
-          description: 'A relentless neon bullet hell survival game. Dodge thousands of lasers using joystick control and survive!',
           thumbnailUrl: 'games/bulletdodge/thumb.png',
           gameUrl: 'games/bulletdodge/index.html',
-          category: 'action',
         },
-
       ],
 
       currentGame: null,

@@ -130,23 +130,193 @@
             box-shadow: none;
         }
     </style>
+
+
+    <!-- WCGames Popup Theming -->
+    <style id="wcgames-popup-theme">
+        :root {
+            --theme-color: #10b981 !important;
+            --theme-glow: rgba(16, 185, 129, 0.4) !important;
+        }
+
+        /* Strict override for the overlay containers */
+        .wcg-overlay {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: none !important;
+            background: rgba(10, 11, 26, 0.7) !important;
+            backdrop-filter: blur(5px) !important;
+            -webkit-backdrop-filter: blur(5px) !important;
+            display: flex !important;
+            /* Force flex, we manage vis via opacity */
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 9999 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.3s ease !important;
+            border: none !important;
+            transform: none !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            text-align: center !important;
+        }
+
+        /* ONLY show if has .wcg-visible */
+        .wcg-overlay.wcg-visible {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        /* The Glassmorphism Popup Box */
+        .wcg-popup {
+            background: rgba(15, 17, 35, 0.85) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 24px !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--theme-glow) !important;
+            padding: 40px 30px !important;
+            width: 85% !important;
+            max-width: 400px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            transform: scale(0.95) translateY(10px);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Popup entry animation */
+        .wcg-overlay.wcg-visible .wcg-popup {
+            transform: scale(1) translateY(0);
+        }
+
+        /* Typography inside popup */
+        .wcg-popup h1,
+        .wcg-popup h2,
+        .wcg-popup .title {
+            font-family: 'Inter', 'Orbitron', 'Segoe UI', sans-serif !important;
+            font-size: 36px !important;
+            font-weight: 900 !important;
+            margin: 0 0 16px 0 !important;
+            color: #fff !important;
+            background: linear-gradient(to bottom right, #fff, var(--theme-color)) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            filter: drop-shadow(0 0 10px var(--theme-glow)) !important;
+            line-height: 1.2 !important;
+            border: none !important;
+        }
+
+        .wcg-popup p,
+        .wcg-popup .instructions,
+        .wcg-popup div[style*="font-size: 24px"],
+        .wcg-popup div:not(.title):not(.btn) {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 16px !important;
+            color: #cbd5e1 !important;
+            line-height: 1.6 !important;
+            margin: 0 0 32px 0 !important;
+            max-width: 100% !important;
+            text-shadow: none !important;
+            font-weight: 400 !important;
+            background: none !important;
+            -webkit-text-fill-color: initial !important;
+            filter: none !important;
+        }
+
+        .wcg-popup div[style*="font-size: 24px"] {
+            font-size: 20px !important;
+            color: #fff !important;
+            font-weight: 700 !important;
+            margin-bottom: 30px !important;
+        }
+
+        .wcg-popup div[style*="font-size: 24px"] span,
+        .wcg-popup #final-score {
+            color: var(--theme-color) !important;
+        }
+
+        /* Buttons */
+        .wcg-popup button,
+        .wcg-popup .btn,
+        .wcg-popup .start-btn,
+        .wcg-popup .btn-start,
+        .wcg-popup .btn-restart {
+            font-family: 'Inter', 'Orbitron', sans-serif !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid var(--theme-color) !important;
+            color: #fff !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            padding: 16px 40px !important;
+            border-radius: 100px !important;
+            cursor: pointer !important;
+            letter-spacing: 1px !important;
+            box-shadow: 0 0 20px var(--theme-glow), inset 0 0 10px var(--theme-glow) !important;
+            transition: all 0.2s ease !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 250px !important;
+            -webkit-text-fill-color: initial !important;
+        }
+
+        .wcg-popup button:hover,
+        .wcg-popup .btn:hover,
+        .wcg-popup .start-btn:hover,
+        .wcg-popup .btn-start:hover,
+        .wcg-popup .btn-restart:hover {
+            background: var(--theme-color) !important;
+            color: #0f1123 !important;
+            box-shadow: 0 0 30px var(--theme-color), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
+            transform: scale(1.05) translateY(-2px) !important;
+        }
+
+        .wcg-popup button:active,
+        .wcg-popup .btn:active,
+        .wcg-popup .start-btn:active,
+        .wcg-popup .btn-start:active,
+        .wcg-popup .btn-restart:active {
+            transform: scale(0.95) !important;
+        }
+
+        /* Anti-FOUC safeguard: hide target popups until themed */
+        body:not(.wcg-ready) #start-screen,
+        body:not(.wcg-ready) #game-over,
+        body:not(.wcg-ready) #game-over-screen {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+        }
+    </style>
+    <!-- End WCGames Popup Theming -->
 </head>
 
-<body>
+<body class="wcg-ready">
     <div id="ui">
         <div id="score">0</div>
     </div>
 
-    <div id="start-screen">
-        <h1>NEON BREAKOUT</h1>
-        <p>Smash all the bricks!<br>Catch power-ups to grow.</p>
-        <button class="start-btn" onclick="startGame()">PLAY</button>
+    <div id="start-screen" class="wcg-overlay wcg-visible" style="display: flex;">
+        <div class="wcg-popup">
+            <h1 data-i18n="title">NEON BREAKOUT</h1>
+            <p data-i18n="instruction">Smash all the bricks!<br>Catch power-ups to grow.</p>
+            <button class="start-btn" onclick="startGame()" data-i18n="play">PLAY</button>
+        </div>
     </div>
 
-    <div id="game-over">
-        <h1>GAME OVER</h1>
-        <p>SCORE: <span id="final-score">0</span></p>
-        <button class="start-btn" onclick="location.reload()">RETRY</button>
+    <div id="game-over" class="wcg-overlay" style="display: none;">
+        <div class="wcg-popup">
+            <h1 data-i18n="game_over">GAME OVER</h1>
+            <p><span data-i18n="final_score">Score: </span><span id="final-score">0</span></p>
+            <button class="start-btn" onclick="restartGame()" data-i18n="play_again">RETRY</button>
+        </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -402,6 +572,8 @@
 
         function handleAction(e) {
             if (isGameOver || !isStarted) return;
+            // Prevent default if it's touch to avoid side effects
+            if (e.cancelable) e.preventDefault();
             if (e.type === 'mousemove' || e.type === 'touchmove') {
                 const clientX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
                 paddleX = clientX - PADDLE_WIDTH / 2;
@@ -416,7 +588,39 @@
 
         function startGame() {
             audio.init();
-            document.getElementById('start-screen').style.display = 'none';
+
+            const startScreen = document.getElementById('start-screen');
+            startScreen.style.display = 'none';
+            startScreen.classList.remove('wcg-visible');
+
+            isStarted = true;
+        }
+
+        function restartGame() {
+            // 1. Hide Game Over Screen
+            const gameOverScreen = document.getElementById('game-over');
+            gameOverScreen.style.display = 'none';
+            gameOverScreen.classList.remove('wcg-visible');
+
+            // 2. Reset state
+            isGameOver = false;
+            level = 1;
+            score = 0;
+            combo = 0;
+            items = [];
+            particles = [];
+
+            targetPaddleWidth = 120;
+            PADDLE_WIDTH = 120;
+
+            scoreEl.textContent = score;
+
+            // 3. Reset Board
+            paddleX = (canvas.width - PADDLE_WIDTH) / 2;
+            initBricks();
+            resetBall();
+
+            // 4. Play State
             isStarted = true;
         }
 
@@ -811,16 +1015,64 @@
         }
 
         function gameOver() {
+            if (isGameOver) return;
             isGameOver = true;
-            gameOverEl.style.display = 'block';
+
+            const gameOverScreen = document.getElementById('game-over');
+            gameOverScreen.style.display = 'flex';
+            gameOverScreen.offsetHeight; // trigger reflow
+            gameOverScreen.classList.add('wcg-visible');
+
             finalScoreEl.textContent = score;
-            audio.playNote([220, 50], 'sawtooth', 0.5, 0.2);
+            audio.playNote([200, 100], 'square', 0.5, 0.5);
             window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
         }
 
         resize();
         draw();
         window.parent.postMessage({ type: 'GAME_READY' }, '*');
+
+        // Mouse and Touch Listeners
+        canvas.addEventListener('mousemove', e => {
+            if (!isGameOver) { // Only update paddleX if game is not over
+                const relativeX = e.clientX - canvas.offsetLeft;
+                if (relativeX > 0 && relativeX < canvas.width) {
+                    paddleX = relativeX - PADDLE_WIDTH / 2;
+                    if (!isStarted) {
+                        balls[0].x = paddleX + PADDLE_WIDTH / 2;
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('touchmove', e => {
+            if (!isGameOver) { // Only update paddleX if game is not over
+                const relativeX = e.touches[0].clientX - canvas.offsetLeft;
+                if (relativeX > 0 && relativeX < canvas.width) {
+                    paddleX = relativeX - PADDLE_WIDTH / 2;
+                    if (!isStarted) {
+                        balls[0].x = paddleX + PADDLE_WIDTH / 2;
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('mousedown', () => {
+            if (!isStarted && !isGameOver) {
+                isStarted = true;
+            } else if (isGameOver) {
+                restartGame();
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (!isStarted && !isGameOver) {
+                isStarted = true;
+            } else if (isGameOver) {
+                restartGame();
+            }
+            e.preventDefault(); // Prevent scrolling on touch
+        });
     </script>
     <!-- Bottom Banner Container -->
     <style>
@@ -829,7 +1081,8 @@
             bottom: 0;
             left: 0;
             width: 100%;
-            display: none; /* hidden for now */
+            display: none;
+            /* hidden for now */
             justify-content: center;
             z-index: 1000;
             background: rgba(0, 0, 0, 0.5);
@@ -859,6 +1112,10 @@
             (adsbygoogle = window.adsbygoogle || []).push({});
         </script>
     </div>
+
+    <script src="/shared/i18n.js"></script>
+    </script>
+
 </body>
 
 </html>

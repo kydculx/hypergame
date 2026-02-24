@@ -1,6 +1,7 @@
 import React from 'react';
 import { GameCard } from '../ui/GameCard';
 import type { Game } from '../../hooks/useGameStore';
+import { useTranslation } from 'react-i18next';
 
 interface GameGridProps {
     games: Game[];
@@ -8,6 +9,7 @@ interface GameGridProps {
 }
 
 export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
+    const { t } = useTranslation();
     return (
         <div className="w-full max-w-[1400px] mx-auto p-4 pt-12 pb-12">
             {/* 
@@ -20,10 +22,10 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
                 {games.map((game) => (
                     <GameCard
                         key={game.id}
-                        title={game.title}
+                        title={t(`games.${game.id}.title`)}
                         thumbnail={game.thumbnailUrl}
                         size="medium"
-                        category={game.category}
+                        category={t(`games.${game.id}.category`)}
                         onClick={() => onGameSelect(game)}
                         className="bg-gray-100" // Fallback color if image loads slow
                     />

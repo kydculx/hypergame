@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Mail, Lock, User, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 // Helper SVG Icons for Apple and Google
 const GoogleIcon = () => (
@@ -21,6 +22,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+    const { t } = useTranslation();
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -102,10 +104,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
                 <div className="mb-8 text-center">
                     <h2 className="text-3xl font-black tracking-tight text-white">
-                        {isLogin ? 'Welcome Back' : 'Create Account'}
+                        {isLogin ? t('auth.login') : t('auth.signup')}
                     </h2>
                     <p className="text-slate-400 mt-2 font-medium text-sm">
-                        {isLogin ? 'Sign in to save your high scores!' : 'Join to climb the global leaderboards!'}
+                        {isLogin ? t('auth.login_desc') : t('auth.signup_desc')}
                     </p>
                 </div>
 
@@ -121,7 +123,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                             <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-cyan-400" size={20} />
                             <input
                                 type="text"
-                                placeholder="Public Username"
+                                placeholder={t('auth.nickname')}
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all font-medium"
@@ -134,7 +136,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-cyan-400" size={20} />
                         <input
                             type="email"
-                            placeholder="Email Address"
+                            placeholder={t('auth.email')}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all font-medium"
@@ -146,7 +148,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-cyan-400" size={20} />
                         <input
                             type="password"
-                            placeholder="Password"
+                            placeholder={t('auth.password')}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all font-medium"
@@ -161,7 +163,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                         className="w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(14,165,233,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:pointer-events-none disabled:hover:scale-100 mt-2"
                     >
                         {loading && <Loader2 size={18} className="animate-spin" />}
-                        {isLogin ? 'Sign In' : 'Sign Up'}
+                        {isLogin ? t('auth.login') : t('auth.signup')}
                     </button>
                 </form>
 
@@ -169,7 +171,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <div className="mt-8">
                     <div className="relative flex items-center mb-6">
                         <div className="flex-grow border-t border-white/10"></div>
-                        <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase tracking-wider">or continue with</span>
+                        <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase tracking-wider">{t('auth.or_continue')}</span>
                         <div className="flex-grow border-t border-white/10"></div>
                     </div>
 
@@ -186,15 +188,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 </div>
 
                 <div className="mt-6 text-center text-sm text-slate-400">
-                    {isLogin ? "Don't have an account? " : "Already have an account? "}
                     <button
                         onClick={() => {
                             setIsLogin(!isLogin);
                             setError(null);
                         }}
-                        className="text-cyan-400 font-bold hover:text-cyan-300 hover:underline transition-colors"
+                        className="text-cyan-400 font-bold hover:text-cyan-300 transition-colors"
                     >
-                        {isLogin ? 'Create one' : 'Sign in'}
+                        {isLogin ? t('auth.switch_to_signup') : t('auth.switch_to_login')}
                     </button>
                 </div>
             </div>

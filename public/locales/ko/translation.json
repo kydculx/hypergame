@@ -1,0 +1,66 @@
+{
+  "header": {
+    "leaderboard": "리더보드",
+    "signup": "회원가입",
+    "login": "로그인",
+    "profile": "프로필",
+    "logout": "로그아웃"
+  },
+  "board": {
+    "title": "글로벌 랭킹",
+    "rank": "순위",
+    "player": "플레이어",
+    "score": "점수",
+    "date": "날짜",
+    "subtitle": "모든 게임의 최고 플레이어들",
+    "empty_title": "아직 기록이 없습니다.",
+    "empty_desc": "첫 번째로 1등을 차지해보세요!",
+    "my_rank": "내 순위",
+    "not_in_top10": "상위 10위 진입 실패"
+  },
+  "home": {
+    "new_games": "매주 새로운 게임 추가",
+    "play": "",
+    "instantly": "무설치 웹 게임.",
+    "zero_downloads": "바로 플레이하세요.",
+    "desc": "브라우저에서 설치 없이 바로 즐길 수 있는 최고의 무료 하이퍼 캐주얼 웹 게임들을 만나보세요.",
+    "start_playing": "게임 시작하기"
+  },
+  "footer": {
+    "desc": "언제 어디서나 무료로 즐기는 WCGames.",
+    "contact": "문의 & 고객 지원"
+  },
+  "player": {
+    "rotate_title": "세로 모드로 돌려주세요",
+    "rotate_desc": "이 게임은 세로 모드에 최적화되어 있습니다."
+  },
+  "auth": {
+    "login": "로그인",
+    "signup": "회원가입",
+    "email": "이메일 주소",
+    "password": "비밀번호",
+    "nickname": "닉네임 (선택)",
+    "nickname_ph": "입력 안할 시 자동 생성됩니다",
+    "req_email": "유효한 이메일을 입력해주세요",
+    "req_pass_len": "비밀번호는 최소 6자 이상이어야 합니다",
+    "req_pass": "비밀번호를 입력해주세요",
+    "signing_up": "계정 생성 중...",
+    "logging_in": "로그인 중...",
+    "switch_to_login": "이미 계정이 있으신가요? 로그인",
+    "switch_to_signup": "계정이 필요하신가요? 회원가입",
+    "login_desc": "로그인하고 최고 기록을 저장하세요!",
+    "signup_desc": "가입하고 글로벌 랭킹표에 이름을 올려보세요!",
+    "or_continue": "또는 다음으로 계속"
+  },
+  "profile": {
+    "title": "플레이어 프로필",
+    "level": "레벨",
+    "edit_name": "닉네임 수정",
+    "cancel": "취소",
+    "save": "저장",
+    "member_since": "가입일",
+    "games_played": "플레이한 게임",
+    "total_score": "총 획득 점수",
+    "highest_rank": "최고 순위"
+  }
+}
