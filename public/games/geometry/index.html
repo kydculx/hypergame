@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Geometry Dash</title>
+    <title>WCGames - Geometry Dash</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/shared/wcgames-style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         /* --- DESIGN SYSTEM --- */
         :root {
@@ -19,9 +21,9 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Space Mono', monospace;
+            background: #000;
+            color: #fff;
+            font-family: 'Orbitron', 'Segoe UI', sans-serif;
             user-select: none;
             touch-action: none;
         }
@@ -30,11 +32,8 @@
         .grid-bg {
             position: fixed;
             inset: 0;
-            background-image:
-                linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
-            background-size: 50px 50px;
-            pointer-events: none;
+            background: radial-gradient(circle at center, #0a0a2a 0%, #000 100%);
+            z-index: -2;
         }
 
         .grid-bg::after {
@@ -52,7 +51,7 @@
 
         /* --- HUD & UI --- */
         #ui {
-            position: absolute;
+            position: fixed;
             top: 40px;
             left: 0;
             width: 100%;
@@ -65,69 +64,88 @@
             font-size: 80px;
             font-weight: 900;
             color: #fff;
-            letter-spacing: -4px;
-            text-shadow: 4px 4px 0px var(--accent);
+            letter-spacing: -2px;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.8), 0 0 40px rgba(0, 243, 255, 0.4);
             transition: transform 0.1s ease-out;
         }
 
         /* --- OVERLAYS & POPUPS --- */
         .wcg-overlay {
-            background: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 0.2s ease-out;
+            background: rgba(5, 5, 15, 0.8);
+            backdrop-filter: blur(10px);
         }
 
         .wcg-popup {
-            background: #000;
-            border: 4px solid #fff;
-            padding: 40px;
-            max-width: 400px;
-            width: 90%;
-            text-align: center;
-            border-radius: 0 !important;
-            box-shadow: 10px 10px 0px var(--accent);
+            background: rgba(10, 10, 30, 0.4);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.1), inset 0 0 20px rgba(0, 243, 255, 0.05);
+            padding: 50px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
+        }
+
+        .wcg-popup::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00f3ff, transparent);
+            animation: scan 3s infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
         }
 
         .wcg-popup h1 {
-            font-size: 32px;
-            margin: 0 0 20px 0;
-            color: #fff;
-            text-transform: uppercase;
-            letter-spacing: 2px;
+            font-size: 42px;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #00f3ff, #ff00ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 4px;
+            font-weight: 900;
         }
 
         .wcg-popup p {
             font-size: 16px;
-            margin-bottom: 30px;
-            line-height: 1.6;
-            color: #ccc;
+            line-height: 1.8;
+            margin-bottom: 35px;
+            color: rgba(255, 255, 255, 0.8);
+            letter-spacing: 1px;
         }
 
         .wcg-popup button {
-            background: #fff;
-            color: #000;
-            border: none;
-            padding: 15px 40px;
+            background: transparent;
+            border: 1px solid #00f3ff;
+            color: #00f3ff;
+            padding: 15px 50px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
             font-size: 18px;
-            font-weight: bold;
+            letter-spacing: 3px;
             cursor: pointer;
-            transition: all 0.1s;
-            text-transform: uppercase;
-            border-radius: 0 !important;
+            transition: all 0.3s;
+            position: relative;
+            z-index: 1;
         }
 
         .wcg-popup button:hover {
-            background: var(--accent);
-            transform: translate(-4px, -4px);
-            box-shadow: 4px 4px 0px #fff;
-        }
-
-        .wcg-popup button:active {
-            transform: translate(0, 0);
-            box-shadow: none;
+            background: #00f3ff;
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.6);
+            transform: translateY(-3px);
         }
     </style>
     <script src="/shared/wcgames-core.js"></script>
@@ -160,6 +178,12 @@
 
     <!-- ENGINE DEPENDENCIES -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 
     <script>
         /**
@@ -187,11 +211,12 @@
 
         /* --- 2. GLOBAL STATE --- */
         let scene, camera, renderer, player, playerContainer;
-        let obstacles = [], particles = [], echoes = [], dataStorm = [], parallaxGrids = [];
+        let obstacles = [], particles = [], echoes = [], dataStorm = [], backgroundBuildings = [], trail = [], streaks = [];
         let score = 0, gameState = 'START', sector = 0;
         let velocityY = 0, isGrounded = true;
         let cameraShake = 0, time = 0, beatTimer = 0, beatPulse = 0;
         let targetZ = CONFIG.baseZ;
+        let worldGroup, composer;
 
         /* --- 3. GEOMETRY TEMPLATES --- */
         const spikeGeo = new THREE.ConeGeometry(0.5, 1, 4);
@@ -297,34 +322,63 @@
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(0x000000, 0);
+            renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
+            scene.fog = new THREE.FogExp2(0x050510, 0.02);
+
+            // Post-processing: Neon Bloom
+            const renderScene = new THREE.RenderPass(scene, camera);
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                1.3, // Slightly reduced strength for global glow
+                0.4, // Radius
+                0.15 // Lower threshold for global neon effect
+            );
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
             // World Lighting
-            const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+            const ambient = new THREE.AmbientLight(0x4040ff, 0.4);
             scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xff00ff, 0.8);
+            dirLight.position.set(5, 5, 5);
+            scene.add(dirLight);
 
-            // Parallax Environment
-            const gridHelper = new THREE.GridHelper(200, 40, COLORS.accents[0], 0x111111);
-            gridHelper.position.y = -2;
-            scene.add(gridHelper);
-            parallaxGrids.push({ mesh: gridHelper, speed: 1 });
+            worldGroup = new THREE.Group();
+            scene.add(worldGroup);
 
-            const backGrid = new THREE.GridHelper(400, 20, 0x333333, 0x050505);
-            backGrid.position.set(0, 10, -30);
-            backGrid.rotation.x = Math.PI / 2;
-            scene.add(backGrid);
-            parallaxGrids.push({ mesh: backGrid, speed: 0.2 });
+            // Circuit Grid Floor
+            createCircuitFloor();
 
-            for (let i = 0; i < 50; i++) spawnDataPoint();
+            // Background Skyscrapers
+            createBackgroundCity();
+
+            for (let i = 0; i < 60; i++) spawnDataPoint();
 
             // Player Setup
             playerContainer = new THREE.Group();
             playerContainer.position.set(-6, -1.5, 0);
-            player = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: COLORS.player }));
-            const wire = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: COLORS.accents[0], wireframe: true }));
-            wire.scale.set(1.1, 1.1, 1.1);
-            player.add(wire);
+
+            // Neon Player Redesign
+            const playerCore = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({
+                color: 0x00ffff,
+                emissive: 0x00ffff,
+                emissiveIntensity: 2.5
+            }));
+            const playerShell = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({
+                color: 0xff00ff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8
+            }));
+            playerShell.scale.setScalar(1.1);
+
+            player = new THREE.Group();
+            player.add(playerCore);
+            player.add(playerShell);
+
             playerContainer.add(player);
             scene.add(playerContainer);
 
@@ -356,7 +410,159 @@
             playerContainer.position.x = (-4 - widthAtZ / 2) + (widthAtZ * CONFIG.playerXRatio);
         }
 
-        /* --- 6. GEOMETRY SPAWNING --- */
+        /* --- 6. ENVIRONMENT GENERATION --- */
+        function createCircuitFloor() {
+            // 1. Deep Space Foundation (Solid to avoid sorting issues)
+            const baseGeo = new THREE.PlaneGeometry(200, 20);
+            const baseMat = new THREE.MeshBasicMaterial({ color: 0x010108 });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            base.rotation.x = -Math.PI / 2;
+            base.position.y = -2.1;
+            worldGroup.add(base);
+
+            // 2. The Energy Road (Solid base)
+            const roadGeo = new THREE.PlaneGeometry(200, 4.6);
+            const roadMat = new THREE.MeshStandardMaterial({
+                color: 0x1a0033,
+                emissive: 0x1a0033,
+                emissiveIntensity: 0.5
+            });
+            const road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.position.y = -2.05;
+            worldGroup.add(road);
+
+            // 3. Digital Grid (Subtle glow)
+            const gridGeo = new THREE.PlaneGeometry(200, 4.2, 80, 2);
+            const gridMat = new THREE.MeshStandardMaterial({
+                color: 0x00ffff,
+                emissive: 0x00ffff,
+                emissiveIntensity: 3,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.3
+            });
+            const grid = new THREE.Mesh(gridGeo, gridMat);
+            grid.rotation.x = -Math.PI / 2;
+            grid.position.y = -2.03;
+            worldGroup.add(grid);
+            worldGroup.userData.roadGrid = grid; // For animation
+
+            // 4. Neon Rails
+            const railGeo = new THREE.BoxGeometry(200, 0.15, 0.15);
+            const railMatL = new THREE.MeshStandardMaterial({ color: 0x00f3ff, emissive: 0x00f3ff, emissiveIntensity: 8 });
+            const railMatR = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 8 });
+
+            const leftL = new THREE.Mesh(railGeo, railMatL);
+            leftL.position.set(0, -2, -2.2);
+            worldGroup.add(leftL);
+
+            const rightL = new THREE.Mesh(railGeo, railMatR);
+            rightL.position.set(0, -2, 2.2);
+            worldGroup.add(rightL);
+
+            // 5. Central Energy Core
+            const coreGeo = new THREE.PlaneGeometry(200, 0.1);
+            const coreMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 12 });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            core.rotation.x = -Math.PI / 2;
+            core.position.y = -2.02;
+            worldGroup.add(core);
+
+            worldGroup.renderOrder = 0;
+        }
+
+
+
+        function createBackgroundCity() {
+            const buildingMat = new THREE.MeshStandardMaterial({
+                color: 0x050515,
+                roughness: 0.1,
+                metalness: 1.0
+            });
+
+            for (let i = 0; i < 35; i++) { // Increased count
+                const h = 8 + Math.random() * 35; // Taller buildings
+                const w = 4 + Math.random() * 6;
+                const geo = new THREE.BoxGeometry(w, h, w);
+                const building = new THREE.Mesh(geo, buildingMat);
+
+                building.position.set(
+                    (Math.random() - 0.5) * 150,
+                    h / 2 - 2.5,
+                    -20 - Math.random() * 50
+                );
+
+                // Neon Accents on Buildings
+                if (Math.random() > 0.4) {
+                    const accentColor = COLORS.accents[Math.floor(Math.random() * COLORS.accents.length)];
+                    const stripeGeo = new THREE.PlaneGeometry(w + 0.1, 0.2);
+                    const stripeMat = new THREE.MeshStandardMaterial({
+                        color: accentColor,
+                        emissive: accentColor,
+                        emissiveIntensity: 5
+                    });
+
+                    // Add vertical or horizontal glowing stripes
+                    for (let j = 0; j < 3; j++) {
+                        const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+                        stripe.position.y = (Math.random() - 0.5) * h;
+                        stripe.position.z = w / 2 + 0.1;
+                        building.add(stripe);
+                    }
+                }
+
+                // Holographic Billboards
+                if (Math.random() > 0.8) {
+                    const billboardGeo = new THREE.PlaneGeometry(6, 4);
+                    const billboardMat = new THREE.MeshBasicMaterial({
+                        color: 0x00ffff,
+                        transparent: true,
+                        opacity: 0.4,
+                        side: THREE.DoubleSide,
+                        wireframe: true
+                    });
+                    const billboard = new THREE.Mesh(billboardGeo, billboardMat);
+                    billboard.position.set(w / 2 + 2, h / 2, 0);
+                    billboard.rotation.y = Math.PI / 2;
+                    building.add(billboard);
+                }
+
+                const wire = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(geo),
+                    new THREE.LineBasicMaterial({
+                        color: 0x00ffff,
+                        transparent: true,
+                        opacity: 0.2
+                    })
+                );
+                building.add(wire);
+                worldGroup.add(building);
+                backgroundBuildings.push(building);
+            }
+
+            // Flying Vehicles (Energy Streaks)
+            streaks = []; // Reset streaks array
+            for (let i = 0; i < 15; i++) {
+                const streakGeo = new THREE.BoxGeometry(2, 0.2, 0.2);
+                const streakMat = new THREE.MeshStandardMaterial({
+                    color: 0x00ffff,
+                    emissive: 0x00ffff,
+                    emissiveIntensity: 10
+                });
+                const streak = new THREE.Mesh(streakGeo, streakMat);
+                streak.position.set(
+                    (Math.random() - 0.5) * 200,
+                    10 + Math.random() * 30,
+                    -30 - Math.random() * 40
+                );
+                streak.userData = { speed: 0.2 + Math.random() * 0.5, isStreak: true };
+                scene.add(streak);
+                backgroundBuildings.push(streak);
+                streaks.push(streak);
+            }
+        }
+
         function spawnDataPoint() {
             const size = Math.random() * 0.6 + 0.2;
             const geo = Math.random() > 0.5 ? new THREE.IcosahedronGeometry(size, 0) : new THREE.TetrahedronGeometry(size, 0);
@@ -370,12 +576,43 @@
 
         function spawnParticles(x, y, count, color, isExplosion = false) {
             for (let i = 0; i < count; i++) {
-                const p = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({ color: color, transparent: true }));
+                const p = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial({
+                    color: color,
+                    emissive: color,
+                    emissiveIntensity: 2,
+                    transparent: true
+                }));
                 p.position.set(x, y, (Math.random() - 0.5) * 1);
                 const v = isExplosion ?
-                    new THREE.Vector3((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5) :
+                    new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4) :
                     new THREE.Vector3((Math.random() - 0.8) * 0.2, Math.random() * 0.2, 0);
                 p.userData = { vel: v, life: 1.0 };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function updateTrail() {
+            if (gameState !== 'PLAYING') return;
+
+            // Collect position
+            trail.push({ x: playerContainer.position.x, y: playerContainer.position.y });
+            if (trail.length > 20) {
+                const old = trail.shift();
+            }
+
+            // Draw trail (simple spheres/cubes for that "energy" look)
+            const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
+            if (time % 2 === 0) { // Throttle
+                const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshStandardMaterial({
+                    color: colors[Math.floor(time * 10) % colors.length],
+                    emissive: colors[Math.floor(time * 10) % colors.length],
+                    emissiveIntensity: 2,
+                    transparent: true,
+                    opacity: 0.6
+                }));
+                p.position.set(playerContainer.position.x - 0.5, playerContainer.position.y, 0);
+                p.userData = { life: 1.0, vel: new THREE.Vector3(-0.05, (Math.random() - 0.5) * 0.02, 0) };
                 scene.add(p);
                 particles.push(p);
             }
@@ -401,9 +638,23 @@
             const type = types[Math.floor(Math.random() * types.length)];
             const color = COLORS.obstacles[Math.floor(Math.random() * COLORS.obstacles.length)];
 
-            const m = new THREE.Mesh(type.geo, new THREE.MeshBasicMaterial({ color: color }));
-            const wire = new THREE.Mesh(type.geo, new THREE.MeshBasicMaterial({ color: COLORS.accents[sector % 4], wireframe: true, transparent: true, opacity: 0.5 }));
-            wire.scale.set(1.1, 1.1, 1.1);
+            // Solid/Matte Material for depth clarity
+            const mat = new THREE.MeshStandardMaterial({
+                color: color,
+                emissive: color,
+                emissiveIntensity: 2.0,
+                metalness: 0.8,
+                roughness: 0.2
+            });
+
+            const m = new THREE.Mesh(type.geo, mat);
+            const wire = new THREE.Mesh(type.geo, new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8 // Much more visible
+            }));
+            wire.scale.set(1.05, 1.05, 1.05);
             m.add(wire);
 
             m.position.set(x, -1.5, 0);
@@ -411,6 +662,7 @@
             else m.rotation.y = Math.PI / 4;
 
             scene.add(m);
+            m.renderOrder = 10; // Ensure rendered after road
             obstacles.push(m);
         }
 
@@ -483,13 +735,36 @@
                 if (newSector !== sector) {
                     sector = newSector;
                     const c = COLORS.accents[sector % 4];
-                    parallaxGrids[0].mesh.material.color.setHex(c);
                     document.documentElement.style.setProperty('--accent', '#' + c.toString(16).padStart(6, '0'));
+
+                    // Update city wireframes & billboards color
+                    backgroundBuildings.forEach(b => {
+                        b.traverse(node => {
+                            if (node.isMesh && node.material && node.material.color && !node.userData.isCore) {
+                                if (node.material.color.setHex) node.material.color.setHex(c);
+                            }
+                        });
+                    });
+                }
+
+                updateTrail();
+
+                // Road Grid Animation
+                if (worldGroup.userData.roadGrid) {
+                    worldGroup.userData.roadGrid.position.x = (worldGroup.userData.roadGrid.position.x - speed * 0.5) % 5;
                 }
 
                 // Object Management
-                parallaxGrids.forEach(g => {
-                    g.mesh.position.x = (g.mesh.position.x - speed * g.speed) % (g.mesh === parallaxGrids[0].mesh ? 5 : 20);
+                backgroundBuildings.forEach(b => {
+                    if (b.userData.speed) {
+                        // Flying Vehicle movement
+                        b.position.x -= b.userData.speed;
+                        if (b.position.x < -100) b.position.x = 100;
+                    } else {
+                        // Standard building parallax
+                        b.position.x -= 0.02;
+                        if (b.position.x < -100) b.position.x = 100;
+                    }
                 });
 
                 if (obstacles.length === 0 || obstacles[obstacles.length - 1].position.x < 20) {
@@ -509,7 +784,7 @@
                 p.position.add(p.userData.vel);
                 p.userData.life -= 0.02;
                 p.material.opacity = p.userData.life;
-                if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, i); }
+                if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
             });
 
             echoes.forEach((e, i) => {
@@ -521,18 +796,21 @@
             dataStorm.forEach(m => {
                 m.rotation.y += m.userData.rot;
                 m.rotation.x += m.userData.rot * 0.5;
-                m.position.x -= 0.05;
-                if (m.position.x < -80) m.position.x = 80;
-                m.material.opacity = (0.05 + beatPulse * 0.15);
+                m.position.x -= 0.08;
+                if (m.position.x < -100) m.position.x = 100;
+                m.material.opacity = (0.1 + beatPulse * 0.2);
                 m.material.color.setHex(COLORS.accents[sector % 4]);
             });
+
+
 
             // Camera System
             const shakeOffset = (Math.random() - 0.5) * cameraShake;
             camera.position.set(shakeOffset, 2 + shakeOffset, CONFIG.baseZ);
             cameraShake *= 0.9;
 
-            renderer.render(scene, camera);
+            if (composer) composer.render();
+            else renderer.render(scene, camera);
         }
 
         /* --- 9. SYSTEM INTEGRATION --- */
@@ -546,7 +824,8 @@
                 obstacles.forEach(o => scene.remove(o));
                 particles.forEach(p => scene.remove(p));
                 echoes.forEach(e => scene.remove(e));
-                obstacles = []; particles = []; echoes = []; score = 0; gameState = 'PLAYING';
+                streaks.forEach(s => scene.remove(s));
+                obstacles = []; particles = []; echoes = []; streaks = []; score = 0; sector = 0; gameState = 'PLAYING';
                 playerContainer.position.y = 5; player.visible = true;
                 document.getElementById('game-over').classList.remove('visible');
             }
