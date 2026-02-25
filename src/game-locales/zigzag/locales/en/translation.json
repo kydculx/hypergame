@@ -1,0 +1,9 @@
+{
+  "title": "ZigZag",
+  "instruction": "Stay on the wall and do as many zigzags as you can without falling off the edge!",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "ACTION"
+}

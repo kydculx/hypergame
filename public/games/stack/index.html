@@ -9,308 +9,140 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: #34495e;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0c;
+            /* Matches Helix Jump base */
+            font-family: 'Segoe UI', sans-serif;
             user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-            overscroll-behavior: none;
             touch-action: none;
         }
 
         #ui {
             position: absolute;
             top: 20px;
-            left: 0;
             width: 100%;
             text-align: center;
             color: white;
             pointer-events: none;
+            z-index: 10;
         }
 
         #score {
-            font-size: 48px;
+            font-size: 64px;
+            /* Consistent with Helix */
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
 
+        /* Aurora Background */
+        .aurora-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0a0a0c 100%);
+        }
 
-        #game-over {
+        .aurora-blob {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            display: none;
-            pointer-events: auto;
-            z-index: 20;
-            min-width: 200px;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.4;
+            mix-blend-mode: screen;
+            animation: move 20s infinite alternate ease-in-out;
         }
 
-        h1 {
-            color: #333;
-            margin: 0 0 10px 0;
-            font-size: 24px;
+        .blob-1 {
+            background: #0ea5e9;
+            top: -100px;
+            left: -100px;
+            animation-duration: 25s;
         }
 
-        p {
-            color: #666;
-            margin: 0 0 20px 0;
-            font-size: 16px;
+        .blob-2 {
+            background: #3b82f6;
+            bottom: -100px;
+            right: -100px;
+            animation-duration: 30s;
+            animation-delay: -5s;
         }
 
-        #final-score {
-            color: #646cff;
-            font-weight: bold;
-            font-size: 24px;
+        .blob-3 {
+            background: #06b6d4;
+            top: 40%;
+            left: 30%;
+            width: 400px;
+            height: 400px;
+            animation-duration: 22s;
+            animation-delay: -10s;
         }
 
-        button {
-            background: #646cff;
-            border: none;
-            padding: 15px 40px;
-            color: white;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 0 #4b51bf;
-            margin-top: 5px;
+        @keyframes move {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            100% {
+                transform: translate(100px, 50px) scale(1.2);
+            }
         }
 
-        button:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        button:hover {
-            background: #535bf2;
-        }
-
-        #start-screen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            z-index: 30;
-            min-width: 250px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        .start-btn {
-            background: #646cff;
-            border: none;
-            padding: 15px 40px;
-            color: white;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 0 #4b51bf;
-        }
-
-        .start-btn:active {
-            transform: translateY(4px);
-            box-shadow: none;
+        .glass-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            background:
+                url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>'),
+                repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 4px);
+            opacity: 0.15;
+            mix-blend-mode: overlay;
         }
     </style>
-
-
-    <!-- WCGames Popup Theming -->
-    <style id="wcgames-popup-theme">
+    <link rel="stylesheet" href="/shared/wcgames-style.css">
+    <style>
         :root {
-            --theme-color: #06b6d4 !important;
-            --theme-glow: rgba(6, 182, 212, 0.4) !important;
-        }
-
-        /* Strict override for the overlay containers */
-        .wcg-overlay {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-width: none !important;
-            background: rgba(10, 11, 26, 0.7) !important;
-            backdrop-filter: blur(5px) !important;
-            -webkit-backdrop-filter: blur(5px) !important;
-            display: flex !important;
-            /* Force flex, we manage vis via opacity */
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: 9999 !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            transition: opacity 0.3s ease !important;
-            border: none !important;
-            transform: none !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            text-align: center !important;
-        }
-
-        /* ONLY show if has .wcg-visible */
-        .wcg-overlay.wcg-visible {
-            opacity: 1 !important;
-            pointer-events: auto !important;
-        }
-
-        /* The Glassmorphism Popup Box */
-        .wcg-popup {
-            background: rgba(15, 17, 35, 0.85) !important;
-            backdrop-filter: blur(16px) !important;
-            -webkit-backdrop-filter: blur(16px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-radius: 24px !important;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--theme-glow) !important;
-            padding: 40px 30px !important;
-            width: 85% !important;
-            max-width: 400px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            box-sizing: border-box !important;
-        }
-
-        /* Popup entry animation */
-        .wcg-overlay.wcg-visible .wcg-popup {
-            transform: scale(1) translateY(0);
-        }
-
-        /* Typography inside popup */
-        .wcg-popup h1,
-        .wcg-popup h2,
-        .wcg-popup .title {
-            font-family: 'Inter', 'Orbitron', 'Segoe UI', sans-serif !important;
-            font-size: 36px !important;
-            font-weight: 900 !important;
-            margin: 0 0 16px 0 !important;
-            color: #fff !important;
-            background: linear-gradient(to bottom right, #fff, var(--theme-color)) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            filter: drop-shadow(0 0 10px var(--theme-glow)) !important;
-            line-height: 1.2 !important;
-            border: none !important;
-        }
-
-        .wcg-popup p,
-        .wcg-popup .instructions,
-        .wcg-popup div[style*="font-size: 24px"],
-        .wcg-popup div:not(.title):not(.btn) {
-            font-family: 'Inter', sans-serif !important;
-            font-size: 16px !important;
-            color: #cbd5e1 !important;
-            line-height: 1.6 !important;
-            margin: 0 0 32px 0 !important;
-            max-width: 100% !important;
-            text-shadow: none !important;
-            font-weight: 400 !important;
-            background: none !important;
-            -webkit-text-fill-color: initial !important;
-            filter: none !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] {
-            font-size: 20px !important;
-            color: #fff !important;
-            font-weight: 700 !important;
-            margin-bottom: 30px !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] span,
-        .wcg-popup #final-score {
-            color: var(--theme-color) !important;
-        }
-
-        /* Buttons */
-        .wcg-popup button,
-        .wcg-popup .btn,
-        .wcg-popup .start-btn,
-        .wcg-popup .btn-start,
-        .wcg-popup .btn-restart {
-            font-family: 'Inter', 'Orbitron', sans-serif !important;
-            background: rgba(255, 255, 255, 0.05) !important;
-            border: 1px solid var(--theme-color) !important;
-            color: #fff !important;
-            font-size: 18px !important;
-            font-weight: 700 !important;
-            padding: 16px 40px !important;
-            border-radius: 100px !important;
-            cursor: pointer !important;
-            letter-spacing: 1px !important;
-            box-shadow: 0 0 20px var(--theme-glow), inset 0 0 10px var(--theme-glow) !important;
-            transition: all 0.2s ease !important;
-            margin: 0 !important;
-            width: 100% !important;
-            max-width: 250px !important;
-            -webkit-text-fill-color: initial !important;
-        }
-
-        .wcg-popup button:hover,
-        .wcg-popup .btn:hover,
-        .wcg-popup .start-btn:hover,
-        .wcg-popup .btn-start:hover,
-        .wcg-popup .btn-restart:hover {
-            background: var(--theme-color) !important;
-            color: #0f1123 !important;
-            box-shadow: 0 0 30px var(--theme-color), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
-            transform: scale(1.05) translateY(-2px) !important;
-        }
-
-        .wcg-popup button:active,
-        .wcg-popup .btn:active,
-        .wcg-popup .start-btn:active,
-        .wcg-popup .btn-start:active,
-        .wcg-popup .btn-restart:active {
-            transform: scale(0.95) !important;
-        }
-
-        /* Anti-FOUC safeguard: hide target popups until themed */
-        body:not(.wcg-ready) #start-screen,
-        body:not(.wcg-ready) #game-over,
-        body:not(.wcg-ready) #game-over-screen {
-            opacity: 0 !important;
-            pointer-events: none !important;
-            visibility: hidden !important;
+            --theme-color: #0ea5e9;
+            --theme-glow: rgba(14, 165, 233, 0.4);
         }
     </style>
-    <!-- End WCGames Popup Theming -->
+    <script src="/shared/wcgames-core.js"></script>
 </head>
 
-<body class="wcg-ready">
+<body class="">
+    <!-- Aurora Background Layers -->
+    <div class="aurora-bg">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+        <div class="aurora-blob blob-3"></div>
+    </div>
+    <div class="glass-overlay"></div>
+
     <div id="ui">
         <div id="score">0</div>
     </div>
+    <div id="combo-ui" class="wcg-combo">PERFECT</div>
 
-    <div id="start-screen" class="wcg-overlay wcg-visible" style="display: flex;">
+    <div id="start-screen" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="title">STACK TOWER</h1>
-            <p data-i18n="instruction">Build the tallest tower!<br>Tap to stack the blocks.</p>
-            <button class="start-btn" onclick="startGame()" data-i18n="play">PLAY</button>
+            <p data-i18n="instruction">Tap to stack the blocks!</p>
+            <button onclick="WCGames.start()" data-i18n="play">PLAY</button>
         </div>
     </div>
 
-    <div id="game-over" class="wcg-overlay" style="display: none;">
+    <div id="game-over" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="game_over">GAME OVER</h1>
             <p><span data-i18n="final_score">Score: </span><span id="final-score">0</span></p>
-            <button class="start-btn" onclick="restartGame()" data-i18n="play_again">RETRY</button>
+            <button onclick="WCGames.restart()" data-i18n="play_again">RETRY</button>
         </div>
     </div>
 
@@ -318,8 +150,14 @@
     <script>
         // Game Constants
         const BOX_HEIGHT = 1;
-        const INITIAL_WIDTH = 3;
-        const INITIAL_DEPTH = 3;
+        const INITIAL_WIDTH = 4.4;
+        const INITIAL_DEPTH = 4.4;
+        const PRE_STACK_COUNT = 15;
+        const CAMERA_HEIGHT_OFFSET = 14; // How high camera sits above tower base
+        const CAMERA_LOOK_DELTA = 10;   // Vertical distance to look-at target (keep 10 for 45deg)
+        const GAMEOVER_BLOCK_OFFSET = -4; // Adjust tower vertical position during game over (in blocks)
+        const GAMEOVER_ZOOM = 0.45;      // Constant scale for game over view
+        const PERFECT_EXPANSION_TOTAL = 2.0; // Fixed units the ripple expands by
 
         let scene, camera, renderer;
         let stack = [];
@@ -329,9 +167,10 @@
         let speed = 0.15;
         let gameState = 'START'; // START, PLAYING, OVER
         let score = 0;
-        let targetCameraY = 10;
+        let targetCameraY = CAMERA_HEIGHT_OFFSET;
         let targetCameraZoom = 1; // For game over zoom out
         let currentCameraZoom = 1;
+        let perfectStreak = 0;
 
         // Particle System variables
         let particles, particleData;
@@ -379,8 +218,10 @@
         function init() {
             scene = new THREE.Scene();
 
+            // Foundation logic: Add bricks below y=0 to create a pillar effect
+
             // Premium background color (Deep Midnight)
-            scene.background = new THREE.Color(0x34495e);
+            // scene.background = new THREE.Color(0x34495e); // Use CSS background instead
 
             // Lights
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -397,13 +238,16 @@
             camera.position.set(10, 10, 10);
             camera.lookAt(0, 0, 0);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0); // Transparent canvas
             document.body.appendChild(renderer.domElement);
 
             // Foundation
-            addBlock(0, 0, 0, INITIAL_WIDTH, INITIAL_DEPTH, false);
+            for (let i = -PRE_STACK_COUNT; i <= 0; i++) {
+                addBlock(0, i * BOX_HEIGHT, 0, INITIAL_WIDTH, INITIAL_DEPTH, false, i);
+            }
 
             // Ambient Snow Particles
             initParticles();
@@ -420,21 +264,20 @@
                 }
             });
 
+            // Start animation loop
             animate();
-
-            // Notify platform
-            window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
 
-        function addBlock(x, y, z, width, depth, isActive) {
-            const color = new THREE.Color(`hsl(${score * 10 + 200}, 70%, 60%)`);
+        function addBlock(x, y, z, width, depth, isActive, colorIndex = null) {
+            const indexForColor = colorIndex !== null ? colorIndex : score;
+            const color = new THREE.Color(`hsl(${indexForColor * 10 + 200}, 70%, 60%)`);
             const geometry = new THREE.BoxGeometry(width, BOX_HEIGHT, depth);
             const material = new THREE.MeshStandardMaterial({ color });
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(x, y, z);
             scene.add(mesh);
 
-            const block = { mesh, width, depth };
+            const block = { mesh, width, depth, spawnPos: isActive ? mesh.position[direction] : 0 };
             if (isActive) {
                 activeBlock = block;
             } else {
@@ -447,6 +290,9 @@
         function handleAction() {
             audio.init();
             if (gameState !== 'PLAYING') return;
+
+            // Guard: prevent immediate placement if the block is still at the extreme edge (prevents accidental holds)
+            if (activeBlock && Math.abs(activeBlock.mesh.position[direction]) > 14.5) return;
 
             // Place Block
             const topBlock = stack[stack.length - 1];
@@ -467,9 +313,24 @@
                 // Snapping logic: No slicing, no debris
                 activeBlock.mesh.position[direction] = topBlock.mesh.position[direction];
 
-                audio.playNote(baseFreq * 1.5, 'sine', 0.2, 0.3);
+                perfectStreak++;
+                audio.playNote(baseFreq * (1 + perfectStreak * 0.1), 'sine', 0.2, 0.3);
                 createPerfectFlash(activeBlock.mesh.position.x, activeBlock.mesh.position.y, activeBlock.mesh.position.z, activeBlock.width, activeBlock.depth);
+
+                // Show Perfect UI
+                const comboEl = document.getElementById('combo-ui');
+                comboEl.textContent = perfectStreak > 1 ? `PERFECT x${perfectStreak}` : "PERFECT";
+                comboEl.classList.remove('wcg-visible'); // Reset transition
+                void comboEl.offsetWidth; // Trigger reflow
+                comboEl.classList.add('wcg-visible');
+
+                // Auto hide after 1s
+                if (window.comboTimeout) clearTimeout(window.comboTimeout);
+                window.comboTimeout = setTimeout(() => {
+                    comboEl.classList.remove('wcg-visible');
+                }, 1000);
             } else {
+                perfectStreak = 0;
                 audio.playNote(baseFreq, 'triangle', 0.1, 0.3);
 
                 // Slice block logic
@@ -507,7 +368,7 @@
             stack.push(activeBlock);
             score++;
             document.getElementById('score').textContent = score;
-            window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+            WCGames.submitScore(score);
 
             // Increase speed slightly, always reset direction to positive for next spawn
             speed = Math.abs(speed) + 0.002;
@@ -519,6 +380,7 @@
             const flashColor = activeBlock.mesh.material.color.clone().multiplyScalar(1.2).addScalar(0.1);
 
             // Thin ripple plane at the interface between blocks
+            // Starts at the exact size of the perfected block
             const geo = new THREE.PlaneGeometry(w, d);
             const mat = new THREE.MeshBasicMaterial({ color: flashColor, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
             const mesh = new THREE.Mesh(geo, mat);
@@ -530,7 +392,9 @@
 
             debris.push({
                 mesh,
-                velocity: { y: 0.02, r: 0 }, // Very subtle upward drift
+                initialW: w,
+                initialD: d,
+                velocity: { y: 0, r: 0 },
                 isFlash: true,
                 life: 1.0
             });
@@ -540,14 +404,14 @@
             const topBlock = stack[stack.length - 1];
             direction = direction === 'x' ? 'z' : 'x';
 
-            const x = direction === 'x' ? -15 : topBlock.mesh.position.x;
-            const z = direction === 'z' ? -15 : topBlock.mesh.position.z;
-            const y = stack.length * BOX_HEIGHT;
+            const x = topBlock.mesh.position.x;
+            const z = topBlock.mesh.position.z;
+            const y = (stack.length - PRE_STACK_COUNT) * BOX_HEIGHT;
 
             addBlock(x, y, z, topBlock.width, topBlock.depth, true);
 
-            // Move camera up via Lerp
-            targetCameraY = stack.length * BOX_HEIGHT + 10;
+            // Move camera up via Lerp - uses offset to shift tower down naturally
+            targetCameraY = (stack.length - PRE_STACK_COUNT) * BOX_HEIGHT + CAMERA_HEIGHT_OFFSET;
         }
 
 
@@ -555,19 +419,15 @@
             gameState = 'OVER';
             audio.playNote([440, 110], 'sawtooth', 0.5, 0.3);
 
-            // Set zoom out target based on tower height
-            targetCameraZoom = Math.max(0.22, 11 / (stack.length * BOX_HEIGHT + 10)); // 20% less zoom-out
-            targetCameraY = (stack.length * BOX_HEIGHT) * 0.5 + 10; // Center more comfortably
+            // Fixed zoom regardless of block count for consistent look
+            targetCameraZoom = GAMEOVER_ZOOM;
 
-            // Delay UI popup to let player see the tower
-            setTimeout(() => {
-                const gameOverScreen = document.getElementById('game-over');
-                gameOverScreen.style.display = 'flex';
-                gameOverScreen.offsetHeight; // trigger reflow
-                gameOverScreen.classList.add('wcg-visible');
-                document.getElementById('final-score').textContent = score;
-                window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
-            }, 1500);
+            // Precise Isometric Math for bottom-edge alignment:
+            // The Y scaling factor for this camera orientation is approx 0.942.
+            // Formula: Y_camera = (10.61 / Zoom) - 5.5
+            targetCameraY = (10.61 / targetCameraZoom) - 5.5 - (GAMEOVER_BLOCK_OFFSET * BOX_HEIGHT);
+
+            WCGames.gameOver(score);
         }
 
         function restartGame() {
@@ -588,32 +448,29 @@
             direction = 'x';
             speed = 0.15;
             score = 0;
-            targetCameraY = 10;
+            perfectStreak = 0;
+            targetCameraY = CAMERA_HEIGHT_OFFSET;
             targetCameraZoom = 1;
             currentCameraZoom = 1;
 
             document.getElementById('score').textContent = score;
 
             // 4. Reset camera immediately
-            camera.position.y = 10;
+            camera.position.y = CAMERA_HEIGHT_OFFSET;
             camera.zoom = 1;
             camera.updateProjectionMatrix();
 
             // 5. Build base foundation
-            addBlock(0, 0, 0, INITIAL_WIDTH, INITIAL_DEPTH, false);
+            for (let i = -PRE_STACK_COUNT; i <= 0; i++) {
+                addBlock(0, i * BOX_HEIGHT, 0, INITIAL_WIDTH, INITIAL_DEPTH, false, i);
+            }
 
             // 6. Direct to PLAYING state
             gameState = 'PLAYING';
             startNewRound();
         }
 
-        function startGame() {
-            audio.init();
-            const startScreen = document.getElementById('start-screen');
-            startScreen.style.display = 'none';
-            startScreen.classList.remove('wcg-visible');
-            gameState = 'PLAYING';
-        }
+
 
         function onWindowResize() {
             const aspect = window.innerWidth / window.innerHeight;
@@ -700,7 +557,14 @@
 
             if (gameState === 'PLAYING' && activeBlock) {
                 activeBlock.mesh.position[direction] += speed;
-                if (Math.abs(activeBlock.mesh.position[direction]) > 15) {
+
+                const dimension = direction === 'x' ? 'width' : 'depth';
+                const bound = Math.max(4, activeBlock[dimension] * 1.2);
+                const dist = activeBlock.mesh.position[direction] - activeBlock.spawnPos;
+
+                if (Math.abs(dist) > bound) {
+                    // Snap to bound and reverse
+                    activeBlock.mesh.position[direction] = activeBlock.spawnPos + (bound * Math.sign(dist));
                     speed *= -1;
                 }
             }
@@ -708,8 +572,13 @@
             // Smooth Camera Y & Zoom
             camera.position.y += (targetCameraY - camera.position.y) * 0.1;
 
+            // Perspective-safe baseline shift: Maintain constant angle
+            // by keeping a fixed vertical delta between camera and look target.
+            camera.lookAt(0, camera.position.y - CAMERA_LOOK_DELTA, 0);
+
             if (gameState === 'OVER') {
-                currentCameraZoom += (targetCameraZoom - currentCameraZoom) * 0.05;
+                // Sync zoom speed (0.1) with position speed (0.1) for jitter-free transition
+                currentCameraZoom += (targetCameraZoom - currentCameraZoom) * 0.1;
                 camera.zoom = currentCameraZoom;
                 camera.updateProjectionMatrix();
             }
@@ -719,10 +588,15 @@
                 const d = debris[i];
                 if (d.isFlash) {
                     d.life -= 0.03;
-                    const scale = 1 + (1 - d.life) * 1.2; // Toned down expansion
-                    d.mesh.scale.set(scale, scale, 1);
-                    d.mesh.position.y += d.velocity.y;
+
+                    // Absolute expansion: grow by exactly PERFECT_EXPANSION_TOTAL units
+                    const growth = (1 - d.life) * PERFECT_EXPANSION_TOTAL;
+                    const scaleX = (d.initialW + growth) / d.initialW;
+                    const scaleY = (d.initialD + growth) / d.initialD;
+
+                    d.mesh.scale.set(scaleX, scaleY, 1);
                     d.mesh.material.opacity = d.life;
+
                     if (d.life <= 0) {
                         safeRemove(d.mesh);
                         debris.splice(i, 1);
@@ -785,6 +659,21 @@
     </div>
 
     <script src="/shared/i18n.js"></script>
+
+    <script>
+        WCGames.init({
+            id: 'stack-tower',
+            onStart: () => {
+                audio.init();
+                gameState = 'PLAYING';
+            },
+            onRestart: () => {
+                restartGame();
+            },
+            onGameOver: (s) => {
+                gameState = 'OVER';
+            }
+        });
     </script>
 
 </body>

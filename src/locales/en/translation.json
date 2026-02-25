@@ -1,0 +1,66 @@
+{
+  "header": {
+    "leaderboard": "Leaderboard",
+    "signup": "Sign Up",
+    "login": "Login",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "board": {
+    "title": "Global Rankings",
+    "rank": "Rank",
+    "player": "Player",
+    "score": "Score",
+    "date": "Date",
+    "subtitle": "Top players across all games",
+    "empty_title": "No records yet.",
+    "empty_desc": "Be the first to claim the #1 spot!",
+    "my_rank": "My Rank",
+    "not_in_top10": "Not in Top 10"
+  },
+  "home": {
+    "new_games": "New games added weekly",
+    "play": "Play ",
+    "instantly": "Instantly.",
+    "zero_downloads": "Zero Downloads.",
+    "desc": "Discover and play the best free hyper-casual HTML5 games directly in your browser. No installation required.",
+    "start_playing": "Start Playing"
+  },
+  "footer": {
+    "desc": "Play the best web games for free.",
+    "contact": "Contact & Support"
+  },
+  "player": {
+    "rotate_title": "Please rotate to Portrait",
+    "rotate_desc": "This game is optimized for portrait mode."
+  },
+  "auth": {
+    "login": "Login",
+    "signup": "Sign Up",
+    "email": "Email Address",
+    "password": "Password",
+    "nickname": "Nickname (Optional)",
+    "nickname_ph": "Leave blank for random name",
+    "req_email": "Valid email required",
+    "req_pass_len": "Password must be at least 6 characters",
+    "req_pass": "Password required",
+    "signing_up": "Creating Account...",
+    "logging_in": "Signing In...",
+    "switch_to_login": "Already have an account? Login",
+    "switch_to_signup": "Need an account? Sign Up",
+    "login_desc": "Sign in to save your high scores!",
+    "signup_desc": "Join to climb the global leaderboards!",
+    "or_continue": "or continue with"
+  },
+  "profile": {
+    "title": "Player Profile",
+    "level": "Lvl",
+    "edit_name": "Edit Nickname",
+    "cancel": "Cancel",
+    "save": "Save",
+    "member_since": "Member since",
+    "games_played": "Games Played",
+    "total_score": "Total Score",
+    "highest_rank": "Highest Rank"
+  }
+}

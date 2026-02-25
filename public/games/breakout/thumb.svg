@@ -1,56 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
   <defs>
-    <radialGradient id="bgGradBreakout" cx="50%" cy="50%" r="70%">
-      <stop offset="0%" stop-color="#1e102f" />
-      <stop offset="100%" stop-color="#050110" />
-    </radialGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity="0.8" />
-      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f1123"/>
+      <stop offset="100%" stop-color="#1a1040"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
 
-  <!-- Background -->
-  <rect width="400" height="300" fill="url(#bgGradBreakout)" />
-
-  <!-- Bricks -->
+  <!-- Brick rows -->
   <g filter="url(#glow)">
-    <!-- Row 1 (#f43f5e) -->
-    <rect x="50" y="40" width="40" height="15" fill="rgba(244,63,94,0.2)" stroke="#f43f5e" stroke-width="2" />
-    <rect x="100" y="40" width="40" height="15" fill="rgba(244,63,94,0.2)" stroke="#f43f5e" stroke-width="2" />
-    <rect x="250" y="40" width="40" height="15" fill="rgba(244,63,94,0.2)" stroke="#f43f5e" stroke-width="2" />
-    <rect x="300" y="40" width="40" height="15" fill="rgba(244,63,94,0.2)" stroke="#f43f5e" stroke-width="2" />
+    <!-- Row 1 -->
+    <rect x="40" y="40" width="55" height="20" rx="4" fill="#ef4444"/>
+    <rect x="105" y="40" width="55" height="20" rx="4" fill="#f97316"/>
+    <rect x="170" y="40" width="55" height="20" rx="4" fill="#eab308"/>
+    <rect x="235" y="40" width="55" height="20" rx="4" fill="#22c55e"/>
+    <rect x="300" y="40" width="55" height="20" rx="4" fill="#3b82f6"/>
 
-    <!-- Row 2 (#d946ef) -->
-    <rect x="50" y="65" width="40" height="15" fill="rgba(217,70,239,0.2)" stroke="#d946ef" stroke-width="2" />
-    <!-- Missing brick -->
-    <rect x="150" y="65" width="40" height="15" fill="rgba(217,70,239,0.2)" stroke="#d946ef" stroke-width="2" />
-    <rect x="200" y="65" width="40" height="15" fill="rgba(217,70,239,0.2)" stroke="#d946ef" stroke-width="2" />
-    <!-- Missing brick -->
-    <rect x="300" y="65" width="40" height="15" fill="rgba(217,70,239,0.2)" stroke="#d946ef" stroke-width="2" />
+    <!-- Row 2 -->
+    <rect x="40" y="68" width="55" height="20" rx="4" fill="#ec4899"/>
+    <rect x="105" y="68" width="55" height="20" rx="4" fill="#ef4444"/>
+    <rect x="170" y="68" width="55" height="20" rx="4" fill="#f97316"/>
+    <rect x="235" y="68" width="55" height="20" rx="4" fill="#eab308"/>
+    <rect x="300" y="68" width="55" height="20" rx="4" fill="#22c55e"/>
 
-    <!-- Row 3 (#3b82f6) -->
-    <rect x="50" y="90" width="40" height="15" fill="rgba(59,130,246,0.2)" stroke="#3b82f6" stroke-width="2" />
-    <rect x="100" y="90" width="40" height="15" fill="rgba(59,130,246,0.2)" stroke="#3b82f6" stroke-width="2" />
-    <rect x="150" y="90" width="40" height="15" fill="rgba(59,130,246,0.2)" stroke="#3b82f6" stroke-width="2" />
-    <!-- Empty -->
-    <rect x="250" y="90" width="40" height="15" fill="rgba(59,130,246,0.2)" stroke="#3b82f6" stroke-width="2" />
-    <rect x="300" y="90" width="40" height="15" fill="rgba(59,130,246,0.2)" stroke="#3b82f6" stroke-width="2" />
+    <!-- Row 3 (some missing) -->
+    <rect x="40" y="96" width="55" height="20" rx="4" fill="#8b5cf6"/>
+    <rect x="170" y="96" width="55" height="20" rx="4" fill="#ec4899"/>
+    <rect x="300" y="96" width="55" height="20" rx="4" fill="#3b82f6"/>
   </g>
 
-  <!-- Paddle (#00ffff) -->
-  <g filter="url(#glow)">
-    <animateTransform attributeName="transform" type="translate" values="50,0; 150,0; 50,0" dur="2.5s" repeatCount="indefinite" />
-    <rect x="80" y="250" width="80" height="10" fill="rgba(0,255,255,0.2)" stroke="#00ffff" stroke-width="2" />
-  </g>
+  <!-- Ball -->
+  <circle cx="200" cy="200" r="8" fill="#fff" filter="url(#glow)"/>
 
-  <!-- Ball (#ffffff) -->
-  <g filter="url(#glow)">
-    <animateTransform attributeName="transform" type="translate" values="170,240; 240,110; 120,60; 200,240" dur="2.5s" repeatCount="indefinite" calcMode="linear" />
-    <circle cx="0" cy="0" r="6" fill="#ffffff" />
-  </g>
+  <!-- Ball trail -->
+  <line x1="200" y1="200" x2="170" y2="130" stroke="#fff" stroke-width="1" opacity="0.2" stroke-dasharray="4,4"/>
+
+  <!-- Paddle -->
+  <rect x="150" y="260" width="80" height="14" rx="7" fill="#0ea5e9" filter="url(#glow)"/>
+  <rect x="155" y="262" width="70" height="4" rx="2" fill="rgba(255,255,255,0.3)"/>
 </svg>

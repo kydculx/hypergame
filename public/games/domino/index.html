@@ -4,15 +4,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Domino Match - Hyper Casual</title>
-
+    <title>Domino Match</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/shared/wcgames-style.css">
     <style>
+        :root {
+            --theme-color: #e63946;
+            --theme-glow: rgba(230, 57, 70, 0.4);
+        }
+
         body {
             margin: 0;
             overflow: hidden;
-            background: linear-gradient(135deg, #8ec5fc 0%, #e0c3fc 100%);
-            /* Hyper-casual pastel gradient */
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(160deg, #ffecd2 0%, #fcb69f 50%, #ff9a9e 100%);
+            font-family: 'Bubblegum Sans', cursive;
             user-select: none;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
@@ -26,50 +31,55 @@
             width: 100%;
             text-align: center;
             pointer-events: none;
-            z-index: 10;
+            z-index: 10000;
         }
 
         #score {
-            font-size: 60px;
-            font-weight: 800;
-            color: white;
-            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
+            font-size: 72px;
+            color: #fff;
+            text-shadow:
+                3px 3px 0 #e63946,
+                -1px -1px 0 #f72585,
+                0 4px 8px rgba(0, 0, 0, 0.25);
+            letter-spacing: 2px;
         }
 
         #combo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffd166;
-            margin-top: 5px;
-            text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+            font-size: 22px;
+            color: #fff;
+            background: linear-gradient(135deg, #ffb703, #f72585);
             display: none;
+            padding: 4px 16px;
+            border-radius: 20px;
+            margin: 8px auto 0;
+            width: fit-content;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
         }
 
-        /* Controls UI at the bottom */
         #controls {
             position: absolute;
             bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 20px;
+            align-items: flex-end;
+            gap: 16px;
             z-index: 10;
         }
 
         .control-btn {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            width: 80px;
-            height: 110px;
+            border-radius: 22px;
             box-sizing: border-box;
             display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding-bottom: 15px;
-            align-items: center;
+            align-items: flex-end;
+            justify-content: center;
             cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.1s, filter 0.2s;
-            color: white;
+            transition: transform 0.1s, box-shadow 0.1s;
+            padding: 8px;
+            width: 80px;
+            height: 110px;
+            border: 3px solid rgba(255, 255, 255, 0.5);
         }
 
         .control-btn:active {
@@ -77,292 +87,83 @@
             box-shadow: 0 0px 0 rgba(0, 0, 0, 0) !important;
         }
 
-        .icon-domino {
-            background: #e63946;
-            border-radius: 4px;
-            margin-bottom: 5px;
+        .control-btn svg {
+            filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.25));
         }
 
-        .btn-label {
-            font-size: 28px;
-            font-weight: 800;
-            margin-top: 5px;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Match the 3D domino colors perfectly */
         .btn-s {
-            background: #4cc9f0;
-            box-shadow: 0 6px 0 #3ba0c0, 0 10px 10px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(180deg, #7ddaf5, #4cc9f0);
+            box-shadow: 0 6px 0 #3ba0c0, 0 10px 12px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-s .icon-domino {
-            width: 20px;
-            height: 20px;
-            background: white;
+        .btn-s svg {
+            height: 30px;
+            width: auto;
         }
 
         .btn-m {
-            background: #f72585;
-            box-shadow: 0 6px 0 #bd1b65, 0 10px 10px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(180deg, #ff5da0, #f72585);
+            box-shadow: 0 6px 0 #bd1b65, 0 10px 12px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-m .icon-domino {
-            width: 20px;
-            height: 30px;
-            background: white;
+        .btn-m svg {
+            height: 58px;
+            width: auto;
         }
 
         .btn-l {
-            background: #ffb703;
-            box-shadow: 0 6px 0 #c28b02, 0 10px 10px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(180deg, #ffd24d, #ffb703);
+            box-shadow: 0 6px 0 #c28b02, 0 10px 12px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-l .icon-domino {
-            width: 20px;
-            height: 40px;
-            background: white;
+        .btn-l svg {
+            height: 90px;
+            width: auto;
         }
 
-        #game-over {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            display: none;
-            pointer-events: auto;
-            z-index: 20;
-            min-width: 200px;
-        }
-
-        h1 {
-            color: #333;
-            margin: 0 0 10px 0;
-            font-size: 24px;
-        }
-
-        p {
-            color: #666;
-            margin: 0 0 20px 0;
-            font-size: 16px;
-        }
-
-        #final-score {
-            color: #e63946;
-            font-weight: bold;
-            font-size: 24px;
-        }
-
-        .replay-btn {
-            background: #e63946;
-            border: none;
-            padding: 15px 40px;
-            color: white;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 0 #b32a35;
-        }
-
-        .replay-btn:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        .replay-btn:hover {
-            background: #d62828;
-        }
-
-        #start-screen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            z-index: 100;
-            min-width: 250px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-    </style>
-
-
-    <!-- WCGames Popup Theming -->
-    <style id="wcgames-popup-theme">
-        :root {
-            --theme-color: #0ea5e9 !important;
-            --theme-glow: rgba(14, 165, 233, 0.4) !important;
-        }
-
-        /* Strict override for the overlay containers */
+        /* Toy Store Popup Overrides */
         .wcg-overlay {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-width: none !important;
-            background: rgba(10, 11, 26, 0.7) !important;
-            backdrop-filter: blur(5px) !important;
-            -webkit-backdrop-filter: blur(5px) !important;
-            display: flex !important;
-            /* Force flex, we manage vis via opacity */
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: 9999 !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            transition: opacity 0.3s ease !important;
-            border: none !important;
-            transform: none !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            text-align: center !important;
+            background: rgba(255, 220, 200, 0.85) !important;
+            backdrop-filter: blur(8px);
         }
 
-        /* ONLY show if has .wcg-visible */
-        .wcg-overlay.wcg-visible {
-            opacity: 1 !important;
-            pointer-events: auto !important;
-        }
-
-        /* The Glassmorphism Popup Box */
         .wcg-popup {
-            background: rgba(15, 17, 35, 0.85) !important;
-            backdrop-filter: blur(16px) !important;
-            -webkit-backdrop-filter: blur(16px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+            background: linear-gradient(160deg, #fff9f0, #ffe8d6) !important;
+            border: 4px solid #e63946 !important;
             border-radius: 24px !important;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--theme-glow) !important;
-            padding: 40px 30px !important;
-            width: 85% !important;
-            max-width: 400px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            box-sizing: border-box !important;
+            box-shadow: 0 8px 0 #c0392b, 0 16px 30px rgba(0, 0, 0, 0.2) !important;
         }
 
-        /* Popup entry animation */
-        .wcg-overlay.wcg-visible .wcg-popup {
-            transform: scale(1) translateY(0);
+        .wcg-popup h1 {
+            color: #e63946 !important;
+            text-shadow: 2px 2px 0 #ffb703 !important;
+            font-family: 'Bubblegum Sans', cursive !important;
         }
 
-        /* Typography inside popup */
-        .wcg-popup h1,
-        .wcg-popup h2,
-        .wcg-popup .title {
-            font-family: 'Inter', 'Orbitron', 'Segoe UI', sans-serif !important;
-            font-size: 36px !important;
-            font-weight: 900 !important;
-            margin: 0 0 16px 0 !important;
+        .wcg-popup p {
+            color: #555 !important;
+        }
+
+        .wcg-popup button {
+            background: linear-gradient(180deg, #ff6b6b, #e63946) !important;
             color: #fff !important;
-            background: linear-gradient(to bottom right, #fff, var(--theme-color)) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            filter: drop-shadow(0 0 10px var(--theme-glow)) !important;
-            line-height: 1.2 !important;
             border: none !important;
-        }
-
-        .wcg-popup p,
-        .wcg-popup .instructions,
-        .wcg-popup div[style*="font-size: 24px"],
-        .wcg-popup div:not(.title):not(.btn) {
-            font-family: 'Inter', sans-serif !important;
-            font-size: 16px !important;
-            color: #cbd5e1 !important;
-            line-height: 1.6 !important;
-            margin: 0 0 32px 0 !important;
-            max-width: 100% !important;
-            text-shadow: none !important;
-            font-weight: 400 !important;
-            background: none !important;
-            -webkit-text-fill-color: initial !important;
-            filter: none !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] {
+            border-radius: 16px !important;
+            padding: 14px 36px !important;
+            font-family: 'Bubblegum Sans', cursive !important;
             font-size: 20px !important;
-            color: #fff !important;
-            font-weight: 700 !important;
-            margin-bottom: 30px !important;
+            box-shadow: 0 5px 0 #c0392b !important;
         }
 
-        .wcg-popup div[style*="font-size: 24px"] span,
-        .wcg-popup #final-score {
-            color: var(--theme-color) !important;
-        }
-
-        /* Buttons */
-        .wcg-popup button,
-        .wcg-popup .btn,
-        .wcg-popup .start-btn,
-        .wcg-popup .btn-start,
-        .wcg-popup .btn-restart {
-            font-family: 'Inter', 'Orbitron', sans-serif !important;
-            background: rgba(255, 255, 255, 0.05) !important;
-            border: 1px solid var(--theme-color) !important;
-            color: #fff !important;
-            font-size: 18px !important;
-            font-weight: 700 !important;
-            padding: 16px 40px !important;
-            border-radius: 100px !important;
-            cursor: pointer !important;
-            letter-spacing: 1px !important;
-            box-shadow: 0 0 20px var(--theme-glow), inset 0 0 10px var(--theme-glow) !important;
-            transition: all 0.2s ease !important;
-            margin: 0 !important;
-            width: 100% !important;
-            max-width: 250px !important;
-            -webkit-text-fill-color: initial !important;
-        }
-
-        .wcg-popup button:hover,
-        .wcg-popup .btn:hover,
-        .wcg-popup .start-btn:hover,
-        .wcg-popup .btn-start:hover,
-        .wcg-popup .btn-restart:hover {
-            background: var(--theme-color) !important;
-            color: #0f1123 !important;
-            box-shadow: 0 0 30px var(--theme-color), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
-            transform: scale(1.05) translateY(-2px) !important;
-        }
-
-        .wcg-popup button:active,
-        .wcg-popup .btn:active,
-        .wcg-popup .start-btn:active,
-        .wcg-popup .btn-start:active,
-        .wcg-popup .btn-restart:active {
-            transform: scale(0.95) !important;
-        }
-
-        /* Anti-FOUC safeguard: hide target popups until themed */
-        body:not(.wcg-ready) #start-screen,
-        body:not(.wcg-ready) #game-over,
-        body:not(.wcg-ready) #game-over-screen {
-            opacity: 0 !important;
-            pointer-events: none !important;
-            visibility: hidden !important;
+        .wcg-popup button:active {
+            transform: translateY(4px) !important;
+            box-shadow: 0 1px 0 #c0392b !important;
         }
     </style>
-    <!-- End WCGames Popup Theming -->
+    <script src="/shared/wcgames-core.js"></script>
 </head>
 
-<body class="wcg-ready">
+<body>
     <div id="ui">
         <div id="score">0</div>
         <div id="combo">Combo x1</div>
@@ -370,33 +171,54 @@
 
     <div id="controls">
         <div class="control-btn btn-s" id="btn-s">
-            <div class="icon-domino"></div>
-            <div class="btn-label">S</div>
+            <svg viewBox="0 0 20 30" fill="none">
+                <circle cx="10" cy="5" r="4.5" fill="white" />
+                <rect x="5" y="10" width="10" height="10" rx="2" fill="white" />
+                <rect x="5.5" y="21" width="4" height="9" rx="1.5" fill="white" />
+                <rect x="10.5" y="21" width="4" height="9" rx="1.5" fill="white" />
+                <circle cx="8" cy="5" r="0.9" fill="#333" />
+                <circle cx="12" cy="5" r="0.9" fill="#333" />
+            </svg>
         </div>
         <div class="control-btn btn-m" id="btn-m">
-            <div class="icon-domino"></div>
-            <div class="btn-label">M</div>
+            <svg viewBox="0 0 30 53" fill="none">
+                <circle cx="15" cy="7" r="6" fill="white" />
+                <rect x="8" y="14" width="14" height="20" rx="3" fill="white" />
+                <rect x="8.5" y="35" width="5" height="18" rx="2" fill="white" />
+                <rect x="16.5" y="35" width="5" height="18" rx="2" fill="white" />
+                <rect x="2" y="16" width="4.5" height="13" rx="2" fill="white" />
+                <rect x="23.5" y="16" width="4.5" height="13" rx="2" fill="white" />
+                <circle cx="12.5" cy="7" r="1.2" fill="#333" />
+                <circle cx="17.5" cy="7" r="1.2" fill="#333" />
+            </svg>
         </div>
         <div class="control-btn btn-l" id="btn-l">
-            <div class="icon-domino"></div>
-            <div class="btn-label">L</div>
+            <svg viewBox="0 0 40 81" fill="none">
+                <circle cx="20" cy="9" r="8" fill="white" />
+                <rect x="9" y="18" width="22" height="32" rx="4" fill="white" />
+                <rect x="10" y="51" width="7.5" height="30" rx="3" fill="white" />
+                <rect x="22.5" y="51" width="7.5" height="30" rx="3" fill="white" />
+                <rect x="1" y="21" width="6" height="20" rx="3" fill="white" />
+                <rect x="33" y="21" width="6" height="20" rx="3" fill="white" />
+                <circle cx="16" cy="9" r="1.6" fill="#333" />
+                <circle cx="24" cy="9" r="1.6" fill="#333" />
+            </svg>
         </div>
     </div>
 
-    <div id="start-screen" class="wcg-overlay wcg-visible" style="display: flex;">
+    <div id="start-screen" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="title">DOMINO MATCH</h1>
             <p data-i18n="instruction">Choose the right domino size<br>to bridge the gap!</p>
-            <button class="replay-btn" id="start-btn" data-i18n="play">PLAY</button>
+            <button onclick="WCGames.start()" data-i18n="play">PLAY</button>
         </div>
     </div>
 
-    <div id="game-over" class="wcg-overlay" style="display: none;">
+    <div id="game-over" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="game_over">GAME OVER!</h1>
             <p><span data-i18n="final_score">Score: </span><span id="final-score">0</span></p>
-
-            <button class="replay-btn" onclick="restartGame()" data-i18n="play_again">RETRY</button>
+            <button onclick="WCGames.restart()" data-i18n="play_again">RETRY</button>
         </div>
     </div>
 
@@ -404,85 +226,125 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
+        // ============================================================
         // Audio System (Web Audio API for rich synthesized sounds)
+        // ============================================================
         class AudioManager {
             constructor() {
                 this.ctx = null;
                 this.comboNote = 0;
-                this.scale = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50]; // C Major multi-octave
+                // Pentatonic music box scale (2 octaves)
+                this.scale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98, 1760.00];
             }
             init() {
                 if (this.ctx) return;
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            playTone(freq, type, duration, vol = 0.1, slide = false) {
+
+            // Xylophone-like tone (triangle + harmonic shimmer)
+            playXylophone(freq, duration, vol = 0.12) {
                 if (!this.ctx) return;
                 if (this.ctx.state === 'suspended') this.ctx.resume();
+                const t = this.ctx.currentTime;
+                const osc1 = this.ctx.createOscillator();
+                const gain1 = this.ctx.createGain();
+                osc1.type = 'triangle';
+                osc1.frequency.value = freq;
+                gain1.gain.setValueAtTime(vol, t);
+                gain1.gain.exponentialRampToValueAtTime(0.001, t + duration);
+                osc1.connect(gain1);
+                gain1.connect(this.ctx.destination);
+                osc1.start(t);
+                osc1.stop(t + duration);
 
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                if (slide) {
-                    osc.frequency.exponentialRampToValueAtTime(freq * 2, this.ctx.currentTime + duration);
-                }
-
-                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-
-                osc.start();
-                osc.stop(this.ctx.currentTime + duration);
+                // Shimmer overtone (3x freq)
+                const osc2 = this.ctx.createOscillator();
+                const gain2 = this.ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.value = freq * 3;
+                gain2.gain.setValueAtTime(vol * 0.3, t);
+                gain2.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.5);
+                osc2.connect(gain2);
+                gain2.connect(this.ctx.destination);
+                osc2.start(t);
+                osc2.stop(t + duration);
             }
+
+            // Bright toy "pop" when placing
             playPlace() {
-                // A punchy pop for placing a domino
-                this.playTone(400, 'sine', 0.1, 0.1, true);
+                this.playXylophone(880, 0.15, 0.1);
             }
+
+            // Wooden block clack
             playClack() {
-                // Short, woody clack when dominoes hit each other
                 if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const t = this.ctx.currentTime;
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 const filter = this.ctx.createBiquadFilter();
-
                 filter.type = 'bandpass';
-                filter.frequency.value = 800;
-                filter.Q.value = 1.5;
-
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1000, this.ctx.currentTime + 0.04);
-
-                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.04);
-
+                filter.frequency.value = 1200;
+                filter.Q.value = 2;
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(200, t);
+                osc.frequency.exponentialRampToValueAtTime(2000, t + 0.02);
+                gain.gain.setValueAtTime(0.25, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
                 osc.connect(filter);
                 filter.connect(gain);
                 gain.connect(this.ctx.destination);
-
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.04);
+                osc.start(t);
+                osc.stop(t + 0.06);
             }
+
+            // Music box ascending note
             playSuccess() {
-                // Musical scale climbing based on active streak
                 const degree = Math.min(this.comboNote, this.scale.length - 1);
-                this.playTone(this.scale[degree], 'sine', 0.2, 0.15);
+                this.playXylophone(this.scale[degree], 0.35, 0.15);
                 this.comboNote++;
             }
+
             resetCombo() {
                 this.comboNote = 0;
             }
+
+            // Toy trombone "wah-wah"
             playFail() {
-                this.playTone(150, 'sawtooth', 0.4, 0.3);
-                setTimeout(() => this.playTone(100, 'sawtooth', 0.5, 0.3), 150);
+                if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const t = this.ctx.currentTime;
+                const osc1 = this.ctx.createOscillator();
+                const gain1 = this.ctx.createGain();
+                osc1.type = 'triangle';
+                osc1.frequency.setValueAtTime(400, t);
+                osc1.frequency.exponentialRampToValueAtTime(250, t + 0.25);
+                gain1.gain.setValueAtTime(0.2, t);
+                gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+                osc1.connect(gain1);
+                gain1.connect(this.ctx.destination);
+                osc1.start(t);
+                osc1.stop(t + 0.3);
+
+                const osc2 = this.ctx.createOscillator();
+                const gain2 = this.ctx.createGain();
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(300, t + 0.2);
+                osc2.frequency.exponentialRampToValueAtTime(150, t + 0.6);
+                gain2.gain.setValueAtTime(0.001, t);
+                gain2.gain.linearRampToValueAtTime(0.2, t + 0.2);
+                gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+                osc2.connect(gain2);
+                gain2.connect(this.ctx.destination);
+                osc2.start(t);
+                osc2.stop(t + 0.6);
             }
         }
         const audio = new AudioManager();
 
+        // ============================================================
         // Game State & Config
+        // ============================================================
         let gameState = 'START';
         let score = 0;
         let combo = 0;
@@ -494,17 +356,26 @@
         let cameraYaw = 0;
 
         // --- GAME SETTINGS ---
-        // Change this value to make the game start faster or slower!
         const BASE_FALL_SPEED = 0.04;
+        const BASE_FOV = 30;              // 줌 레벨 (낮을수록 가까이)
+        const CAMERA_OFFSET = { x: 30, y: 45, z: 30 };
 
-        // Change this value to adjust the camera viewing angle! 
-        // Example: { x: 12, y: 12, z: 12 } = 2 o'clock diagonal view
-        // Example: { x: 0, y: 15, z: 0 } = Direct side view
-        const CAMERA_OFFSET = { x: 22, y: 22, z: 22 };
+        // Collision Settings
+        const HIT_CHECK_ANGLE = -0.8;     // 충돌 판정 시작 각도 (라디안)
+        const HIT_TOLERANCE = 0.6;        // 키 vs 거리 여유값 (높을수록 관대)
+        const HIT_LEAN_ANGLE = -1.5;      // 성공 시 기댐 각도
+
+        // Path Curve Settings
+        const TURN_CHANCE = 0.5;          // 방향 전환 확률 (0~1)
+        const TURN_MIN_COUNT = 10;         // 전환 시작 최소 도미노 수
+        const TURN_STRENGTH = 2.5;        // 전환 시 각도 변화량
+        const DRIFT_AMOUNT = 0.3;         // 매 스텝 미세 흔들림
+        const MAX_YAW = 5.2;              // 최대 곡선 각도 (라디안)
+        const YAW_LERP_SPEED = 0.2;       // 보간 속도 (높을수록 급커브)
+        const PATH_SOFT_LIMIT = 8;        // 부드러운 경계 복귀 시작
+        const PATH_HARD_LIMIT = 12;       // 강제 경계 복귀
 
         // Domino Config
-        const DOMINO_WIDTH = 0.8;
-        const DOMINO_DEPTH = 0.4;
         const BASE_COLOR = 0xe0e0e0;
 
         const SIZES = {
@@ -513,20 +384,26 @@
             'L': { color: 0xffb703, height: 4, gap: 3.9, fallSpeed: BASE_FALL_SPEED - 0.02 }
         };
 
+        // ============================================================
         // Three.js Setup
+        // ============================================================
         const scene = new THREE.Scene();
-        // Explicitly set a bright pastel background color because transparency renders black on some devices
-        scene.background = new THREE.Color(0xb0d0f0);
-        // 2. Camera: Perspective, angled so the past dominoes flow to 2 o'clock
+        scene.background = new THREE.Color(0xfff5ee);
+
+
+        const REF_ASPECT = 16 / 9;
         const aspect = window.innerWidth / window.innerHeight;
-        const camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
 
-        // Position camera based on the global offset
-        // Initial camera position will be set in start-btn logic and animate loop
-        // camera.position.set(CAMERA_OFFSET.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z);
-        // camera.lookAt(0, 0, 0);
+        // Horizontal FOV Lock (same as Geometry Dash)
+        function calcLockedFOV(asp) {
+            const halfVFOVRad = (BASE_FOV / 2) * Math.PI / 180;
+            const tanHalfHFOV = Math.tan(halfVFOVRad) * REF_ASPECT;
+            const newHalfVFOVRad = Math.atan(tanHalfHFOV / asp);
+            return (newHalfVFOVRad * 2) * 180 / Math.PI;
+        }
 
-        // Disable alpha to ensure background color completely covers the canvas
+        const camera = new THREE.PerspectiveCamera(calcLockedFOV(aspect), aspect, 0.1, 1000);
+
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
@@ -550,81 +427,268 @@
         dirLight.shadow.camera.bottom = -20;
         dirLight.shadow.bias = -0.001;
         scene.add(dirLight);
-        scene.add(dirLight.target); // Essential: target must be in the scene for its world matrix to update correctly
+        scene.add(dirLight.target);
 
-        // Floor removed per user request
+        // ============================================================
+        // Toy Store Environment
+        // ============================================================
 
-        // Ambient Particles (Dust/Orbs)
-        const particleCount = 200;
-        const particleGeo = new THREE.IcosahedronGeometry(0.12, 0); // Very simple floating shapes
-        const particleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
-        const particles = new THREE.InstancedMesh(particleGeo, particleMat, particleCount);
+        // --- Wooden Floor ---
+        const floorGeo = new THREE.PlaneGeometry(200, 200);
+        const floorMat = new THREE.MeshPhysicalMaterial({
+            color: 0xdeb887,       // BurlyWood
+            metalness: 0.0,
+            roughness: 0.7
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.05;
+        floor.receiveShadow = true;
+        scene.add(floor);
 
+        // --- Colorful Toy Particles ---
+        const TOY_COLORS = [0xe63946, 0x4cc9f0, 0xffb703, 0x06d6a0, 0xf72585, 0x7209b7];
+        const toyGeos = [
+            new THREE.BoxGeometry(0.18, 0.18, 0.18),          // Cubes
+            new THREE.SphereGeometry(0.10, 8, 8),              // Balls
+            new THREE.OctahedronGeometry(0.12, 0),             // Diamonds
+            new THREE.TetrahedronGeometry(0.14, 0),            // Pyramids
+        ];
+
+        const particleCount = 50;  // Per color group
         const dummy = new THREE.Object3D();
+        const allParticleGroups = [];
         const particleData = [];
-        for (let i = 0; i < particleCount; i++) {
-            // Random positions in a large 80x80 area
-            const x = (Math.random() - 0.5) * 80;
-            const y = Math.random() * 40 - 5;
-            const z = (Math.random() - 0.5) * 80;
 
-            dummy.position.set(x, y, z);
-            // Random rotation
-            dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            dummy.updateMatrix();
-            particles.setMatrixAt(i, dummy.matrix);
-
-            // Store unique float data
-            particleData.push({
-                x: x, y: y, z: z,
-                rx: dummy.rotation.x, ry: dummy.rotation.y, rz: dummy.rotation.z,
-                rspeed: (Math.random() - 0.5) * 0.02,
-                yspeed: 0.01 + Math.random() * 0.03,
-                amp: 0.1 + Math.random() * 0.4,
-                phase: Math.random() * Math.PI * 2
+        TOY_COLORS.forEach((color, ci) => {
+            const geo = toyGeos[ci % toyGeos.length];
+            const mat = new THREE.MeshPhysicalMaterial({
+                color: color,
+                metalness: 0.1,
+                roughness: 0.3,
+                clearcoat: 0.8,
+                transparent: true,
+                opacity: 0.7
             });
-        }
-        scene.add(particles);
+            const mesh = new THREE.InstancedMesh(geo, mat, particleCount);
 
-        // Geometries
-        const geoCache = {};
-        function getGeometry(h) {
-            if (!geoCache[h]) {
-                const shape = new THREE.Shape();
-                const w = DOMINO_WIDTH;
-                const d = DOMINO_DEPTH;
-                const r = 0.08; // Border radius
-                shape.moveTo(-w / 2 + r, -d / 2);
-                shape.lineTo(w / 2 - r, -d / 2);
-                shape.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r);
-                shape.lineTo(w / 2, d / 2 - r);
-                shape.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2);
-                shape.lineTo(-w / 2 + r, d / 2);
-                shape.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r);
-                shape.lineTo(-w / 2, -d / 2 + r);
-                shape.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2);
+            for (let i = 0; i < particleCount; i++) {
+                const x = (Math.random() - 0.5) * 80;
+                const y = Math.random() * 30 + 2;
+                const z = (Math.random() - 0.5) * 80;
+                const scale = 0.6 + Math.random() * 1.2;
 
-                const extrudeSettings = {
-                    steps: 1,
-                    depth: h,
-                    bevelEnabled: true,
-                    bevelThickness: 0.04,
-                    bevelSize: 0.04,
-                    bevelOffset: 0,
-                    bevelSegments: 4
-                };
+                dummy.position.set(x, y, z);
+                dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                dummy.scale.set(scale, scale, scale);
+                dummy.updateMatrix();
+                mesh.setMatrixAt(i, dummy.matrix);
 
-                const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-
-                // ExtrudeGeometry extrudes along Z. We rotate it so depth becomes height along Y.
-                // It naturally builds from z=0 to z=h. After rotation, it goes from y=0 to y=h.
-                geo.rotateX(-Math.PI / 2);
-
-                geoCache[h] = geo;
+                particleData.push({
+                    group: ci,
+                    idx: i,
+                    x, y, z, scale,
+                    rx: dummy.rotation.x, ry: dummy.rotation.y, rz: dummy.rotation.z,
+                    rspeed: (Math.random() - 0.5) * 0.015,
+                    yspeed: 0.005 + Math.random() * 0.015,
+                    amp: 0.1 + Math.random() * 0.3,
+                    phase: Math.random() * Math.PI * 2
+                });
             }
-            return geoCache[h];
+
+            scene.add(mesh);
+            allParticleGroups.push(mesh);
+        });
+
+        // --- Scattered Toy Blocks (static decoration) ---
+        const blockColors = [0xe63946, 0x4cc9f0, 0xffb703, 0x06d6a0, 0xf72585, 0x7209b7, 0xff6b6b, 0x48bfe3];
+        const toyBlocks = [];
+
+        for (let i = 0; i < 40; i++) {
+            const size = 0.3 + Math.random() * 0.6;
+            const bGeo = Math.random() > 0.5
+                ? new THREE.BoxGeometry(size, size, size)
+                : new THREE.CylinderGeometry(size * 0.5, size * 0.5, size, 8);
+            const bMat = new THREE.MeshPhysicalMaterial({
+                color: blockColors[Math.floor(Math.random() * blockColors.length)],
+                metalness: 0.05,
+                roughness: 0.4,
+                clearcoat: 0.5
+            });
+            const block = new THREE.Mesh(bGeo, bMat);
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 6 + Math.random() * 12;
+            block.position.set(
+                Math.cos(angle) * dist,
+                size / 2,
+                Math.sin(angle) * dist
+            );
+            block.rotation.set(
+                Math.random() * 0.3,
+                Math.random() * Math.PI * 2,
+                Math.random() * 0.3
+            );
+            block.castShadow = true;
+            block.receiveShadow = true;
+            scene.add(block);
+            toyBlocks.push(block);
         }
 
+        // ============================================================
+        // Human Figure Builder
+        // ============================================================
+        const SKIN_COLOR = 0xffdbac;
+        const SHOE_COLOR = 0x333333;
+
+        function buildHumanParts(h, outfitColor, isGapTarget) {
+            // Proportions scaled to total height h
+            const headR = h * 0.10;
+            const bodyH = h * 0.32;
+            const bodyTopW = h * 0.10;
+            const bodyBotW = h * 0.12;
+            const legH = h * 0.28;
+            const legR = h * 0.04;
+            const armH = h * 0.26;
+            const armR = h * 0.03;
+            const footH = h * 0.04;
+            const neckGap = h * 0.02;
+
+            const parts = [];
+
+            // --- Materials ---
+            let outfitMat, skinMat, shoeMat;
+            if (isGapTarget) {
+                // Ghost wireframe for gap slots
+                const wireMat = new THREE.MeshBasicMaterial({
+                    color: 0x9ca3af,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.35
+                });
+                outfitMat = wireMat;
+                skinMat = wireMat;
+                shoeMat = wireMat;
+            } else {
+                outfitMat = new THREE.MeshPhysicalMaterial({
+                    color: outfitColor,
+                    metalness: 0.1,
+                    roughness: 0.35,
+                    clearcoat: 0.6,
+                    clearcoatRoughness: 0.2
+                });
+                skinMat = new THREE.MeshPhysicalMaterial({
+                    color: SKIN_COLOR,
+                    metalness: 0.0,
+                    roughness: 0.6
+                });
+                shoeMat = new THREE.MeshPhysicalMaterial({
+                    color: SHOE_COLOR,
+                    metalness: 0.1,
+                    roughness: 0.4
+                });
+            }
+
+            // --- Feet (shoes) ---
+            const shoeGeo = new THREE.BoxGeometry(legR * 3, footH, legR * 4);
+            const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            leftShoe.position.set(-bodyBotW * 0.4, footH / 2, legR * 0.5);
+            leftShoe.castShadow = !isGapTarget;
+            parts.push(leftShoe);
+
+            const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            rightShoe.position.set(bodyBotW * 0.4, footH / 2, legR * 0.5);
+            rightShoe.castShadow = !isGapTarget;
+            parts.push(rightShoe);
+
+            // --- Legs ---
+            const legGeo = new THREE.CylinderGeometry(legR, legR * 1.1, legH, 8);
+            const leftLeg = new THREE.Mesh(legGeo, outfitMat);
+            leftLeg.position.set(-bodyBotW * 0.4, footH + legH / 2, 0);
+            leftLeg.castShadow = !isGapTarget;
+            parts.push(leftLeg);
+
+            const rightLeg = new THREE.Mesh(legGeo, outfitMat);
+            rightLeg.position.set(bodyBotW * 0.4, footH + legH / 2, 0);
+            rightLeg.castShadow = !isGapTarget;
+            parts.push(rightLeg);
+
+            // --- Body (torso) ---
+            const bodyGeo = new THREE.CylinderGeometry(bodyTopW, bodyBotW, bodyH, 10);
+            const body = new THREE.Mesh(bodyGeo, outfitMat);
+            body.position.set(0, footH + legH + bodyH / 2, 0);
+            body.castShadow = !isGapTarget;
+            parts.push(body);
+
+            // --- Arms ---
+            const armGeo = new THREE.CylinderGeometry(armR, armR * 1.1, armH, 8);
+            const leftArm = new THREE.Mesh(armGeo, skinMat);
+            leftArm.position.set(-bodyBotW - armR * 2.5, footH + legH + bodyH * 0.55, 0);
+            leftArm.rotation.z = 0.15;
+            leftArm.castShadow = !isGapTarget;
+            parts.push(leftArm);
+
+            const rightArm = new THREE.Mesh(armGeo, skinMat);
+            rightArm.position.set(bodyBotW + armR * 2.5, footH + legH + bodyH * 0.55, 0);
+            rightArm.rotation.z = -0.15;
+            rightArm.castShadow = !isGapTarget;
+            parts.push(rightArm);
+
+            // --- Hands (small spheres) ---
+            const handGeo = new THREE.SphereGeometry(armR * 1.3, 8, 8);
+            const leftHand = new THREE.Mesh(handGeo, skinMat);
+            leftHand.position.set(
+                leftArm.position.x - Math.sin(0.15) * armH / 2,
+                leftArm.position.y - Math.cos(0.15) * armH / 2,
+                0
+            );
+            parts.push(leftHand);
+
+            const rightHand = new THREE.Mesh(handGeo, skinMat);
+            rightHand.position.set(
+                rightArm.position.x + Math.sin(0.15) * armH / 2,
+                rightArm.position.y - Math.cos(0.15) * armH / 2,
+                0
+            );
+            parts.push(rightHand);
+
+            // --- Head ---
+            const headGeo = new THREE.SphereGeometry(headR, 14, 14);
+            const head = new THREE.Mesh(headGeo, skinMat);
+            const headY = footH + legH + bodyH + neckGap + headR;
+            head.position.set(0, headY, 0);
+            head.castShadow = !isGapTarget;
+            parts.push(head);
+
+            // --- Eyes (two tiny dark spheres) ---
+            if (!isGapTarget) {
+                const eyeGeo = new THREE.SphereGeometry(headR * 0.15, 8, 8);
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+                const eyeY = headY + headR * 0.1;
+                const eyeZ = headR * 0.85;
+
+                const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+                leftEye.position.set(-headR * 0.3, eyeY, eyeZ);
+                parts.push(leftEye);
+
+                const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+                rightEye.position.set(headR * 0.3, eyeY, eyeZ);
+                parts.push(rightEye);
+
+                // --- Mouth (small curve hint — a tiny flattened sphere) ---
+                const mouthGeo = new THREE.SphereGeometry(headR * 0.12, 8, 4);
+                const mouthMat = new THREE.MeshBasicMaterial({ color: 0xcc6666 });
+                const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+                mouth.position.set(0, headY - headR * 0.25, eyeZ);
+                mouth.scale.set(2, 0.6, 0.5);
+                parts.push(mouth);
+            }
+
+            return { parts, outfitMat, skinMat, shoeMat };
+        }
+
+        // ============================================================
+        // Domino Class (Human Figure)
+        // ============================================================
         class Domino {
             constructor(x, z, yaw, sizeType, isGapTarget = false, targetReqSize = null, speedMultiplier = 1.0) {
                 this.x = x;
@@ -632,50 +696,32 @@
                 this.yaw = yaw;
                 this.sizeType = sizeType;
                 this.config = SIZES[sizeType];
-                this.isGapTarget = isGapTarget; // Does user need to place this?
-                this.isActive = !isGapTarget;   // If gap, it's inactive (invisible) until placed
-                this.targetReqSize = targetReqSize; // The exact size required to pass
+                this.isGapTarget = isGapTarget;
+                this.isActive = !isGapTarget;
+                this.targetReqSize = targetReqSize;
 
-                // Store the effective fall speed for this domino
                 this.effectiveFallSpeed = this.config.fallSpeed * speedMultiplier;
 
-                this.state = 'IDLE'; // IDLE, FALLING, FALLEN
-                this.angle = 0; // The Pitch angle (falling forward)
-                // Target angle should be negative to fall forward
-                this.targetAngle = -(Math.PI / 2 - 0.2); // Fall to ~-80 degrees
+                this.state = 'IDLE';
+                this.angle = 0;
+                this.targetAngle = -(Math.PI / 2 - 0.2);
 
-                // For gap blocks, render a dashed outline instead of a solid color
-                let mat;
-                if (isGapTarget) {
-                    mat = new THREE.MeshBasicMaterial({
-                        color: 0xffffff,
-                        transparent: true,
-                        opacity: 0.0 // Make the solid block invisible
-                    });
-                } else {
-                    mat = new THREE.MeshPhysicalMaterial({
-                        color: BASE_COLOR,
-                        metalness: 0.2,
-                        roughness: 0.1,
-                        clearcoat: 1.0,
-                        clearcoatRoughness: 0.1
-                    });
-                }
+                // Build human figure as a Group
+                const outfitColor = isGapTarget ? 0xcccccc : this.config.color;
+                const built = buildHumanParts(this.config.height, outfitColor, isGapTarget);
+                this.bodyParts = built.parts;
+                this.outfitMat = built.outfitMat;
+                this.skinMat = built.skinMat;
+                this.shoeMat = built.shoeMat;
 
-                this.mesh = new THREE.Mesh(getGeometry(this.config.height), mat);
+                this.mesh = new THREE.Group();
+                this.bodyParts.forEach(p => this.mesh.add(p));
                 this.mesh.position.set(x, 0, z);
                 this.mesh.rotation.y = yaw;
-                this.mesh.castShadow = !isGapTarget;
-                this.mesh.receiveShadow = true;
 
-                // Create a floating "track" underneath the domino to receive shadows
-                const trackGeo = new THREE.PlaneGeometry(DOMINO_WIDTH * 3.5, this.config.gap * 1.5);
-
-                // ShadowMaterial makes the plane invisible EXCEPT for the shadows cast onto it!
-                // This way we get shadows floating over the HTML background
-                const trackMat = new THREE.ShadowMaterial({
-                    opacity: 0.7
-                });
+                // Shadow track underneath
+                const trackGeo = new THREE.PlaneGeometry(this.config.height * 1.5, this.config.gap * 1.5);
+                const trackMat = new THREE.ShadowMaterial({ opacity: 0.5 });
 
                 this.trackMesh = new THREE.Mesh(trackGeo, trackMat);
                 this.trackMesh.rotation.x = -Math.PI / 2;
@@ -683,31 +729,10 @@
                 this.trackMesh.position.set(x, -0.01 - (Math.random() * 0.01), z);
                 this.trackMesh.receiveShadow = true;
 
-                // Only add track if it's a real domino, otherwise gaps look empty until placed
                 if (!isGapTarget) {
                     scene.add(this.trackMesh);
                 }
 
-                const edges = new THREE.EdgesGeometry(getGeometry(this.config.height));
-
-                if (isGapTarget) {
-                    // Dashed white outline for gaps
-                    this.edgeMesh = new THREE.LineSegments(edges, new THREE.LineDashedMaterial({
-                        color: 0xffffff,
-                        linewidth: 2,
-                        dashSize: 0.2,
-                        gapSize: 0.2
-                    }));
-                    this.edgeMesh.computeLineDistances(); // Required for dashed material to work
-                } else {
-                    // Solid black outline for real dominos
-                    this.edgeMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({
-                        color: 0x000000,
-                        linewidth: 2
-                    }));
-                }
-
-                this.mesh.add(this.edgeMesh);
                 scene.add(this.mesh);
             }
 
@@ -717,31 +742,26 @@
                 this.sizeType = playerChosenSize;
                 this.config = SIZES[playerChosenSize];
 
-                // Update Mesh
-                this.mesh.geometry = getGeometry(this.config.height);
-                this.edgeMesh.geometry = new THREE.EdgesGeometry(getGeometry(this.config.height));
+                // Remove old ghost body parts
+                while (this.mesh.children.length > 0) {
+                    const child = this.mesh.children[0];
+                    this.mesh.remove(child);
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                }
 
-                // Switch back to solid outline and premium physical material
-                this.mesh.material = new THREE.MeshPhysicalMaterial({
-                    color: this.config.color,
-                    metalness: 0.2,
-                    roughness: 0.1,
-                    clearcoat: 1.0,
-                    clearcoatRoughness: 0.1
-                });
-
-                this.edgeMesh.material = new THREE.LineBasicMaterial({
-                    color: 0x000000,
-                    linewidth: 2
-                });
-
-                this.mesh.castShadow = true;
+                // Build new solid human with chosen size & color
+                const built = buildHumanParts(this.config.height, this.config.color, false);
+                this.bodyParts = built.parts;
+                this.outfitMat = built.outfitMat;
+                this.skinMat = built.skinMat;
+                this.shoeMat = built.shoeMat;
+                this.bodyParts.forEach(p => this.mesh.add(p));
 
                 this.isGapTarget = false;
-                this.wasGapTarget = true; // Track that this used to be a gap to award points
+                this.wasGapTarget = true;
                 this.isActive = true;
 
-                // Add the shadow track now that it's placed
                 scene.add(this.trackMesh);
 
                 audio.playPlace();
@@ -751,50 +771,38 @@
             triggerFall() {
                 if (this.state !== 'IDLE' || !this.isActive) return;
                 this.state = 'FALLING';
-                this.hitNext = false; // Reset collision flag
-
-                // Change color when falling to look cool
-                if (this.mesh.material.color.getHex() === BASE_COLOR) {
-                    this.mesh.material.color.setHex(0xa8dadc);
-                }
+                this.hitNext = false;
             }
 
             update() {
                 if (this.state === 'FALLING') {
-                    // Procedural Fall Animation (negative pitch to fall forward on local X-axis)
                     this.angle -= this.effectiveFallSpeed;
 
-                    // Apply Yaw then Local Pitch
                     this.mesh.rotation.set(0, this.yaw, 0);
                     this.mesh.rotateX(this.angle);
 
-                    // Did we hit the next domino? Trigger happens once at -0.6 radians
-                    if (this.angle < -0.6 && !this.hitNext) {
-                        this.hitNext = true; // Mark as hit to prevent multiple triggers
+                    if (this.angle < HIT_CHECK_ANGLE && !this.hitNext) {
+                        this.hitNext = true;
 
                         const myIdx = dominos.indexOf(this);
                         const nextDomino = dominos[myIdx + 1];
 
                         if (nextDomino && nextDomino.state === 'IDLE') {
-                            // 2D distance calculation (X and Z)
                             const dx = nextDomino.x - this.x;
                             const dz = nextDomino.z - this.z;
                             const dist = Math.sqrt(dx * dx + dz * dz);
 
-                            // Break conditions
-                            if (this.config.height < dist - 0.5 || !nextDomino.isActive || (nextDomino.targetReqSize && nextDomino.targetReqSize !== nextDomino.sizeType)) {
-                                this.targetAngle = -Math.PI / 2; // Chain breaks -> Fall completely flat
+                            if (this.config.height < dist - HIT_TOLERANCE || !nextDomino.isActive || (nextDomino.targetReqSize && nextDomino.targetReqSize !== nextDomino.sizeType)) {
+                                this.targetAngle = -Math.PI / 2;
                                 audio.playClack();
                                 triggerGameOver();
                             } else {
-                                // Hit successful
-                                this.targetAngle = -1.2; // Rest on the next domino
+                                this.targetAngle = HIT_LEAN_ANGLE;
 
-                                // Unconditionally award 1 point for every domino in the chain
                                 score += 1;
                                 document.getElementById('score').textContent = score;
+                                WCGames.submitScore(score);
 
-                                // If the domino we just hit was a player-filled gap, add extra flair
                                 if (nextDomino.wasGapTarget) {
                                     document.getElementById('score').classList.add('pop');
                                     setTimeout(() => document.getElementById('score').classList.remove('pop'), 200);
@@ -805,14 +813,12 @@
                                 audio.playClack();
                             }
                         } else if (!nextDomino) {
-                            // Chain reached the end
                             this.targetAngle = -Math.PI / 2;
                             audio.playClack();
                             triggerGameOver();
                         }
                     }
 
-                    // Enforce the resting angle so it stops rotating 360 degrees
                     if (this.targetAngle !== undefined && this.angle <= this.targetAngle) {
                         this.angle = this.targetAngle;
                         this.mesh.rotation.set(0, this.yaw, 0);
@@ -821,23 +827,35 @@
                     }
                 }
             }
+
+            dispose() {
+                scene.remove(this.mesh);
+                if (this.trackMesh) scene.remove(this.trackMesh);
+                this.mesh.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                });
+                if (this.trackMesh) {
+                    this.trackMesh.geometry.dispose();
+                    this.trackMesh.material.dispose();
+                }
+            }
         }
 
-        // Logic to generate level
+        // ============================================================
+        // Level Generation
+        // ============================================================
         let lastX = 0;
         let lastZ = 0;
         let lastYaw = 0;
         let targetYaw = 0;
         let currentSize = 'M';
         let streak = 0;
+        let streakTarget = 1 + Math.floor(Math.random() * 4);
         let totalGenerated = 0;
 
         function generateLevel(paramLength = 100) {
-            // Clear existing
-            dominos.forEach(d => {
-                scene.remove(d.mesh);
-                if (d.trackMesh) scene.remove(d.trackMesh);
-            });
+            dominos.forEach(d => d.dispose());
             dominos.length = 0;
             lastX = 0;
             lastZ = 0;
@@ -845,9 +863,9 @@
             targetYaw = 0;
             totalGenerated = 0;
 
-            // Start the chain
             currentSize = ['S', 'M', 'L'][Math.floor(Math.random() * 3)];
             streak = 0;
+            streakTarget = 1 + Math.floor(Math.random() * 4);
 
             dominos.push(new Domino(lastX, lastZ, lastYaw, currentSize, false));
             totalGenerated++;
@@ -855,72 +873,60 @@
             spawnDominos(paramLength);
         }
 
-        // Spawn a chunk of dominos ahead of the current end
         function spawnDominos(count) {
             for (let i = 0; i < count; i++) {
                 totalGenerated++;
 
-                // Difficulty Scaling
-                // 1. Gap frequency slowly increases
-                // Starts at 0% (first 10), then scales from 15% up to 45% max
                 let gapProbability = 0;
                 if (totalGenerated > 10) {
                     gapProbability = Math.min(0.45, 0.15 + (totalGenerated * 0.002));
                 }
 
-                // 2. Fall speed slowly increases
-                // Max speed multiplier is 2.5x
                 let speedMultiplier = Math.min(2.5, 1.0 + (totalGenerated * 0.005));
 
-                // Change size occasionally
-                if (streak > 2 && Math.random() < 0.4) {
-                    currentSize = ['S', 'M', 'L'][Math.floor(Math.random() * 3)];
+                // Randomize size: change after a random run length (1~4)
+                streak++;
+                if (streak >= streakTarget) {
+                    const others = ['S', 'M', 'L'].filter(s => s !== currentSize);
+                    currentSize = others[Math.floor(Math.random() * others.length)];
                     streak = 0;
+                    streakTarget = 1 + Math.floor(Math.random() * 4); // Next run: 1~4
                 }
 
-                // The gap distance to the NEXT domino is determined by the PREVIOUS domino's size
                 let prevSize = dominos[dominos.length - 1].targetReqSize || dominos[dominos.length - 1].sizeType;
                 let gap = SIZES[prevSize].gap;
 
-                // Procedural path curving
-                // Randomly pick a new target direction occasionally, but ensure we don't spiral entirely back on ourselves
-                if (Math.random() < 0.1 && totalGenerated > 10) {
-                    // Turn left or right by up to ~60 degrees (±1 radian)
-                    targetYaw += (Math.random() - 0.5) * 2.0;
+                // Path curving
+                if (Math.random() < TURN_CHANCE && totalGenerated > TURN_MIN_COUNT) {
+                    targetYaw += (Math.random() - 0.5) * TURN_STRENGTH;
+                }
+                targetYaw += (Math.random() - 0.5) * DRIFT_AMOUNT;
+
+                targetYaw = Math.max(-MAX_YAW, Math.min(MAX_YAW, targetYaw));
+
+                if (lastX > PATH_SOFT_LIMIT) {
+                    targetYaw = Math.max(0.2, targetYaw);
+                } else if (lastX < -PATH_SOFT_LIMIT) {
+                    targetYaw = Math.min(-0.2, targetYaw);
                 }
 
-                // Clamp target yaw to prevent backward spirals (max ~70 degrees left or right)
-                targetYaw = Math.max(-1.2, Math.min(1.2, targetYaw));
-
-                // Soft boundary: if the track drifts too far left or right, gently force the target yaw back towards the center
-                if (lastX > 8) {
-                    targetYaw = Math.max(0.2, targetYaw); // Force turn left (-dx)
-                } else if (lastX < -8) {
-                    targetYaw = Math.min(-0.2, targetYaw); // Force turn right (+dx)
+                if (lastX > PATH_HARD_LIMIT) {
+                    targetYaw = 1.0;
+                } else if (lastX < -PATH_HARD_LIMIT) {
+                    targetYaw = -1.0;
                 }
 
-                if (lastX > 12) {
-                    targetYaw = 1.0; // Hard turn left
-                } else if (lastX < -12) {
-                    targetYaw = -1.0; // Hard turn right
-                }
+                lastYaw += (targetYaw - lastYaw) * YAW_LERP_SPEED;
 
-                // Smoothly interpolate current yaw towards target yaw
-                lastYaw += (targetYaw - lastYaw) * 0.1;
-
-                // Calculate next position using trigonometry.
-                // Yaw 0 points straight down -Z axis.
                 lastX += -Math.sin(lastYaw) * gap;
                 lastZ += -Math.cos(lastYaw) * gap;
 
-                // Place a gap target? (Ensure we have a streak so sizes are obvious)
-                // Don't place gaps on very sharp turns (if diff between lastYaw and targetYaw is large)
                 const isTurningSharply = Math.abs(targetYaw - lastYaw) > 0.5;
                 const isTarget = Math.random() < gapProbability && streak > 0 && !isTurningSharply;
 
                 if (isTarget) {
                     dominos.push(new Domino(lastX, lastZ, lastYaw, prevSize, true, prevSize, speedMultiplier));
-                    streak = 0; // Reset streak so we don't change size immediately after a gap
+                    streak = 0;
                 } else {
                     dominos.push(new Domino(lastX, lastZ, lastYaw, currentSize, false, null, speedMultiplier));
                     streak++;
@@ -928,38 +934,52 @@
             }
         }
 
+        // ============================================================
+        // Game Over & Restart (via WCGames)
+        // ============================================================
         function triggerGameOver() {
             if (gameState === 'OVER') return;
             gameState = 'OVER';
             audio.playFail();
+            WCGames.gameOver(score);
+        }
 
-            const gameOverScreen = document.getElementById('game-over');
-            gameOverScreen.style.display = 'flex';
-            gameOverScreen.offsetHeight; // trigger reflow
-            gameOverScreen.classList.add('wcg-visible');
+        function startGame() {
+            gameState = 'PLAYING';
+            generateLevel(100);
 
-            document.getElementById('final-score').textContent = score;
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+            // Snap camera to the first domino instantly
+            if (dominos.length > 0) {
+                const firstD = dominos[0];
+                cameraLookAtX = firstD.x;
+                cameraLookAtZ = firstD.z;
+                cameraYaw = firstD.yaw;
+                camera.position.set(cameraLookAtX + CAMERA_OFFSET.x, CAMERA_OFFSET.y, cameraLookAtZ + CAMERA_OFFSET.z);
+                camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
+            }
+
+            // Kick off the first domino
+            audio.init();
+            audio.resetCombo();
+            setTimeout(() => {
+                if (dominos.length > 0) dominos[0].triggerFall();
+            }, 500);
         }
 
         function restartGame() {
-            // 1. Hide Game Over Screen
-            const gameOverScreen = document.getElementById('game-over');
-            gameOverScreen.style.display = 'none';
-            gameOverScreen.classList.remove('wcg-visible');
-
-            // 2. Reset score & UI
+            // Reset score & UI
             score = 0;
             combo = 0;
+            currentFocusIndex = 0;
             document.getElementById('score').textContent = score;
 
-            // 3. Reset Audio Combo
+            // Reset Audio Combo
             audio.resetCombo();
 
-            // 4. Generate new level
+            // Generate new level
             generateLevel(100);
 
-            // 5. Instantly snap camera to start
+            // Instantly snap camera to start
             if (dominos.length > 0) {
                 const firstD = dominos[0];
                 cameraLookAtX = firstD.x;
@@ -974,54 +994,15 @@
                 }, 500);
             }
 
-            // 6. Direct to PLAYING state
             gameState = 'PLAYING';
         }
 
-
-        function updateFocusCamera() {
-            if (currentFocusIndex >= dominos.length) return;
-
-            // Find the furthest falling or fallen domino
-            let leadDomino = dominos[0];
-            for (let i = 0; i < dominos.length; i++) {
-                if (dominos[i].state !== 'IDLE') {
-                    leadDomino = dominos[i];
-                    currentFocusIndex = i;
-                } else {
-                    break;
-                }
-            }
-
-            // Target coordinates based on the lead domino
-            let targetX = leadDomino.x;
-            let targetZ = leadDomino.z;
-            let targetYaw = leadDomino.yaw;
-
-            // Interpolate camera focus variables for drone-like smoothing
-            cameraLookAtX += (targetX - cameraLookAtX) * 0.04;
-            cameraLookAtZ += (targetZ - cameraLookAtZ) * 0.04;
-            cameraYaw += (targetYaw - cameraYaw) * 0.04;
-
-            // Move the directional light and its target to follow the camera focus
-            // This prevents shadows from clipping or disappearing as we move far from the origin!
-            dirLight.position.set(cameraLookAtX + 20, 30, cameraLookAtZ - 20);
-            dirLight.target.position.set(cameraLookAtX, 0, cameraLookAtZ);
-            dirLight.target.updateMatrixWorld();
-
-            // RIGIDLY lock the camera position to the smoothed target using the fixed global offset
-            camera.position.x = cameraLookAtX + CAMERA_OFFSET.x;
-            camera.position.y = CAMERA_OFFSET.y;
-            camera.position.z = cameraLookAtZ + CAMERA_OFFSET.z;
-
-            // Look at the smoothed target
-            camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
-        }
-
+        // ============================================================
+        // Player Input
+        // ============================================================
         function handlePlayerInput(sizeStr) {
             if (gameState !== 'PLAYING') return;
 
-            // Find the next gap target
             let targetIdx = -1;
             for (let i = currentFocusIndex; i < dominos.length; i++) {
                 if (dominos[i].isGapTarget) {
@@ -1032,44 +1013,49 @@
 
             if (targetIdx !== -1) {
                 const targetDomino = dominos[targetIdx];
-
-                // The player placed a domino. We always place it.
-                // If it's the wrong size, it will fail when the falling domino hits it in `update()`.
                 targetDomino.place(sizeStr);
-
-                // Play placement sound
                 audio.playPlace();
             }
         }
 
-        // UI Event Listeners
-        document.getElementById('start-btn').addEventListener('click', () => {
-            const startScreen = document.getElementById('start-screen');
-            startScreen.style.display = 'none';
-            startScreen.classList.remove('wcg-visible');
+        // ============================================================
+        // Camera
+        // ============================================================
+        function updateFocusCamera() {
+            if (currentFocusIndex >= dominos.length) return;
 
-            gameState = 'PLAYING';
-            generateLevel(100);
-
-            // Snap camera to the first domino instantly to prevent startup jitter
-            if (dominos.length > 0) {
-                const firstD = dominos[0];
-                cameraLookAtX = firstD.x;
-                cameraLookAtZ = firstD.z;
-                cameraYaw = firstD.yaw;
-
-                camera.position.set(cameraLookAtX + CAMERA_OFFSET.x, CAMERA_OFFSET.y, cameraLookAtZ + CAMERA_OFFSET.z);
-                camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
+            let leadDomino = dominos[0];
+            for (let i = 0; i < dominos.length; i++) {
+                if (dominos[i].state !== 'IDLE') {
+                    leadDomino = dominos[i];
+                    currentFocusIndex = i;
+                } else {
+                    break;
+                }
             }
 
-            // Kick off the first domino
-            audio.init();
-            audio.resetCombo();
-            setTimeout(() => {
-                if (dominos.length > 0) dominos[0].triggerFall();
-            }, 500);
-        });
+            let targetX = leadDomino.x;
+            let targetZ = leadDomino.z;
+            let tgtYaw = leadDomino.yaw;
 
+            cameraLookAtX += (targetX - cameraLookAtX) * 0.04;
+            cameraLookAtZ += (targetZ - cameraLookAtZ) * 0.04;
+            cameraYaw += (tgtYaw - cameraYaw) * 0.04;
+
+            dirLight.position.set(cameraLookAtX + 20, 30, cameraLookAtZ - 20);
+            dirLight.target.position.set(cameraLookAtX, 0, cameraLookAtZ);
+            dirLight.target.updateMatrixWorld();
+
+            camera.position.x = cameraLookAtX + CAMERA_OFFSET.x;
+            camera.position.y = CAMERA_OFFSET.y;
+            camera.position.z = cameraLookAtZ + CAMERA_OFFSET.z;
+
+            camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
+        }
+
+        // ============================================================
+        // Input Listeners
+        // ============================================================
         const btnS = document.getElementById('btn-s');
         const btnM = document.getElementById('btn-m');
         const btnL = document.getElementById('btn-l');
@@ -1078,7 +1064,6 @@
         btnM.addEventListener('pointerdown', (e) => { e.preventDefault(); handlePlayerInput('M'); });
         btnL.addEventListener('pointerdown', (e) => { e.preventDefault(); handlePlayerInput('L'); });
 
-
         window.addEventListener('keydown', (e) => {
             if (e.code === 'KeyZ' || e.code === 'ArrowLeft') handlePlayerInput('S');
             if (e.code === 'KeyX' || e.code === 'ArrowDown') handlePlayerInput('M');
@@ -1086,29 +1071,33 @@
         });
 
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
+            const newAspect = window.innerWidth / window.innerHeight;
+            camera.aspect = newAspect;
+            camera.fov = calcLockedFOV(newAspect);
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
+        // ============================================================
+        // Animation Loop
+        // ============================================================
         function animate() {
             requestAnimationFrame(animate);
             const time = Date.now() * 0.001;
 
-            // Animate Ambient Particles endlessly around the camera focus
-            for (let i = 0; i < particleCount; i++) {
+            // Animate Toy Particles (multi-group)
+            const totalParticles = particleData.length;
+            for (let i = 0; i < totalParticles; i++) {
                 let pd = particleData[i];
-                pd.y += pd.yspeed; // Float up
+                pd.y += pd.yspeed;
                 pd.rx += pd.rspeed;
                 pd.ry += pd.rspeed;
 
-                // Wrap vertically
-                if (pd.y > 35) pd.y = -5;
+                if (pd.y > 35) pd.y = 2;
 
                 let curX = pd.x + Math.sin(time + pd.phase) * pd.amp;
                 let curZ = pd.z + Math.cos(time + pd.phase) * pd.amp;
 
-                // Wrap horizontally relative to the camera to create an infinite field
                 if (curX < cameraLookAtX - 40) pd.x += 80;
                 if (curX > cameraLookAtX + 40) pd.x -= 80;
                 if (curZ < cameraLookAtZ - 40) pd.z += 80;
@@ -1116,32 +1105,29 @@
 
                 dummy.position.set(curX, pd.y, curZ);
                 dummy.rotation.set(pd.rx, pd.ry, pd.rz);
+                dummy.scale.set(pd.scale, pd.scale, pd.scale);
                 dummy.updateMatrix();
-                particles.setMatrixAt(i, dummy.matrix);
+                allParticleGroups[pd.group].setMatrixAt(pd.idx, dummy.matrix);
             }
-            particles.instanceMatrix.needsUpdate = true;
+            allParticleGroups.forEach(g => { g.instanceMatrix.needsUpdate = true; });
+
+            // Move floor and toy blocks to follow camera
+            floor.position.x = cameraLookAtX;
+            floor.position.z = cameraLookAtZ;
 
             if (gameState === 'PLAYING') {
                 dominos.forEach(d => d.update());
                 updateFocusCamera();
 
-                // Endless Generation: If we are getting close to the end of the array, spawn more
+                // Endless Generation
                 if (dominos.length - currentFocusIndex < 30) {
                     spawnDominos(20);
                 }
 
-                // Cleanup: Remove old dominos far behind the camera to save memory
-                // We keep a buffer of ~10 behind the focus so they don't pop out visibly
+                // Cleanup old dominos behind camera
                 if (currentFocusIndex > 20) {
                     const toRemove = dominos.splice(0, 10);
-                    toRemove.forEach(d => {
-                        scene.remove(d.mesh);
-                        d.mesh.geometry.dispose();
-                        d.mesh.material.dispose();
-                        d.edgeMesh.geometry.dispose();
-                        d.edgeMesh.material.dispose();
-                    });
-                    // Adjust focus index because array length changed
+                    toRemove.forEach(d => d.dispose());
                     currentFocusIndex -= 10;
                 }
 
@@ -1149,12 +1135,11 @@
                 // Pan camera slowly around the first domino
                 if (dominos.length > 0) {
                     const firstD = dominos[0];
-                    const t = Date.now() * 0.0005; // Slow rotation
+                    const t = Date.now() * 0.0005;
 
                     cameraLookAtX = firstD.x;
                     cameraLookAtZ = firstD.z;
 
-                    // Simple circular pan around the fixed offset
                     const panX = Math.sin(t) * 10;
                     const panZ = Math.cos(t) * 10;
 
@@ -1164,12 +1149,29 @@
                     camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
                 }
             }
+
             renderer.render(scene, camera);
         }
 
-        generateLevel(20); // Initial background state
-        animate();
+        // ============================================================
+        // WCGames Core Integration
+        // ============================================================
+        WCGames.init({
+            id: 'domino',
+            onStart: () => {
+                audio.init();
+                startGame();
+            },
+            onRestart: () => {
+                restartGame();
+            },
+            onGameOver: (s) => {
+                gameState = 'OVER';
+            }
+        });
 
+        generateLevel(20); // Initial background state for start screen
+        animate();
     </script>
     <!-- Bottom Banner Container -->
     <style>
@@ -1179,7 +1181,6 @@
             left: 0;
             width: 100%;
             display: none;
-            /* hidden for now */
             justify-content: center;
             z-index: 1000;
             background: rgba(0, 0, 0, 0.5);
@@ -1211,8 +1212,6 @@
     </div>
 
     <script src="/shared/i18n.js"></script>
-    </script>
-
 </body>
 
 </html>

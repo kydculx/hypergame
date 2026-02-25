@@ -5,13 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neon Bullet Dodge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/shared/wcgames-style.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        :root {
+            --theme-color: #ef4444;
+            --theme-glow: rgba(239, 68, 68, 0.4);
+            --bg-overlay: rgba(5, 5, 16, 0.85);
+            --bg-popup: rgba(10, 12, 30, 0.9);
+        }
 
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #0f1123;
+            background: radial-gradient(ellipse at 30% 20%, #1a0a2e 0%, #050510 50%, #0a0a1a 100%);
             color: white;
             font-family: 'Orbitron', sans-serif;
             user-select: none;
@@ -19,360 +26,149 @@
             touch-action: none;
         }
 
-        /* Dynamic space grid background */
+        /* Scrolling starfield + tactical grid */
         body::before {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            inset: 0;
             background:
-                linear-gradient(rgba(239, 68, 68, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(239, 68, 68, 0.03) 1px, transparent 1px),
-                radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0, 0, 0, 0)),
-                radial-gradient(1px 1px at 40px 70px, rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0)),
-                radial-gradient(1px 1px at 50px 160px, rgba(255, 255, 255, 0.6), rgba(0, 0, 0, 0)),
-                radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.9), rgba(0, 0, 0, 0)),
-                radial-gradient(1px 1px at 130px 80px, #ffffff, rgba(0, 0, 0, 0)),
-                radial-gradient(1px 1px at 160px 120px, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0));
-            background-repeat: repeat;
-            background-size: 40px 40px, 40px 40px, 200px 200px, 200px 200px, 200px 200px, 200px 200px, 200px 200px, 200px 200px;
-            animation: spaceScroll 20s linear infinite;
+                /* Tactical grid */
+                linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+                /* Stars layer 1 (bright) */
+                radial-gradient(1.5px 1.5px at 25px 45px, #fff, transparent),
+                radial-gradient(1px 1px at 75px 120px, rgba(255, 255, 255, 0.9), transparent),
+                radial-gradient(1.2px 1.2px at 140px 30px, #fff, transparent),
+                radial-gradient(1px 1px at 180px 160px, rgba(200, 220, 255, 0.8), transparent),
+                /* Stars layer 2 (dim) */
+                radial-gradient(0.8px 0.8px at 50px 90px, rgba(255, 255, 255, 0.5), transparent),
+                radial-gradient(0.8px 0.8px at 110px 70px, rgba(255, 255, 255, 0.4), transparent),
+                radial-gradient(0.8px 0.8px at 160px 140px, rgba(180, 200, 255, 0.3), transparent);
+            background-size:
+                60px 60px, 60px 60px,
+                200px 200px, 200px 200px, 200px 200px, 200px 200px,
+                300px 300px, 300px 300px, 300px 300px;
+            animation: starScroll 40s linear infinite;
             z-index: -2;
-            opacity: 0.6;
         }
 
-        @keyframes spaceScroll {
-            0% {
-                background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
-            }
-
-            100% {
-                background-position: 40px 40px, 40px 40px, 0 100px, 0 150px, 0 200px, 0 50px, 0 120px, 0 80px;
+        @keyframes starScroll {
+            to {
+                background-position:
+                    0 60px, 60px 0,
+                    0 200px, 0 200px, 0 200px, 0 200px,
+                    0 150px, 0 150px, 0 150px;
             }
         }
 
+        /* Danger vignette */
         body::after {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at center, transparent 20%, rgba(5, 5, 16, 0.95) 100%);
+            inset: 0;
+            background:
+                radial-gradient(circle at center, transparent 30%, rgba(5, 5, 16, 0.9) 100%),
+                radial-gradient(ellipse at 70% 80%, rgba(239, 68, 68, 0.06) 0%, transparent 60%);
             z-index: -1;
             pointer-events: none;
         }
 
+        /* HUD Score */
         #ui {
             position: absolute;
-            top: 20px;
+            top: 15px;
             width: 100%;
             pointer-events: none;
-            z-index: 10;
+            z-index: 10000;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
         }
 
         #score-display {
-            font-size: 56px;
-            font-weight: 900;
-            color: #fff;
-            text-shadow: 0 0 10px #38bdf8, 0 0 20px #38bdf8;
-            margin-top: 5px;
-        }
-
-        .overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(15, 17, 35, 0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 20;
-            backdrop-filter: blur(5px);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .title {
+            font-family: 'Orbitron', monospace;
             font-size: 48px;
             font-weight: 900;
-            margin-bottom: 20px;
-            text-align: center;
-            background: linear-gradient(to right, #38bdf8, #818cf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.6));
-        }
-
-        .btn {
-            padding: 12px 32px;
-            font-size: 20px;
-            font-family: 'Orbitron', sans-serif;
-            font-weight: bold;
-            color: white;
-            background: rgba(14, 165, 233, 0.2);
-            border: 2px solid rgba(14, 165, 233, 0.5);
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px rgba(14, 165, 233, 0.2);
-        }
-
-        .btn:hover {
-            background: rgba(14, 165, 233, 0.4);
-            box-shadow: 0 0 25px rgba(14, 165, 233, 0.6);
-            transform: scale(1.05);
+            color: #fff;
+            letter-spacing: 4px;
+            text-shadow:
+                0 0 8px rgba(56, 189, 248, 0.8),
+                0 0 20px rgba(56, 189, 248, 0.4),
+                0 0 40px rgba(56, 189, 248, 0.2);
         }
 
         #game-canvas {
             display: block;
+            z-index: 5;
+            position: relative;
+        }
+
+        /* --- Popup theme overrides --- */
+        .wcg-overlay {
+            background: var(--bg-overlay) !important;
+            backdrop-filter: blur(8px) !important;
+        }
+
+        .wcg-popup {
+            background: var(--bg-popup) !important;
+            border: 1px solid rgba(239, 68, 68, 0.2) !important;
+            border-top: 1px solid rgba(239, 68, 68, 0.35) !important;
+            box-shadow:
+                0 25px 60px rgba(0, 0, 0, 0.8),
+                0 0 60px rgba(239, 68, 68, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+        }
+
+        .wcg-popup h1 {
+            font-family: 'Orbitron', sans-serif !important;
+            letter-spacing: 3px !important;
+            background: linear-gradient(135deg, #fff 30%, #ef4444) !important;
+            -webkit-background-clip: text !important;
+            background-clip: text !important;
+        }
+
+        .wcg-popup p {
+            font-family: 'Orbitron', sans-serif !important;
+            font-size: 13px !important;
+            letter-spacing: 1px !important;
+            color: #64748b !important;
+        }
+
+        .wcg-popup button {
+            font-family: 'Orbitron', sans-serif !important;
+            letter-spacing: 2px !important;
+            border-color: var(--theme-color) !important;
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.3), inset 0 0 12px rgba(239, 68, 68, 0.15) !important;
+        }
+
+        .wcg-popup button:hover {
+            background: var(--theme-color) !important;
+            color: #fff !important;
+            box-shadow: 0 0 40px var(--theme-color), inset 0 0 20px rgba(255, 255, 255, 0.3) !important;
         }
     </style>
-
-
-<!-- WCGames Popup Theming -->
-<style id="wcgames-popup-theme">
-    :root {
-        --theme-color: #f43f5e !important;
-        --theme-glow: rgba(244, 63, 94, 0.4) !important;
-    }
-    
-    /* Strict override for the overlay containers */
-    .wcg-overlay {
-        position: fixed !important;
-        inset: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        max-width: none !important;
-        background: rgba(10, 11, 26, 0.7) !important;
-        backdrop-filter: blur(5px) !important;
-        -webkit-backdrop-filter: blur(5px) !important;
-        display: flex !important; /* Force flex, we manage vis via opacity */
-        align-items: center !important;
-        justify-content: center !important;
-        z-index: 9999 !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        transition: opacity 0.3s ease !important;
-        border: none !important;
-        transform: none !important;
-        padding: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        margin: 0 !important;
-        text-align: center !important;
-    }
-
-    /* ONLY show if has .wcg-visible */
-    .wcg-overlay.wcg-visible {
-        opacity: 1 !important;
-        pointer-events: auto !important;
-    }
-    
-    /* The Glassmorphism Popup Box */
-    .wcg-popup {
-        background: rgba(15, 17, 35, 0.85) !important;
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-radius: 24px !important;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--theme-glow) !important;
-        padding: 40px 30px !important;
-        width: 85% !important;
-        max-width: 400px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        transform: scale(0.95) translateY(10px);
-        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Popup entry animation */
-    .wcg-overlay.wcg-visible .wcg-popup {
-        transform: scale(1) translateY(0);
-    }
-
-    /* Typography inside popup */
-    .wcg-popup h1, .wcg-popup h2, .wcg-popup .title {
-        font-family: 'Inter', 'Orbitron', 'Segoe UI', sans-serif !important;
-        font-size: 36px !important;
-        font-weight: 900 !important;
-        margin: 0 0 16px 0 !important;
-        color: #fff !important;
-        background: linear-gradient(to bottom right, #fff, var(--theme-color)) !important;
-        -webkit-background-clip: text !important;
-        -webkit-text-fill-color: transparent !important;
-        filter: drop-shadow(0 0 10px var(--theme-glow)) !important;
-        line-height: 1.2 !important;
-        border: none !important;
-    }
-
-    .wcg-popup p, .wcg-popup .instructions, .wcg-popup div[style*="font-size: 24px"], .wcg-popup div:not(.title):not(.btn) {
-        font-family: 'Inter', sans-serif !important;
-        font-size: 16px !important;
-        color: #cbd5e1 !important;
-        line-height: 1.6 !important;
-        margin: 0 0 32px 0 !important;
-        max-width: 100% !important;
-        text-shadow: none !important;
-        font-weight: 400 !important;
-        background: none !important;
-        -webkit-text-fill-color: initial !important;
-        filter: none !important;
-    }
-    
-    .wcg-popup div[style*="font-size: 24px"] {
-        font-size: 20px !important;
-        color: #fff !important;
-        font-weight: 700 !important;
-        margin-bottom: 30px !important;
-    }
-    .wcg-popup div[style*="font-size: 24px"] span, .wcg-popup #final-score {
-        color: var(--theme-color) !important;
-    }
-
-    /* Buttons */
-    .wcg-popup button, .wcg-popup .btn, .wcg-popup .start-btn, .wcg-popup .btn-start, .wcg-popup .btn-restart {
-        font-family: 'Inter', 'Orbitron', sans-serif !important;
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 1px solid var(--theme-color) !important;
-        color: #fff !important;
-        font-size: 18px !important;
-        font-weight: 700 !important;
-        padding: 16px 40px !important;
-        border-radius: 100px !important;
-        cursor: pointer !important;
-        letter-spacing: 1px !important;
-        box-shadow: 0 0 20px var(--theme-glow), inset 0 0 10px var(--theme-glow) !important;
-        transition: all 0.2s ease !important;
-        margin: 0 !important;
-        width: 100% !important;
-        max-width: 250px !important;
-        -webkit-text-fill-color: initial !important;
-    }
-
-    .wcg-popup button:hover, .wcg-popup .btn:hover, .wcg-popup .start-btn:hover, .wcg-popup .btn-start:hover, .wcg-popup .btn-restart:hover {
-        background: var(--theme-color) !important;
-        color: #0f1123 !important;
-        box-shadow: 0 0 30px var(--theme-color), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
-        transform: scale(1.05) translateY(-2px) !important;
-    }
-
-    .wcg-popup button:active, .wcg-popup .btn:active, .wcg-popup .start-btn:active, .wcg-popup .btn-start:active, .wcg-popup .btn-restart:active {
-        transform: scale(0.95) !important;
-    }
-
-    /* Anti-FOUC safeguard: hide target popups until themed */
-    body:not(.wcg-ready) #start-screen,
-    body:not(.wcg-ready) #game-over,
-    body:not(.wcg-ready) #game-over-screen {
-        opacity: 0 !important;
-        pointer-events: none !important;
-        visibility: hidden !important;
-    }
-</style>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    ['start-screen', 'game-over', 'game-over-screen'].forEach(id => {
-        const el = document.getElementById(id);
-        if(!el) return;
-        
-        // 1. Wrap content natively
-        if(!el.querySelector('.wcg-popup')) {
-             const popup = document.createElement('div');
-             popup.className = 'wcg-popup';
-             while(el.firstChild) popup.appendChild(el.firstChild);
-             el.appendChild(popup);
-        }
-
-        // 2. Discover initial visibility state BEFORE applying overlay
-        const comp = window.getComputedStyle(el);
-        let isVisible = (comp.display !== 'none' && comp.opacity !== '0' && comp.visibility !== 'hidden') || el.classList.contains('active');
-        
-        if (isVisible) {
-            el.classList.add('wcg-visible');
-        }
-
-        // 3. Apply the flex override overlay class
-        el.classList.add('wcg-overlay');
-
-        // 4. Setup MutationObserver to watch the game's native logic
-        const observer = new MutationObserver((mutations) => {
-            let visibilityChanged = false;
-            let shouldBeVisible = el.classList.contains('wcg-visible');
-
-            mutations.forEach((mutation) => {
-                if (mutation.attributeName === 'class') {
-                    if (el.classList.contains('active')) {
-                        shouldBeVisible = true;
-                    } else if (mutation.oldValue && mutation.oldValue.match(/\bactive\b/) && !el.classList.contains('active')) {
-                        shouldBeVisible = false;
-                    }
-                }
-                if (mutation.attributeName === 'style') {
-                    if (el.style.display === 'none' || el.style.opacity === '0') {
-                        shouldBeVisible = false;
-                    } else if (el.style.display === 'block' || el.style.display === 'flex' || el.style.opacity === '1') {
-                        shouldBeVisible = true;
-                    }
-                }
-            });
-
-            if (shouldBeVisible !== el.classList.contains('wcg-visible')) {
-                if (shouldBeVisible) {
-                    el.classList.add('wcg-visible');
-                } else {
-                    el.classList.remove('wcg-visible');
-                }
-            }
-        });
-        observer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
-    });
-    
-    // Reveal the completely themed popups
-    document.body.classList.add('wcg-ready');
-});
-</script>
-<!-- End WCGames Popup Theming -->
+    <script src="/shared/wcgames-core.js"></script>
 </head>
 
 <body>
-
     <div id="ui">
         <div id="score-display">0.00</div>
     </div>
 
-    <div class="overlay active" id="start-screen">
-        <div class="title" data-i18n="title">BULLET<br>DODGE</div>
-        <div class="instructions" data-i18n="instruction"
-            style="max-width: 400px; text-align: center; margin-bottom: 30px; line-height: 1.5; color: #94a3b8; font-size: 16px;">
-            Instructions go here
+    <div id="start-screen" class="wcg-overlay">
+        <div class="wcg-popup">
+            <h1 data-i18n="title">BULLET DODGE</h1>
+            <p data-i18n="instruction">Swipe to move.<br>Survive the barrage!</p>
+            <button onclick="WCGames.start()" data-i18n="play">SURVIVE</button>
         </div>
-        <button class="btn" id="start-btn" data-i18n="play">SURVIVE</button>
     </div>
 
-    <div class="overlay" id="game-over-screen">
-        <div class="title" id="game-over-title" data-i18n="game_over"
-            style="color: #ef4444; background: none; -webkit-text-fill-color: #ef4444; filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.8));">
-            DESTROYED</div>
-        <div style="font-size: 24px; margin-bottom: 30px; color: #38bdf8; text-shadow: 0 0 10px #38bdf8;">
-            <span data-i18n="final_score">Time: </span><span id="final-score">0.00</span>
+    <div id="game-over" class="wcg-overlay">
+        <div class="wcg-popup">
+            <h1 data-i18n="game_over">DESTROYED</h1>
+            <p><span data-i18n="final_score">Time: </span><span id="final-score">0.00</span></p>
+            <button onclick="WCGames.restart()" data-i18n="play_again">RETRY</button>
         </div>
-        <button class="btn" id="restart-btn" data-i18n="play_again">Try Again</button>
     </div>
 
     <canvas id="game-canvas"></canvas>
@@ -834,17 +630,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        function startGame() {
+        function initGame() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             SoundFX.start();
-            document.getElementById('start-screen').classList.remove('active');
-            document.getElementById('game-over-screen').classList.remove('active');
 
             player.x = width / 2;
             player.y = height / 2;
             player.vx = 0;
             player.vy = 0;
-            player.angle = -Math.PI / 2; // Point up on start
+            player.angle = -Math.PI / 2;
             player.trail = [];
             isDragging = false;
 
@@ -867,34 +661,20 @@ document.addEventListener('DOMContentLoaded', () => {
             spawnParticles(player.x, player.y, '#38bdf8');
             spawnParticles(player.x, player.y, '#fff');
 
-            // Freeze the exact survived time
             const finalTime = (Date.now() - startTime) / 1000;
-
             document.getElementById('final-score').innerText = finalTime.toFixed(2);
-            document.getElementById('game-over-screen').classList.add('active');
 
-            // Send standard score to leaderboards, e.g. 15.34 seconds -> 1534 points
-            try {
-                let finalScore = Math.floor(finalTime * 100);
-                window.parent.postMessage({ type: 'GAME_OVER', score: finalScore }, '*');
-            } catch (e) { }
+            const finalScore = Math.floor(finalTime * 100);
+            WCGames.gameOver(finalScore);
         }
 
-        const startBtn = document.getElementById('start-btn');
-        const restartBtn = document.getElementById('restart-btn');
+        WCGames.init({
+            id: 'bullet-dodge',
+            onStart: initGame,
+            onRestart: initGame
+        });
 
-        function onUiClick(e) {
-            e.preventDefault(); // Prevent double firing on touch devices
-            startGame();
-        }
-
-        startBtn.addEventListener('click', onUiClick);
-        startBtn.addEventListener('touchstart', onUiClick, { passive: false });
-
-        restartBtn.addEventListener('click', onUiClick);
-        restartBtn.addEventListener('touchstart', onUiClick, { passive: false });
-
-        // Render initial frame
+        resize();
         setTimeout(draw, 100);
     </script>
 

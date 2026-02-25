@@ -1,45 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
   <defs>
-    <!-- Richer Background -->
-    <radialGradient id="bgGradNeon" cx="50%" cy="50%" r="70%" fx="50%" fy="50%">
-      <stop offset="0%" stop-color="#1a0b33" />
-      <stop offset="100%" stop-color="#050011" />
-    </radialGradient>
-    <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#00ffff" flood-opacity="0.2" />
-      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-    <filter id="magentaGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#ff00ff" flood-opacity="0.3" />
-      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a1a"/>
+      <stop offset="100%" stop-color="#1a0a2e"/>
+    </linearGradient>
+    <filter id="neon">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
 
-  <!-- Background -->
-  <rect width="400" height="300" fill="url(#bgGradNeon)" />
+  <!-- Neon tunnel walls -->
+  <line x1="60" y1="280" x2="140" y2="20" stroke="#00f0ff" stroke-width="3" opacity="0.6" filter="url(#neon)"/>
+  <line x1="340" y1="280" x2="260" y2="20" stroke="#00f0ff" stroke-width="3" opacity="0.6" filter="url(#neon)"/>
 
-  <!-- Moving Pipes Group -->
-  <g filter="url(#cyanGlow)">
-    <animateTransform attributeName="transform" type="translate" values="400,0; -100,0" dur="3s" repeatCount="indefinite" />
-    
-    <!-- Top Pipe -->
-    <rect x="0" y="0" width="40" height="100" fill="rgba(0,255,255,0.05)" stroke="#00ffff" stroke-width="3" />
-    <!-- Bottom Pipe -->
-    <rect x="0" y="180" width="40" height="120" fill="rgba(0,255,255,0.05)" stroke="#00ffff" stroke-width="3" />
-  </g>
+  <!-- Horizontal neon rings -->
+  <ellipse cx="200" cy="240" rx="130" ry="30" fill="none" stroke="#ff00ff" stroke-width="2" opacity="0.3" filter="url(#neon)"/>
+  <ellipse cx="200" cy="180" rx="100" ry="22" fill="none" stroke="#00f0ff" stroke-width="2" opacity="0.4" filter="url(#neon)"/>
+  <ellipse cx="200" cy="120" rx="70" ry="16" fill="none" stroke="#ff00ff" stroke-width="2" opacity="0.5" filter="url(#neon)"/>
+  <ellipse cx="200" cy="70" rx="40" ry="10" fill="none" stroke="#00f0ff" stroke-width="2" opacity="0.6" filter="url(#neon)"/>
 
-  <!-- Player (Magenta #ff00ff) -->
-  <g transform="translate(100, 150)" filter="url(#magentaGlow)">
-    <!-- Jump Animation -->
-    <animateTransform attributeName="transform" type="translate" values="100,150; 100,80; 100,150" dur="1.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.25 0.1 0.25 1; 0.42 0 1 1" />
-    <rect x="-15" y="-15" width="30" height="30" fill="rgba(255,0,255,0.2)" stroke="#ff00ff" stroke-width="3" />
-  </g>
+  <!-- Player ball -->
+  <circle cx="230" cy="200" r="12" fill="#fff" filter="url(#neon)"/>
+  <circle cx="230" cy="200" r="8" fill="#00f0ff"/>
+
+  <!-- Speed lines -->
+  <line x1="170" y1="210" x2="130" y2="230" stroke="#fff" stroke-width="1" opacity="0.15"/>
+  <line x1="180" y1="220" x2="140" y2="245" stroke="#fff" stroke-width="1" opacity="0.1"/>
 </svg>

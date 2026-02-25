@@ -4,799 +4,477 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ZigZag - Hyper Casual</title>
+    <title>ZigZag Roll</title>
+    <link rel="stylesheet" href="/shared/wcgames-style.css">
     <style>
+        :root {
+            --theme-color: #60a5fa;
+            --theme-glow: rgba(96, 165, 250, 0.5);
+        }
+
         body {
             margin: 0;
             overflow: hidden;
-            background: #a9cce3;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(180deg, #1a1a3e 0%, #2d3a8c 30%, #5b8def 60%, #87ceeb 85%, #d4ecff 100%);
+            color: white;
+            font-family: 'Inter', system-ui, sans-serif;
             user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-            overscroll-behavior: none;
             touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            position: relative;
+            z-index: 5;
         }
 
         #ui {
             position: absolute;
-            top: 20px;
+            top: 40px;
             left: 0;
             width: 100%;
             text-align: center;
-            color: white;
             pointer-events: none;
             z-index: 10;
         }
 
         #score {
             font-size: 64px;
-            font-weight: 800;
-            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+            font-weight: 900;
+            text-shadow: 0 0 20px var(--theme-glow);
             color: #ffffff;
         }
-
-
-        #game-over {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            display: none;
-            pointer-events: auto;
-            z-index: 20;
-            min-width: 200px;
-        }
-
-        h1 {
-            color: #333;
-            margin: 0 0 10px 0;
-            font-size: 24px;
-        }
-
-        p {
-            color: #666;
-            margin: 0 0 20px 0;
-            font-size: 16px;
-        }
-
-        #final-score {
-            color: #e74c3c;
-            font-weight: bold;
-            font-size: 24px;
-        }
-
-        button {
-            background: #3498db;
-            border: none;
-            padding: 15px 40px;
-            color: white;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 0 #2980b9;
-        }
-
-        button:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        button:hover {
-            background: #2980b9;
-        }
-
-        #start-screen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            z-index: 30;
-            min-width: 250px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        .start-btn {
-            background: #3498db;
-            border: none;
-            padding: 15px 40px;
-            color: white;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 0 #2980b9;
-        }
-
-        .start-btn:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
     </style>
-
-
-    <!-- WCGames Popup Theming -->
-    <style id="wcgames-popup-theme">
-        :root {
-            --theme-color: #8b5cf6 !important;
-            --theme-glow: rgba(139, 92, 246, 0.4) !important;
-        }
-
-        /* Strict override for the overlay containers */
-        .wcg-overlay {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-width: none !important;
-            background: rgba(10, 11, 26, 0.7) !important;
-            backdrop-filter: blur(5px) !important;
-            -webkit-backdrop-filter: blur(5px) !important;
-            display: flex !important;
-            /* Force flex, we manage vis via opacity */
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: 9999 !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            transition: opacity 0.3s ease !important;
-            border: none !important;
-            transform: none !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            text-align: center !important;
-        }
-
-        /* ONLY show if has .wcg-visible */
-        .wcg-overlay.wcg-visible {
-            opacity: 1 !important;
-            pointer-events: auto !important;
-        }
-
-        /* The Glassmorphism Popup Box */
-        .wcg-popup {
-            background: rgba(15, 17, 35, 0.85) !important;
-            backdrop-filter: blur(16px) !important;
-            -webkit-backdrop-filter: blur(16px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-radius: 24px !important;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--theme-glow) !important;
-            padding: 40px 30px !important;
-            width: 85% !important;
-            max-width: 400px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            box-sizing: border-box !important;
-        }
-
-        /* Popup entry animation */
-        .wcg-overlay.wcg-visible .wcg-popup {
-            transform: scale(1) translateY(0);
-        }
-
-        /* Typography inside popup */
-        .wcg-popup h1,
-        .wcg-popup h2,
-        .wcg-popup .title {
-            font-family: 'Inter', 'Orbitron', 'Segoe UI', sans-serif !important;
-            font-size: 36px !important;
-            font-weight: 900 !important;
-            margin: 0 0 16px 0 !important;
-            color: #fff !important;
-            background: linear-gradient(to bottom right, #fff, var(--theme-color)) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            filter: drop-shadow(0 0 10px var(--theme-glow)) !important;
-            line-height: 1.2 !important;
-            border: none !important;
-        }
-
-        .wcg-popup p,
-        .wcg-popup .instructions,
-        .wcg-popup div[style*="font-size: 24px"],
-        .wcg-popup div:not(.title):not(.btn) {
-            font-family: 'Inter', sans-serif !important;
-            font-size: 16px !important;
-            color: #cbd5e1 !important;
-            line-height: 1.6 !important;
-            margin: 0 0 32px 0 !important;
-            max-width: 100% !important;
-            text-shadow: none !important;
-            font-weight: 400 !important;
-            background: none !important;
-            -webkit-text-fill-color: initial !important;
-            filter: none !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] {
-            font-size: 20px !important;
-            color: #fff !important;
-            font-weight: 700 !important;
-            margin-bottom: 30px !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] span,
-        .wcg-popup #final-score {
-            color: var(--theme-color) !important;
-        }
-
-        /* Buttons */
-        .wcg-popup button,
-        .wcg-popup .btn,
-        .wcg-popup .start-btn,
-        .wcg-popup .btn-start,
-        .wcg-popup .btn-restart {
-            font-family: 'Inter', 'Orbitron', sans-serif !important;
-            background: rgba(255, 255, 255, 0.05) !important;
-            border: 1px solid var(--theme-color) !important;
-            color: #fff !important;
-            font-size: 18px !important;
-            font-weight: 700 !important;
-            padding: 16px 40px !important;
-            border-radius: 100px !important;
-            cursor: pointer !important;
-            letter-spacing: 1px !important;
-            box-shadow: 0 0 20px var(--theme-glow), inset 0 0 10px var(--theme-glow) !important;
-            transition: all 0.2s ease !important;
-            margin: 0 !important;
-            width: 100% !important;
-            max-width: 250px !important;
-            -webkit-text-fill-color: initial !important;
-        }
-
-        .wcg-popup button:hover,
-        .wcg-popup .btn:hover,
-        .wcg-popup .start-btn:hover,
-        .wcg-popup .btn-start:hover,
-        .wcg-popup .btn-restart:hover {
-            background: var(--theme-color) !important;
-            color: #0f1123 !important;
-            box-shadow: 0 0 30px var(--theme-color), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
-            transform: scale(1.05) translateY(-2px) !important;
-        }
-
-        .wcg-popup button:active,
-        .wcg-popup .btn:active,
-        .wcg-popup .start-btn:active,
-        .wcg-popup .btn-start:active,
-        .wcg-popup .btn-restart:active {
-            transform: scale(0.95) !important;
-        }
-
-        /* Anti-FOUC safeguard: hide target popups until themed */
-        body:not(.wcg-ready) #start-screen,
-        body:not(.wcg-ready) #game-over,
-        body:not(.wcg-ready) #game-over-screen {
-            opacity: 0 !important;
-            pointer-events: none !important;
-            visibility: hidden !important;
-        }
-    </style>
-    <!-- End WCGames Popup Theming -->
+    <script src="/shared/wcgames-core.js"></script>
 </head>
 
-<body class="wcg-ready">
+<body>
+    <!-- Aurora Background Layers -->
+    <div class="aurora-bg">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2" style="background: var(--theme-color); opacity: 0.3;"></div>
+        <div class="aurora-blob blob-3"></div>
+    </div>
+    <div class="glass-overlay"></div>
+
     <div id="ui">
         <div id="score">0</div>
     </div>
 
-    <div id="start-screen" class="wcg-overlay wcg-visible" style="display: flex;">
+    <div id="start-screen" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="title">ZIGZAG ROLL</h1>
-            <p data-i18n="instruction">Tap to switch direction.<br>Stay on the wall and collect crystals!</p>
-            <button class="start-btn" onclick="startGame()" data-i18n="play">PLAY</button>
+            <p data-i18n="instruction">Tap to switch direction.<br>Stay on the wall!</p>
+            <button onclick="WCGames.start()" data-i18n="play">ROLL</button>
         </div>
     </div>
 
-    <div id="game-over" class="wcg-overlay" style="display: none;">
+    <div id="game-over" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="game_over">GAME OVER</h1>
             <p><span data-i18n="final_score">Score: </span><span id="final-score">0</span></p>
-            <button class="start-btn" onclick="restartGame()" data-i18n="play_again">RETRY</button>
+            <button onclick="WCGames.restart()" data-i18n="play_again">RETRY</button>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Game Configuration
-        const PLATFORM_SIZE = 3;
-        const BALL_RADIUS = 0.5;
-        const BALL_SPEED_BASE = 0.15;
-        const CAMERA_OFFSET = { x: 20, y: 20, z: 20 };
-        const COLORS = {
-            background: 0xa9cce3,
-            ball: 0xe74c3c,
-            platform: 0xe5e8e8, // Off-white
-            platformHighlight: 0xffffff, // Pure white
-            shadow: 0xd6eaf8,
-            crystal: 0xf1c40f
-        };
-
-        let scene, camera, renderer;
-        let ball;
-        let platforms = [];
-        let crystals = [];
-        let particles, particleData;
-        let score = 0;
-        let gameState = 'START'; // START, PLAYING, OVER
-        let direction = 'x'; // 'x' or 'z'
-        let speed = BALL_SPEED_BASE;
-        let lastPlatformPos = { x: 0, y: 0, z: 0 };
-        let frames = 0;
-        let targetCameraPos = { x: 0, y: 0, z: 0 };
-
-        // Shared Materials for Performance
-        const crystalMaterial = new THREE.MeshPhongMaterial({
-            color: COLORS.crystal,
-            emissive: 0x444400,
-            shininess: 100
-        });
-
-        // Audio System
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
-
-        init();
-
-        function playSound(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            const now = audioCtx.currentTime;
-
-            if (type === 'switch') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(400, now);
-                osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now);
-                osc.stop(now + 0.1);
-            } else if (type === 'crystal') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(880, now);
-                osc.frequency.linearRampToValueAtTime(1760, now + 0.1);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-                osc.start(now);
-                osc.stop(now + 0.15);
-            } else if (type === 'gameover') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, now);
-                osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
-                osc.start(now);
-                osc.stop(now + 0.5);
+        // Audio Manager
+        class AudioManager {
+            constructor() { this.ctx = null; }
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             }
+            play(freq, type, dur, vol) {
+                if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                if (Array.isArray(freq)) {
+                    osc.frequency.setValueAtTime(freq[0], this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(freq[1], this.ctx.currentTime + dur);
+                } else {
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                }
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + dur);
+            }
+            tap() { this.play(800, 'sine', 0.08, 0.2); }
+            score(n) { this.play(300 + (n % 20) * 15, 'sine', 0.12, 0.15); }
+            crystal() {
+                this.play(1200, 'sine', 0.15, 0.2);
+                setTimeout(() => this.play(1500, 'sine', 0.15, 0.15), 60);
+            }
+            fall() { this.play([400, 100], 'triangle', 0.4, 0.2); }
+            gameOver() { this.play([300, 80], 'sawtooth', 0.5, 0.25); }
         }
+        const audio = new AudioManager();
+
+        const PLAT_SIZE = 3, PLAT_HEIGHT = 9, BASE_SPEED = 12; // PLAT_SIZE = width/depth, PLAT_HEIGHT = vertical
+        let scene, camera, renderer, ball, platforms = [], crystals = [], direction = 'x', score = 0, isGameOver = false, isStarted = false;
+        let lastPos = { x: 0, y: 0, z: 0 };
+        let clock = new THREE.Clock();
+        let platformCount = 0;
+        let crystalGeo, crystalMat;
+
+        let cloudParticles;
+        let trail = [];
+        let ballLight;
+        const trailColors = [0xf472b6, 0xfb7185, 0xfda4af, 0xffffff, 0xc084fc];
 
         function init() {
-            // Scene Setup
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(COLORS.background);
-            scene.fog = new THREE.Fog(COLORS.background, 20, 60);
+            scene.fog = new THREE.FogExp2(0x87ceeb, 0.012);
 
-            // Camera (Orthographic for Isometric view)
-            const aspect = window.innerWidth / window.innerHeight;
-            const d = 20;
+            const aspect = window.innerWidth / window.innerHeight, d = 20;
             camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
-            camera.position.set(CAMERA_OFFSET.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z);
-            camera.lookAt(0, 0, 0);
+            camera.position.set(17, 20, 20); camera.lookAt(0, 0, 0);
 
-            // Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0);
             document.body.appendChild(renderer.domElement);
 
-            // Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
+            // Soft sky lighting (no harsh reflections)
+            const ambient = new THREE.AmbientLight(0xc9e8ff, 1.0); scene.add(ambient);
+            const sunLight = new THREE.DirectionalLight(0xfff4e0, 0.3);
+            sunLight.position.set(30, 60, 20); scene.add(sunLight);
+            const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.15);
+            fillLight.position.set(-20, 10, -10); scene.add(fillLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-            dirLight.position.set(20, 50, 30);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 1024;
-            dirLight.shadow.mapSize.height = 1024;
-            dirLight.shadow.camera.near = 0.5;
-            dirLight.shadow.camera.far = 100;
-            dirLight.shadow.camera.left = -30;
-            dirLight.shadow.camera.right = 30;
-            dirLight.shadow.camera.top = 30;
-            dirLight.shadow.camera.bottom = -30;
-            scene.add(dirLight);
+            // Cloud particles below the path
+            createClouds();
 
-            // Init Game Objects
-            createBall();
+            // Ball — glowing pink sphere
+            const ballGeo = new THREE.SphereGeometry(0.8, 32, 32);
+            const ballMat = new THREE.MeshPhongMaterial({
+                color: 0xf472b6,
+                emissive: 0xec4899,
+                emissiveIntensity: 0.3,
+                shininess: 120
+            });
+            ball = new THREE.Mesh(ballGeo, ballMat);
+            ball.position.set(0, PLAT_HEIGHT / 2 + 0.8, 0);
+            scene.add(ball);
 
-            // Initial Platform Generation
-            createPlatform(0, 0, 0);
-            for (let i = 0; i < 20; i++) {
-                spawnNextPlatform();
-            }
+            // Glow light attached to ball
+            ballLight = new THREE.PointLight(0xf472b6, 2, 15);
+            ballLight.position.copy(ball.position);
+            scene.add(ballLight);
 
-            initClouds();
-
-            // Events
-            window.addEventListener('resize', onWindowResize);
-            window.addEventListener('pointerdown', handleInput);
-            window.addEventListener('keydown', (e) => {
-                if (e.code === 'Space') {
-                    e.preventDefault();
-                    if (gameState === 'PLAYING') handleInput();
-                }
+            // Crystal Geometry & Material (Diamond shape)
+            crystalGeo = new THREE.OctahedronGeometry(0.6, 0);
+            crystalMat = new THREE.MeshPhongMaterial({
+                color: 0xf1c40f,
+                emissive: 0xf1c40f,
+                emissiveIntensity: 0.5,
+                shininess: 100,
+                transparent: true,
+                opacity: 0.9
             });
 
-            // Start Loop
+            reset();
+
+            window.addEventListener('resize', onResize);
+            window.addEventListener('pointerdown', () => {
+                if (isStarted && !isGameOver) {
+                    direction = direction === 'x' ? 'z' : 'x';
+                    spawnBurst(8);
+                    audio.tap();
+                }
+            });
             animate();
-
-            // Notify Parent
-            window.parent.postMessage({ type: 'GAME_READY' }, '*');
         }
 
-        function createBall() {
-            const geometry = new THREE.SphereGeometry(BALL_RADIUS, 32, 32);
-            const material = new THREE.MeshPhongMaterial({ color: COLORS.ball, shininess: 50 });
-            ball = new THREE.Mesh(geometry, material);
-            ball.position.set(0, BALL_RADIUS + PLATFORM_SIZE / 2, 0); // Sit on top of platform
-            ball.castShadow = true;
-            scene.add(ball);
-        }
-
-        function initClouds() {
-            const count = 100;
-            const geo = new THREE.IcosahedronGeometry(0.15, 0);
-            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
-            particles = new THREE.InstancedMesh(geo, mat, count);
-            particleData = [];
-
-            const dummy = new THREE.Object3D();
-            for (let i = 0; i < count; i++) {
-                const x = (Math.random() - 0.5) * 100;
-                const y = Math.random() * 40 - 10;
-                const z = (Math.random() - 0.5) * 100;
-                dummy.position.set(x, y, z);
-                dummy.updateMatrix();
-                particles.setMatrixAt(i, dummy.matrix);
-
-                particleData.push({
-                    x, y, z,
-                    yspeed: 0.01 + Math.random() * 0.03,
-                    offset: Math.random() * Math.PI * 2
-                });
+        function createClouds() {
+            const cloudCount = 60;
+            const cloudGeo = new THREE.SphereGeometry(1, 8, 8);
+            const cloudMat = new THREE.MeshLambertMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.35
+            });
+            cloudParticles = new THREE.Group();
+            for (let i = 0; i < cloudCount; i++) {
+                const cloud = new THREE.Mesh(cloudGeo, cloudMat.clone());
+                cloud.position.set(
+                    (Math.random() - 0.5) * 120,
+                    -(PLAT_HEIGHT / 2) - 4 - Math.random() * 15,
+                    (Math.random() - 0.5) * 120
+                );
+                const s = 1.5 + Math.random() * 3;
+                cloud.scale.set(s * 1.5, s * 0.5, s);
+                cloud.material.opacity = 0.15 + Math.random() * 0.25;
+                cloudParticles.add(cloud);
             }
-            scene.add(particles);
-        }
-
-        function updateParticles() {
-            if (!particles) return;
-            const dummy = new THREE.Object3D();
-            for (let i = 0; i < particleData.length; i++) {
-                const p = particleData[i];
-                p.y -= p.yspeed;
-
-                // Wrap around particles correctly in relation to the ball
-                if (p.y < -20) p.y = 20;
-
-                const drift = Math.sin(Date.now() * 0.001 + p.offset) * 0.3;
-                dummy.position.set(p.x + drift, p.y, p.z);
-                dummy.updateMatrix();
-                particles.setMatrixAt(i, dummy.matrix);
-            }
-            particles.instanceMatrix.needsUpdate = true;
+            scene.add(cloudParticles);
         }
 
         function createPlatform(x, y, z) {
-            const geometry = new THREE.BoxGeometry(PLATFORM_SIZE, PLATFORM_SIZE, PLATFORM_SIZE);
-            const material = new THREE.MeshLambertMaterial({ color: COLORS.platform });
-            const mesh = new THREE.Mesh(geometry, material);
+            const geo = new THREE.BoxGeometry(PLAT_SIZE, PLAT_HEIGHT, PLAT_SIZE);
+            const mat = new THREE.MeshLambertMaterial({ color: 0x6b7c9d });
+            const mesh = new THREE.Mesh(geo, mat);
             mesh.position.set(x, y, z);
-            mesh.receiveShadow = true;
             scene.add(mesh);
-            platforms.push(mesh);
-            lastPlatformPos = { x, y, z };
 
-            // Decoration / Shadow block
-            const shadowGeo = new THREE.BoxGeometry(PLATFORM_SIZE, PLATFORM_SIZE * 2, PLATFORM_SIZE);
-            const shadowMat = new THREE.MeshBasicMaterial({ color: COLORS.shadow });
-            const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-            shadowMesh.position.set(x, y - PLATFORM_SIZE * 1.5, z);
-            scene.add(shadowMesh);
-            mesh.userData.shadow = shadowMesh; // Link to remove later
-
-            // Chance to spawn crystal (10%)
-            if (Math.random() < 0.15 && frames > 5) {
-                createCrystal(x, y + PLATFORM_SIZE / 2 + 1, z);
-            }
-        }
-
-        function createCrystal(x, y, z) {
-            const geometry = new THREE.OctahedronGeometry(0.6);
-            const mesh = new THREE.Mesh(geometry, crystalMaterial);
-            mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            scene.add(mesh);
-            crystals.push(mesh);
-        }
-
-        function safeRemove(obj) {
-            if (!obj) return;
-            if (obj.geometry) obj.geometry.dispose();
-            // Don't dispose shared material
-            if (obj.material && obj.material !== crystalMaterial) {
-                if (Array.isArray(obj.material)) {
-                    obj.material.forEach(m => m.dispose());
-                } else {
-                    obj.material.dispose();
-                }
-            }
-            scene.remove(obj);
-        }
-
-        function spawnNextPlatform() {
-            frames++;
-            let isX = Math.random() > 0.5;
-
-            // Force straight path for first 15 blocks to align with initial ball direction
-            if (platforms.length < 15) {
-                isX = true;
-            }
-
-            const newX = lastPlatformPos.x + (isX ? PLATFORM_SIZE : 0);
-            const newZ = lastPlatformPos.z + (isX ? 0 : -PLATFORM_SIZE); // Move -Z (forward/right visually)
-
-            createPlatform(newX, lastPlatformPos.y, newZ);
-        }
-
-        function handleInput() {
-            if (gameState !== 'PLAYING') return;
-            direction = direction === 'x' ? 'z' : 'x';
-            playSound('switch');
-        }
-
-        function gameOver() {
-            if (gameState === 'OVER') return;
-            gameState = 'OVER';
-            playSound('gameover');
-
-            const gameOverScreen = document.getElementById('game-over');
-            gameOverScreen.style.setProperty('display', 'flex', 'important');
-            gameOverScreen.offsetHeight; // trigger reflow
-            gameOverScreen.classList.add('wcg-visible');
-
-            document.getElementById('final-score').textContent = score;
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
-        }
-
-        function restartGame() {
-            // 1. Hide Game Over Screen
-            const gameOverScreen = document.getElementById('game-over');
-            gameOverScreen.style.setProperty('display', 'none', 'important');
-            gameOverScreen.classList.remove('wcg-visible');
-
-            // 2. Clean up 3D objects
-            platforms.forEach(p => {
-                if (p.userData && p.userData.shadow) safeRemove(p.userData.shadow);
-                safeRemove(p);
+            // Side glow planes (hidden by default)
+            const sideMat = new THREE.MeshBasicMaterial({
+                color: 0xf472b6, transparent: true, opacity: 0, side: THREE.DoubleSide
             });
-            crystals.forEach(c => safeRemove(c));
+            const sideGroup = new THREE.Group();
+            const halfW = PLAT_SIZE / 2 + 0.02;
+            const halfH = PLAT_HEIGHT / 2;
+            // Front & Back (Z faces)
+            const planeZ = new THREE.PlaneGeometry(PLAT_SIZE, PLAT_HEIGHT);
+            const f = new THREE.Mesh(planeZ, sideMat.clone()); f.position.set(0, 0, halfW); sideGroup.add(f);
+            const b = new THREE.Mesh(planeZ, sideMat.clone()); b.position.set(0, 0, -halfW); sideGroup.add(b);
+            // Left & Right (X faces)
+            const planeX = new THREE.PlaneGeometry(PLAT_SIZE, PLAT_HEIGHT);
+            const l = new THREE.Mesh(planeX, sideMat.clone()); l.position.set(-halfW, 0, 0); l.rotation.y = Math.PI / 2; sideGroup.add(l);
+            const r = new THREE.Mesh(planeX, sideMat.clone()); r.position.set(halfW, 0, 0); r.rotation.y = Math.PI / 2; sideGroup.add(r);
+            sideGroup.position.copy(mesh.position);
+            scene.add(sideGroup);
+            mesh.userData.sideGroup = sideGroup;
 
-            // 3. Reset state
-            platforms = [];
-            crystals = [];
-            score = 0;
-            frames = 0;
-            direction = 'x';
-            speed = 0.15;
+            platforms.push(mesh);
+            lastPos = { x, y, z };
 
-            document.getElementById('score').textContent = score;
-
-            // 4. Reset Ball & Camera
-            ball.position.set(0, PLATFORM_SIZE / 2 + BALL_RADIUS, 0);
-            camera.position.set(CAMERA_OFFSET.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z);
-            targetCameraPos = { x: 0, y: 0, z: 0 };
-
-            // 5. Generate initial path
-            createPlatform(0, 0, 0);
-            for (let i = 0; i < 25; i++) {
-                spawnNextPlatform();
+            // Randomly spawn crystal on new platforms (except the starting ones)
+            if (platformCount > 10 && Math.random() > 0.8) {
+                const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+                crystal.position.set(x, PLAT_HEIGHT / 2 + 0.8, z);
+                scene.add(crystal);
+                crystals.push(crystal);
             }
-
-            gameState = 'PLAYING';
         }
 
-        function startGame() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-
-            const startScreen = document.getElementById('start-screen');
-            startScreen.style.setProperty('display', 'none', 'important');
-            startScreen.classList.remove('wcg-visible');
-
-            gameState = 'PLAYING';
+        function spawnPlatform() {
+            platformCount++;
+            const isX = platformCount <= 10 ? true : Math.random() > 0.5;
+            createPlatform(lastPos.x + (isX ? PLAT_SIZE : 0), 0, lastPos.z + (isX ? 0 : -PLAT_SIZE));
         }
 
-        function onWindowResize() {
-            const aspect = window.innerWidth / window.innerHeight;
-            const d = 20;
-            camera.left = -d * aspect;
-            camera.right = d * aspect;
-            camera.top = d;
-            camera.bottom = -d;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+        function onResize() {
+            const aspect = window.innerWidth / window.innerHeight, d = 20;
+            camera.left = -d * aspect; camera.right = d * aspect; camera.top = d; camera.bottom = -d;
+            camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function spawnBurst(count) {
+            for (let i = 0; i < count; i++) {
+                const size = 0.15 + Math.random() * 0.35;
+                const geo = new THREE.SphereGeometry(size, 6, 6);
+                const color = trailColors[Math.floor(Math.random() * trailColors.length)];
+                const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1.0 });
+                const t = new THREE.Mesh(geo, mat);
+                t.position.copy(ball.position);
+                scene.add(t);
+                const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+                const speed = 3 + Math.random() * 5;
+                trail.push({
+                    mesh: t,
+                    life: 0.5 + Math.random() * 0.5,
+                    vx: Math.cos(angle) * speed,
+                    vy: 2 + Math.random() * 5,
+                    vz: Math.sin(angle) * speed
+                });
+            }
         }
 
         function animate() {
             requestAnimationFrame(animate);
+            const delta = clock.getDelta();
 
-            if (gameState === 'PLAYING') {
-                // Move Ball
-                const moveSpeed = speed;
-                if (direction === 'x') ball.position.x += moveSpeed;
-                else ball.position.z -= moveSpeed;
+            if (isStarted && !isGameOver) {
+                const onPlatform = platforms.some(p =>
+                    Math.abs(p.position.x - ball.position.x) < (PLAT_SIZE / 2 + 0.3) &&
+                    Math.abs(p.position.z - ball.position.z) < (PLAT_SIZE / 2 + 0.3)
+                );
 
-                // Speed up slightly over time
-                speed += 0.00005;
+                if (!onPlatform) {
+                    // Falling - stop horizontal movement, only fall down
+                    ball.position.y -= 25 * delta;
+                    ball.rotation.x += delta * 8;
+                    if (ball.position.y < -(PLAT_HEIGHT / 2 + 5)) endGame();
+                } else {
+                    // On platform - move horizontally
+                    const moveDist = BASE_SPEED * delta;
+                    if (direction === 'x') {
+                        ball.position.x += moveDist;
+                        ball.rotation.z -= moveDist / 0.8; // Roll based on ball radius
+                    } else {
+                        ball.position.z -= moveDist;
+                        ball.rotation.x -= moveDist / 0.8;
+                    }
 
-                // Update Camera Target
-                targetCameraPos.x = ball.position.x + CAMERA_OFFSET.x;
-                targetCameraPos.z = ball.position.z + CAMERA_OFFSET.z;
+                    const p = platforms.find(p => !p.passed &&
+                        Math.abs(p.position.x - ball.position.x) < 0.8 &&
+                        Math.abs(p.position.z - ball.position.z) < 0.8
+                    );
+                    if (p) {
+                        p.passed = true;
+                        score++;
+                        document.getElementById('score').textContent = score;
+                        spawnPlatform();
+                        audio.score(score);
+                    }
+                }
 
-                // Camera Follow (Smooth)
-                camera.position.x += (targetCameraPos.x - camera.position.x) * 0.1;
-                camera.position.z += (targetCameraPos.z - camera.position.z) * 0.1;
-
-                // Particle movement
-                updateParticles();
-
-                // Lerp platform colors back
+                // Platform side glow — vertical faces light up near the ball
+                const glowRadius = PLAT_SIZE * 3;
                 platforms.forEach(p => {
-                    if (p.userData.highlighted) {
-                        p.material.color.lerp(new THREE.Color(COLORS.platform), 0.05);
+                    const dx = Math.abs(p.position.x - ball.position.x);
+                    const dz = Math.abs(p.position.z - ball.position.z);
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    if (p.userData.sideGroup) {
+                        const targetOpacity = dist < glowRadius ? (1 - dist / glowRadius) * 0.6 : 0;
+                        p.userData.sideGroup.children.forEach(s => {
+                            s.material.opacity = targetOpacity;
+                        });
                     }
                 });
 
-                // Collision Detection (Fall off)
-                const forgivingTolerance = PLATFORM_SIZE / 2 + BALL_RADIUS * 0.4;
-                const currentPlatform = platforms.find(p =>
-                    Math.abs(p.position.x - ball.position.x) < forgivingTolerance &&
-                    Math.abs(p.position.z - ball.position.z) < forgivingTolerance
-                );
+                // Ball glow follows ball
+                ballLight.position.copy(ball.position);
+                ballLight.position.y += 1;
 
-                if (!currentPlatform) {
-                    // Fall logic
-                    ball.position.y -= 0.5;
-                    ball.position.x += (direction === 'x' ? moveSpeed : 0);
-                    ball.position.z -= (direction === 'z' ? moveSpeed : 0);
-                    if (ball.position.y < -10) {
-                        gameOver();
+                // Spawn trail particles
+                if (trail.length < 40) {
+                    for (let j = 0; j < 2; j++) {
+                        const size = 0.1 + Math.random() * 0.3;
+                        const geo = new THREE.SphereGeometry(size, 6, 6);
+                        const color = trailColors[Math.floor(Math.random() * trailColors.length)];
+                        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8 });
+                        const t = new THREE.Mesh(geo, mat);
+                        t.position.copy(ball.position);
+                        t.position.x += (Math.random() - 0.5) * 0.5;
+                        t.position.z += (Math.random() - 0.5) * 0.5;
+                        scene.add(t);
+                        trail.push({
+                            mesh: t,
+                            life: 0.6 + Math.random() * 0.4,
+                            vx: (Math.random() - 0.5) * 2,
+                            vy: Math.random() * 3,
+                            vz: (Math.random() - 0.5) * 2
+                        });
                     }
-                } else {
-                    // Highlight platform
-                    currentPlatform.material.color.setHex(COLORS.platformHighlight);
-                    currentPlatform.userData.highlighted = true;
-                    // Check Crystals
-                    for (let i = crystals.length - 1; i >= 0; i--) {
-                        const c = crystals[i];
-                        const dx = c.position.x - ball.position.x;
-                        const dz = c.position.z - ball.position.z;
-                        const dist = Math.sqrt(dx * dx + dz * dz);
-
-                        if (dist < 1) {
-                            if (c.geometry) c.geometry.dispose(); // Dispose geometry only, shared mat
-                            scene.remove(c);
-                            crystals.splice(i, 1);
-                            score += 2; // Bonus points
-                            playSound('crystal');
-                            document.getElementById('score').textContent = score;
-                            window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
-                        } else {
-                            // Rotate crystal
-                            c.rotation.y += 0.05;
-                            c.position.y = (currentPlatform.position.y + PLATFORM_SIZE / 2 + 1) + Math.sin(Date.now() * 0.005) * 0.2;
-                        }
+                }
+                // Update trail particles
+                for (let i = trail.length - 1; i >= 0; i--) {
+                    const p = trail[i];
+                    p.life -= delta * 2;
+                    p.mesh.scale.multiplyScalar(0.96);
+                    p.mesh.material.opacity = Math.max(0, p.life * 0.7);
+                    p.mesh.position.x += p.vx * delta;
+                    p.mesh.position.y += p.vy * delta;
+                    p.mesh.position.z += p.vz * delta;
+                    p.vy -= delta * 8; // gravity
+                    if (p.life <= 0) {
+                        scene.remove(p.mesh);
+                        trail.splice(i, 1);
                     }
+                }
 
-                    // Score calculation based on distance/platforms
-                    // Just count distance? Or platforms passed?
-                    // Let's increment score when passing platforms
-                    if (!currentPlatform.userData.passed) {
-                        currentPlatform.userData.passed = true;
-                        score++;
+                // Follow ball smoothly
+                const targetCameraX = ball.position.x + 20;
+                const targetCameraZ = ball.position.z + 20;
+                camera.position.x += (targetCameraX - camera.position.x) * (delta * 5);
+                camera.position.z += (targetCameraZ - camera.position.z) * (delta * 5);
+
+                // Clouds follow the ball
+                if (cloudParticles) {
+                    cloudParticles.position.x += (ball.position.x - cloudParticles.position.x) * (delta * 2);
+                    cloudParticles.position.z += (ball.position.z - cloudParticles.position.z) * (delta * 2);
+                }
+
+                // Ensure there are always enough platforms ahead
+                const aheadCount = platforms.filter(p =>
+                    p.position.x > ball.position.x || p.position.z < ball.position.z
+                ).length;
+                while (aheadCount < 20 && platforms.length < 80) {
+                    spawnPlatform();
+                }
+
+                // Crystal interaction
+                crystals.forEach((c, index) => {
+                    c.rotation.y += delta * 3;
+                    if (Math.abs(c.position.x - ball.position.x) < 1.2 && Math.abs(c.position.z - ball.position.z) < 1.2) {
+                        scene.remove(c);
+                        crystals.splice(index, 1);
+                        score += 5;
                         document.getElementById('score').textContent = score;
-                        window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                        audio.crystal();
+                    }
+                });
 
-                        // Spawn new path
-                        spawnNextPlatform();
+                // Cleanup far behind
+                while (platforms.length > 0) {
+                    const p = platforms[0];
+                    if (p.position.x < ball.position.x - 25 && p.position.z > ball.position.z + 25) {
+                        platforms.shift();
+                        if (p.userData.sideGroup) scene.remove(p.userData.sideGroup);
+                        scene.remove(p);
+                    } else {
+                        break;
                     }
                 }
-
-                // Cleanup old platforms
-                if (platforms.length > 50) {
-                    const oldP = platforms.shift();
-                    if (oldP.userData.shadow) safeRemove(oldP.userData.shadow);
-                    safeRemove(oldP);
-                }
-            } else if (gameState === 'OVER') {
-                updateParticles();
-
-                // Fall animation continue
-                if (ball.position.y > -50) {
-                    ball.position.y -= 0.5;
-                    // Camera looks down slightly to watch fall
-                    camera.position.y += (CAMERA_OFFSET.y + 10 - camera.position.y) * 0.05;
-                }
+                crystals.forEach((c, index) => {
+                    if (c.position.x < ball.position.x - 20 || c.position.z > ball.position.z + 20) {
+                        scene.remove(c);
+                        crystals.splice(index, 1);
+                    }
+                });
             }
-
             renderer.render(scene, camera);
         }
-    </script>
-    <!-- Bottom Banner Container -->
-    <style>
-        #bottom-banner {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            display: none;
-            /* hidden for now */
-            justify-content: center;
-            z-index: 1000;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px 0;
+
+        function endGame() {
+            if (isGameOver) return;
+            isGameOver = true;
+            audio.gameOver();
+            document.getElementById('final-score').textContent = score;
+            WCGames.gameOver(score);
         }
 
-        #bottom-banner .adsbygoogle {
-            display: inline-block;
-            width: 320px;
-            height: 50px;
+        function reset() {
+            platforms.forEach(p => {
+                if (p.userData.sideGroup) scene.remove(p.userData.sideGroup);
+                scene.remove(p);
+            });
+            platforms = [];
+            crystals.forEach(c => scene.remove(c));
+            crystals = [];
+            trail.forEach(t => scene.remove(t.mesh));
+            trail = [];
+            score = 0;
+            document.getElementById('score').textContent = '0';
+            ball.position.set(0, PLAT_HEIGHT / 2 + 0.8, 0);
+            camera.position.set(20, 20, 20);
+            platformCount = 0;
+            createPlatform(0, 0, 0);
+            for (let i = 0; i < 30; i++) spawnPlatform();
+            direction = 'x';
+            isGameOver = false;
         }
 
-        @media(min-width: 768px) {
-            #bottom-banner .adsbygoogle {
-                width: 728px;
-                height: 90px;
+        WCGames.init({
+            id: 'zigzag',
+            onStart: () => {
+                audio.init();
+                isStarted = true;
+                reset();
+                clock.start();
             }
-        }
-    </style>
-    <div id="bottom-banner" style="display: none !important;">
-        <script async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6684397532194817"
-            crossorigin="anonymous"></script>
-        <!-- HyperGame_Bottom_Banner -->
-        <ins class="adsbygoogle" data-ad-client="ca-pub-6684397532194817" data-ad-slot="8181343233"></ins>
-        <script>
-            (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-    </div>
+        });
 
-    <script src="/shared/i18n.js"></script>
+        init();
     </script>
-
+    <script src="/shared/i18n.js"></script>
 </body>
 
 </html>

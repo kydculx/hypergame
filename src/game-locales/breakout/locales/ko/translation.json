@@ -1,0 +1,9 @@
+{
+  "title": "벽돌깨기",
+  "instruction": "공을 튕겨내어 빛나는 네온 벽돌을 모두 부수고 스테이지를 클리어하세요.",
+  "play": "시작",
+  "game_over": "게임오버",
+  "final_score": "점수: ",
+  "play_again": "다시하기",
+  "category": "액션"
+}

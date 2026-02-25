@@ -1,52 +1,41 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
   <defs>
-    <!-- Background Gradient -->
-    <radialGradient id="bgGrad" cx="50%" cy="50%" r="70%" fx="50%" fy="50%">
-      <stop offset="0%" stop-color="#3a3a4a" />
-      <stop offset="100%" stop-color="#1a1a24" />
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#3a3a4a"/>
+      <stop offset="100%" stop-color="#1a1a24"/>
     </radialGradient>
-    <!-- Drop Shadow for Button Feel -->
-    <filter id="dropShadow" x="-20%" y="-20%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="15" stdDeviation="10" flood-color="#000000" flood-opacity="0.5" />
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="6" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/>
     </filter>
   </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
 
-  <!-- Background -->
-  <rect width="400" height="300" fill="url(#bgGrad)" />
+  <!-- Stack of blocks - isometric -->
+  <g transform="translate(200, 230) scale(2.2)" filter="url(#shadow)">
+    <!-- Block 1 (bottom) -->
+    <polygon points="0,-12 40,0 0,12 -40,0" fill="#5cb8e6"/>
+    <polygon points="-40,0 0,12 0,28 -40,16" fill="#3a8bb6"/>
+    <polygon points="0,12 40,0 40,16 0,28" fill="#4faae0"/>
 
-  <!-- A simplified isometric grid effect or clean look -->
-  <g transform="translate(200, 200) scale(1.5)" filter="url(#dropShadow)">
-    <!-- Base block (hsl(200, 70%, 60%)) -->
-    <g transform="translate(0, 0)">
-      <!-- Top -->
-      <polygon points="0,-15 30,0 0,15 -30,0" fill="#5cb8e6" />
-      <!-- Left side -->
-      <polygon points="-30,0 0,15 0,35 -30,20" fill="#3a8bb6" />
-      <!-- Right side -->
-      <polygon points="0,15 30,0 30,20 0,35" fill="#4faae0" />
+    <!-- Block 2 -->
+    <g transform="translate(0, -18)">
+      <polygon points="0,-12 40,0 0,12 -40,0" fill="#5c9be6"/>
+      <polygon points="-40,0 0,12 0,28 -40,16" fill="#3a6cb6"/>
+      <polygon points="0,12 40,0 40,16 0,28" fill="#4f8ee0"/>
     </g>
 
-    <!-- Block 2 (hsl(210, 70%, 60%)) -->
-    <g transform="translate(0, -20)">
-      <polygon points="0,-15 30,0 0,15 -30,0" fill="#5c9be6" />
-      <polygon points="-30,0 0,15 0,35 -30,20" fill="#3a6cb6" />
-      <polygon points="0,15 30,0 30,20 0,35" fill="#4f8ee0" />
+    <!-- Block 3 -->
+    <g transform="translate(0, -36)">
+      <polygon points="0,-12 40,0 0,12 -40,0" fill="#7c6be6"/>
+      <polygon points="-40,0 0,12 0,28 -40,16" fill="#5a4ab6"/>
+      <polygon points="0,12 40,0 40,16 0,28" fill="#6d5ee0"/>
     </g>
 
-    <!-- Block 3 (hsl(220, 70%, 60%)) -->
-    <g transform="translate(0, -40)">
-      <polygon points="0,-15 30,0 0,15 -30,0" fill="#5c7ee6" />
-      <polygon points="-30,0 0,15 0,35 -30,20" fill="#3a4eb6" />
-      <polygon points="0,15 30,0 30,20 0,35" fill="#4f71e0" />
-    </g>
-
-    <!-- Moving Block (hsl(230, 70%, 60%)) -->
-    <g>
-      <!-- Horizontal animation matching isometric X/Z axis -->
-      <animateTransform attributeName="transform" type="translate" values="-40,-50; 40,-90; -40,-50" dur="2s" repeatCount="indefinite" />
-      <polygon points="0,-15 30,0 0,15 -30,0" fill="#655ce6" />
-      <polygon points="-30,0 0,15 0,35 -30,20" fill="#2d24b6" />
-      <polygon points="0,15 30,0 30,20 0,35" fill="#574fe0" />
+    <!-- Block 4 (about to land) -->
+    <g transform="translate(8, -58)" opacity="0.9">
+      <polygon points="0,-12 40,0 0,12 -40,0" fill="#e65c8a"/>
+      <polygon points="-40,0 0,12 0,28 -40,16" fill="#b63a5e"/>
+      <polygon points="0,12 40,0 40,16 0,28" fill="#e04f7a"/>
     </g>
   </g>
 </svg>

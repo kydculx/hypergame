@@ -1,0 +1,9 @@
+{
+  "title": "헬릭스 점프",
+  "instruction": "위험한 색상의 발판을 피하며 나선형 타워 맨 아래층까지 공을 무사히 내려보내세요.",
+  "play": "시작",
+  "game_over": "게임오버",
+  "final_score": "점수: ",
+  "play_again": "다시하기",
+  "category": "액션"
+}

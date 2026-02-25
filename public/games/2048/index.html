@@ -5,142 +5,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neon 2048</title>
+    <link rel="stylesheet" href="/shared/wcgames-style.css">
     <style>
         :root {
-            --bg-color: #0A0B1A;
-            --grid-bg: rgba(255, 255, 255, 0.05);
-            --cell-bg: rgba(0, 0, 0, 0.3);
+            --bg-color: #050510;
+            --grid-bg: rgba(255, 255, 255, 0.03);
+            --cell-bg: rgba(0, 0, 0, 0.4);
             --text-color: #ffffff;
+            --theme-color: #0ea5e9;
+            --theme-glow: rgba(14, 165, 233, 0.4);
 
-            /* Neon Colors for tiles */
-            --color-2: #0ea5e9;
-            --color-4: #3b82f6;
-            --color-8: #6366f1;
-            --color-16: #8b5cf6;
-            --color-32: #a855f7;
-            --color-64: #d946ef;
-            --color-128: #ec4899;
-            --color-256: #f43f5e;
-            --color-512: #ef4444;
-            --color-1024: #f59e0b;
-            --color-2048: #eab308;
-            --color-super: #10b981;
+            /* Refined Neon HSL Palette */
+            --tile-2: hsl(200, 95%, 60%);
+            --tile-4: hsl(210, 95%, 55%);
+            --tile-8: hsl(230, 90%, 65%);
+            --tile-16: hsl(260, 90%, 65%);
+            --tile-32: hsl(280, 85%, 60%);
+            --tile-64: hsl(300, 85%, 55%);
+            --tile-128: hsl(320, 85%, 60%);
+            --tile-256: hsl(340, 90%, 60%);
+            --tile-512: hsl(0, 95%, 60%);
+            --tile-1024: hsl(40, 95%, 55%);
+            --tile-2048: hsl(50, 95%, 50%);
+            --tile-super: hsl(160, 95%, 50%);
         }
 
         body {
             margin: 0;
-            padding: 0;
+            overflow: hidden;
             background-color: var(--bg-color);
-            background-image:
-                radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.08), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(14, 165, 233, 0.08), transparent 25%);
-            background-size: 200% 200%;
-            animation: bgShift 15s ease-in-out infinite alternate;
             color: var(--text-color);
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-family: 'Inter', system-ui, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             min-height: 100vh;
-            overflow: hidden;
             touch-action: none;
-            /* Prevent scroll on swipe */
             user-select: none;
         }
 
-        @keyframes bgShift {
-            0% {
-                background-position: 0% 50%;
-            }
-
-            100% {
-                background-position: 100% 50%;
-            }
-        }
-
-        /* Dynamic WCGames Background */
-        .bg-layer {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        .blob {
+        /* Ambient scanline overlay */
+        .glass-overlay::after {
+            content: "";
             position: absolute;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.6;
-            animation: float 20s infinite ease-in-out alternate;
-        }
-
-        .blob-1 {
-            top: -10%;
-            left: -10%;
-            width: 50vw;
-            height: 50vw;
-            background: #8b5cf6;
-            animation-delay: 0s;
-        }
-
-        .blob-2 {
-            bottom: -20%;
-            right: -10%;
-            width: 60vw;
-            height: 60vw;
-            background: #0ea5e9;
-            animation-delay: -5s;
-        }
-
-        .blob-3 {
-            top: 40%;
-            left: 40%;
-            width: 40vw;
-            height: 40vw;
-            background: #ec4899;
-            animation-delay: -10s;
-            opacity: 0.4;
-        }
-
-        @keyframes float {
-            0% {
-                transform: translate(0, 0) scale(1);
-            }
-
-            33% {
-                transform: translate(30px, -50px) scale(1.1);
-            }
-
-            66% {
-                transform: translate(-20px, 20px) scale(0.9);
-            }
-
-            100% {
-                transform: translate(0, 0) scale(1);
-            }
-        }
-
-        .grid-overlay {
-            position: fixed;
             inset: 0;
-            background-image:
-                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
-            z-index: 1;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
             pointer-events: none;
+            opacity: 0.3;
         }
 
         header {
             position: absolute;
-            top: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
+            top: 60px;
             z-index: 10;
         }
 
@@ -148,467 +67,186 @@
             text-align: center;
         }
 
+        .score-label {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
         .score-value {
-            font-size: 48px;
+            font-size: 64px;
             font-weight: 900;
             color: #fff;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
-            font-family: 'Inter', system-ui, sans-serif;
-            line-height: 1;
+            text-shadow: 0 0 30px var(--theme-glow);
+            letter-spacing: -2px;
         }
 
         #game-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            position: relative;
             background: var(--grid-bg);
-            padding: 10px;
-            border-radius: 16px;
+            padding: 12px;
+            border-radius: 24px;
             width: 90vw;
-            max-width: 400px;
+            max-width: 420px;
             aspect-ratio: 1 / 1;
             z-index: 10;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.02);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
         }
 
         .grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             grid-template-rows: repeat(4, 1fr);
-            gap: 10px;
+            gap: 12px;
             width: 100%;
             height: 100%;
         }
 
         .cell {
             background-color: var(--cell-bg);
-            border-radius: 8px;
+            border-radius: 12px;
             width: 100%;
             height: 100%;
-            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.4);
         }
 
         .tile-container {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            width: calc(100% - 20px);
-            height: calc(100% - 20px);
+            top: 12px;
+            left: 12px;
+            width: calc(100% - 24px);
+            height: calc(100% - 24px);
             pointer-events: none;
         }
 
         .tile {
             position: absolute;
-            transition: transform 0.15s ease-in-out;
-            /* z-index applied dynamically */
+            transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .tile-inner {
             display: flex;
             justify-content: center;
             align-items: center;
-            border-radius: 8px;
-            font-weight: 800;
+            border-radius: 12px;
+            font-weight: 900;
             color: #fff;
             width: 100%;
             height: 100%;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            transition: transform 0.15s ease, background-color 0.15s ease;
+            font-family: 'Inter', system-ui, sans-serif;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Tile pop animation for new tiles */
+        /* Shine effect for high value tiles */
+        .tile-inner::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent 45%, rgba(255, 255, 255, 0.1) 50%, transparent 55%);
+            animation: shine 4s infinite linear;
+            pointer-events: none;
+        }
+
+        @keyframes shine {
+            from {
+                transform: translateX(-100%) translateY(-100%);
+            }
+
+            to {
+                transform: translateX(100%) translateY(100%);
+            }
+        }
+
         @keyframes pop {
             0% {
-                scale: 0;
+                transform: scale(0);
                 opacity: 0;
             }
 
-            50% {
-                scale: 1.1;
+            70% {
+                transform: scale(1.15);
                 opacity: 1;
             }
 
             100% {
-                scale: 1;
+                transform: scale(1);
                 opacity: 1;
             }
         }
 
         .tile-new .tile-inner {
-            animation: pop 0.2s ease-out forwards;
+            animation: pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
-        /* Tile merge animation */
         @keyframes merge {
             0% {
-                scale: 0.8;
-                opacity: 1;
+                transform: scale(1);
             }
 
-            50% {
-                scale: 1.15;
-                opacity: 1;
-                box-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+            40% {
+                transform: scale(1.2);
+                filter: brightness(1.5);
             }
 
             100% {
-                scale: 1;
-                opacity: 1;
+                transform: scale(1);
             }
         }
 
         .tile-merged .tile-inner {
-            animation: merge 0.2s ease-in-out forwards;
-            animation-delay: 0.15s;
-            opacity: 0;
+            animation: merge 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
-        /* Values styles applied dynamically via JS style.background/boxShadow */
+        /* Particle styles */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            z-index: 100;
+        }
 
         .controls-hint {
-            margin-top: 30px;
-            color: rgba(255, 255, 255, 0.4);
+            position: absolute;
+            bottom: 40px;
+            color: rgba(255, 255, 255, 0.3);
             font-size: 14px;
-            text-align: center;
-            z-index: 10;
-        }
-
-        #game-over {
-            position: absolute;
-            inset: 0;
-            background: rgba(10, 11, 26, 0.85);
-            backdrop-filter: blur(8px);
-            border-radius: 16px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 20;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        #game-over.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        #start-screen {
-            position: absolute;
-            inset: 0;
-            background: rgba(10, 11, 26, 0.85);
-            backdrop-filter: blur(8px);
-            border-radius: 16px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 30;
-            transition: opacity 0.3s ease;
-        }
-
-        #start-screen h1 {
-            color: #fff;
-            margin: 0 0 10px 0;
-            font-size: 40px;
-            font-weight: 900;
-            text-shadow: 0 0 15px rgba(56, 189, 248, 0.8), 0 0 30px rgba(139, 92, 246, 0.6);
-            letter-spacing: 2px;
-        }
-
-        #start-screen p {
-            color: #e2e8f0;
-            margin: 0 0 30px 0;
-            font-size: 18px;
-            line-height: 1.6;
-            text-align: center;
-        }
-
-        .btn-start {
-            margin-top: 10px;
-            padding: 15px 45px;
-            background: linear-gradient(135deg, #0ea5e9, #6366f1);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            font-size: 1.3rem;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.5);
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-
-        .btn-start:active {
-            transform: scale(0.95);
-            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.5);
-        }
-
-        #game-over h2 {
-            font-size: 3rem;
-            margin: 0 0 10px 0;
-            color: #f43f5e;
-            text-shadow: 0 0 20px rgba(244, 63, 94, 0.5);
-        }
-
-        .btn-restart {
-            margin-top: 20px;
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-
-        .btn-restart:active {
-            transform: scale(0.95);
-            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
     </style>
-
-
-    <!-- WCGames Popup Theming -->
-    <style id="wcgames-popup-theme">
-        :root {
-            --theme-color: #f59e0b !important;
-            --theme-glow: rgba(245, 158, 11, 0.4) !important;
-        }
-
-        /* Strict override for the overlay containers */
-        .wcg-overlay {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-width: none !important;
-            background: rgba(10, 11, 26, 0.7) !important;
-            backdrop-filter: blur(5px) !important;
-            -webkit-backdrop-filter: blur(5px) !important;
-            display: flex !important;
-            /* Force flex, we manage vis via opacity */
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: 9999 !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            transition: opacity 0.3s ease !important;
-            border: none !important;
-            transform: none !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            text-align: center !important;
-        }
-
-        /* ONLY show if has .wcg-visible */
-        .wcg-overlay.wcg-visible {
-            opacity: 1 !important;
-            pointer-events: auto !important;
-        }
-
-        /* The Glassmorphism Popup Box */
-        .wcg-popup {
-            background: rgba(15, 17, 35, 0.85) !important;
-            backdrop-filter: blur(16px) !important;
-            -webkit-backdrop-filter: blur(16px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-radius: 24px !important;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--theme-glow) !important;
-            padding: 40px 30px !important;
-            width: 85% !important;
-            max-width: 400px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            box-sizing: border-box !important;
-        }
-
-        /* Popup entry animation */
-        .wcg-overlay.wcg-visible .wcg-popup {
-            transform: scale(1) translateY(0);
-        }
-
-        /* Typography inside popup */
-        .wcg-popup h1,
-        .wcg-popup h2,
-        .wcg-popup .title {
-            font-family: 'Inter', 'Orbitron', 'Segoe UI', sans-serif !important;
-            font-size: 36px !important;
-            font-weight: 900 !important;
-            margin: 0 0 16px 0 !important;
-            color: #fff !important;
-            background: linear-gradient(to bottom right, #fff, var(--theme-color)) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            filter: drop-shadow(0 0 10px var(--theme-glow)) !important;
-            line-height: 1.2 !important;
-            border: none !important;
-        }
-
-        .wcg-popup p,
-        .wcg-popup .instructions,
-        .wcg-popup div[style*="font-size: 24px"],
-        .wcg-popup div:not(.title):not(.btn) {
-            font-family: 'Inter', sans-serif !important;
-            font-size: 16px !important;
-            color: #cbd5e1 !important;
-            line-height: 1.6 !important;
-            margin: 0 0 32px 0 !important;
-            max-width: 100% !important;
-            text-shadow: none !important;
-            font-weight: 400 !important;
-            background: none !important;
-            -webkit-text-fill-color: initial !important;
-            filter: none !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] {
-            font-size: 20px !important;
-            color: #fff !important;
-            font-weight: 700 !important;
-            margin-bottom: 30px !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] span,
-        .wcg-popup #final-score {
-            color: var(--theme-color) !important;
-        }
-
-        /* Buttons */
-        .wcg-popup button,
-        .wcg-popup .btn,
-        .wcg-popup .start-btn,
-        .wcg-popup .btn-start,
-        .wcg-popup .btn-restart {
-            font-family: 'Inter', 'Orbitron', sans-serif !important;
-            background: rgba(255, 255, 255, 0.05) !important;
-            border: 1px solid var(--theme-color) !important;
-            color: #fff !important;
-            font-size: 18px !important;
-            font-weight: 700 !important;
-            padding: 16px 40px !important;
-            border-radius: 100px !important;
-            cursor: pointer !important;
-            letter-spacing: 1px !important;
-            box-shadow: 0 0 20px var(--theme-glow), inset 0 0 10px var(--theme-glow) !important;
-            transition: all 0.2s ease !important;
-            margin: 0 !important;
-            width: 100% !important;
-            max-width: 250px !important;
-            -webkit-text-fill-color: initial !important;
-        }
-
-        .wcg-popup button:hover,
-        .wcg-popup .btn:hover,
-        .wcg-popup .start-btn:hover,
-        .wcg-popup .btn-start:hover,
-        .wcg-popup .btn-restart:hover {
-            background: var(--theme-color) !important;
-            color: #0f1123 !important;
-            box-shadow: 0 0 30px var(--theme-color), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
-            transform: scale(1.05) translateY(-2px) !important;
-        }
-
-        .wcg-popup button:active,
-        .wcg-popup .btn:active,
-        .wcg-popup .start-btn:active,
-        .wcg-popup .btn-start:active,
-        .wcg-popup .btn-restart:active {
-            transform: scale(0.95) !important;
-        }
-    </style>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            ['start-screen', 'game-over', 'game-over-screen'].forEach(id => {
-                const el = document.getElementById(id);
-                if (!el) return;
-
-                // 1. Wrap content natively
-                if (!el.querySelector('.wcg-popup')) {
-                    const popup = document.createElement('div');
-                    popup.className = 'wcg-popup';
-                    while (el.firstChild) popup.appendChild(el.firstChild);
-                    el.appendChild(popup);
-                }
-
-                // 2. Discover initial visibility state BEFORE applying overlay
-                const comp = window.getComputedStyle(el);
-                let isVisible = (comp.display !== 'none' && comp.opacity !== '0' && comp.visibility !== 'hidden') || el.classList.contains('active');
-
-                if (isVisible) {
-                    el.classList.add('wcg-visible');
-                }
-
-                // 3. Apply the flex override overlay class
-                el.classList.add('wcg-overlay');
-
-                // 4. Setup MutationObserver to watch the game's native logic
-                const observer = new MutationObserver((mutations) => {
-                    let visibilityChanged = false;
-                    let shouldBeVisible = el.classList.contains('wcg-visible');
-
-                    mutations.forEach((mutation) => {
-                        if (mutation.attributeName === 'class') {
-                            if (el.classList.contains('active')) {
-                                shouldBeVisible = true;
-                            } else if (mutation.oldValue && mutation.oldValue.match(/\bactive\b/) && !el.classList.contains('active')) {
-                                shouldBeVisible = false;
-                            }
-                        }
-                        if (mutation.attributeName === 'style') {
-                            if (el.style.display === 'none' || el.style.opacity === '0') {
-                                shouldBeVisible = false;
-                            } else if (el.style.display === 'block' || el.style.display === 'flex' || el.style.opacity === '1') {
-                                shouldBeVisible = true;
-                            }
-                        }
-                    });
-
-                    if (shouldBeVisible !== el.classList.contains('wcg-visible')) {
-                        if (shouldBeVisible) {
-                            el.classList.add('wcg-visible');
-                        } else {
-                            el.classList.remove('wcg-visible');
-                        }
-                    }
-                });
-                observer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
-            });
-        });
-    </script>
-    <!-- End WCGames Popup Theming -->
 </head>
 
 <body>
-    <div class="bg-layer">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
-        <div class="grid-overlay"></div>
+    <div class="aurora-bg">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2"></div>
+        <div class="aurora-blob blob-3"></div>
     </div>
+    <div class="glass-overlay"></div>
 
     <header>
         <div class="score-container">
+            <div class="score-label" data-i18n="score_label">Score</div>
             <div class="score-value" id="score">0</div>
         </div>
     </header>
 
+    <script src="/shared/wcgames-core.js"></script>
+
     <div id="game-container">
-        <div class="grid" id="grid">
-            <!-- 16 empty cells for background -->
+        <div class="grid">
             <div class="cell"></div>
             <div class="cell"></div>
             <div class="cell"></div>
@@ -626,526 +264,287 @@
             <div class="cell"></div>
             <div class="cell"></div>
         </div>
-        <div class="tile-container" id="tile-container">
-            <!-- Tiles injected here via JS -->
+        <div class="tile-container" id="tile-container"></div>
+    </div>
+
+    <div class="controls-hint" data-i18n="controls_hint">Swipe or Use Arrows</div>
+
+    <div id="start-screen" class="wcg-overlay">
+        <div class="wcg-popup">
+            <h1 data-i18n="title">NEON 2048</h1>
+            <p data-i18n="instruction">Merge the numbers to reach 2048!</p>
+            <button onclick="WCGames.start()" data-i18n="play">SWIPE TO START</button>
         </div>
-
     </div>
 
-    <div id="start-screen">
-        <h1 data-i18n="title">NEON 2048</h1>
-        <p data-i18n="instruction">Swipe or use Arrow Keys<br>to merge numbers!</p>
-        <button class="btn-start" id="start-btn" data-i18n="play">PLAY</button>
-    </div>
-
-    <div id="game-over">
-        <h2 data-i18n="game_over">Game Over</h2>
-        <div style="color: white; font-size: 1.2rem;"><span data-i18n="final_score">Score: </span><span
-                id="final-score">0</span></div>
-        <button class="btn-restart" id="btn-restart">Play Again</button>
+    <div id="game-over" class="wcg-overlay">
+        <div class="wcg-popup">
+            <h1 data-i18n="game_over">MISSION END</h1>
+            <p><span data-i18n="final_score">Final Score: </span><span id="final-score">0</span></p>
+            <button onclick="WCGames.restart()" data-i18n="play_again">REBOOT</button>
+        </div>
     </div>
 
     <script>
-        // --- Web Audio API Synthesizer ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
-
         function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new AudioContext();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        // Play a short synth blip
         function playSound(type) {
             if (!audioCtx) return;
-
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
+            osc.connect(gain); gain.connect(audioCtx.destination);
             const now = audioCtx.currentTime;
 
             if (type === 'move') {
-                // Short, low thud for moving
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(150, now);
-                osc.frequency.exponentialRampToValueAtTime(50, now + 0.05);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-                osc.start(now);
-                osc.stop(now + 0.05);
-            } else if (type === 'merge') {
-                // Bright, rising pop for merging
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(300, now);
-                osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now);
-                osc.stop(now + 0.1);
-            } else if (type === 'over') {
-                // Descending sad tone
-                osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(200, now);
-                osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-                osc.start(now);
-                osc.stop(now + 0.5);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.08);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now); osc.stop(now + 0.08);
+            } else if (type === 'merge') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            } else if (type === 'over') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(110, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.6);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.6);
+                osc.start(now); osc.stop(now + 0.6);
             }
         }
 
-        // --- Game Logic ---
         const SIZE = 4;
-        let grid = []; // 2D array: { val: number, id: string, isNew: boolean, isMerged: boolean }
-        let score = 0;
-        let gameOver = false;
-        let gameStarted = false;
+        let grid = [], score = 0, gameOver = false, isStarted = false, tileIdCounter = 0, pendingDestroy = [];
 
-        // --- Rendering State ---
-        let tileSize = 0;
-        let gapSize = 10;
-        let tileIdCounter = 0;
-        let pendingDestroyIds = [];
-        let mergeMap = {};
-
-        // --- DOM Elements ---
         const tileContainer = document.getElementById('tile-container');
-        const scoreElement = document.getElementById('score');
-        const gameOverEl = document.getElementById('game-over');
+        const scoreEl = document.getElementById('score');
         const finalScoreEl = document.getElementById('final-score');
-        const gmContainer = document.getElementById('game-container');
-        const gridBackground = document.getElementById('grid-background');
 
-        // Colors mapping
-        const getTileStyle = (val) => {
-            const styles = {
-                2: { bg: 'var(--color-2)', color: '#fff', size: '36px' },
-                4: { bg: 'var(--color-4)', color: '#fff', size: '36px' },
-                8: { bg: 'var(--color-8)', color: '#fff', size: '36px' },
-                16: { bg: 'var(--color-16)', color: '#fff', size: '32px' },
-                32: { bg: 'var(--color-32)', color: '#fff', size: '32px' },
-                64: { bg: 'var(--color-64)', color: '#fff', size: '32px' },
-                128: { bg: 'var(--color-128)', color: '#fff', size: '28px', glow: '0 0 10px var(--color-128)' },
-                256: { bg: 'var(--color-256)', color: '#fff', size: '28px', glow: '0 0 15px var(--color-256)' },
-                512: { bg: 'var(--color-512)', color: '#fff', size: '28px', glow: '0 0 20px var(--color-512)' },
-                1024: { bg: 'var(--color-1024)', color: '#fff', size: '24px', glow: '0 0 25px var(--color-1024)' },
-                2048: { bg: 'var(--color-2048)', color: '#fff', size: '24px', glow: '0 0 30px var(--color-2048)' }
+        function getTileStyle(val) {
+            const map = {
+                2: 'var(--tile-2)', 4: 'var(--tile-4)', 8: 'var(--tile-8)',
+                16: 'var(--tile-16)', 32: 'var(--tile-32)', 64: 'var(--tile-64)',
+                128: 'var(--tile-128)', 256: 'var(--tile-256)', 512: 'var(--tile-512)',
+                1024: 'var(--tile-1024)', 2048: 'var(--tile-2048)'
             };
-            return styles[val] || { bg: 'var(--color-super)', color: '#fff', size: '20px', glow: '0 0 35px var(--color-super)' };
-        };
-
-        function calculateLayout() {
-            const totalWidth = tileContainer.clientWidth;
-            tileSize = (totalWidth - (gapSize * (SIZE - 1))) / SIZE;
-            renderAll();
+            const bg = map[val] || 'var(--tile-super)';
+            return {
+                bg,
+                glow: `0 0 20px ${bg.replace('hsl', 'hsla').replace(')', ', 0.5)')}`,
+                size: val < 100 ? '42px' : val < 1000 ? '36px' : '28px'
+            };
         }
-
-        window.addEventListener('resize', calculateLayout);
 
         function init() {
             grid = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
-            score = 0;
-            gameOver = false;
-            tileIdCounter = 0;
-            updateScore();
-            gameOverEl.classList.remove('active');
-            tileContainer.innerHTML = '';
-            calculateLayout();
-
-            addRandomTile();
-            addRandomTile();
-
-            parent.postMessage({ type: 'GAME_READY' }, '*');
+            score = 0; gameOver = false; tileIdCounter = 0;
+            scoreEl.textContent = '0'; tileContainer.innerHTML = '';
+            addRandomTile(); addRandomTile();
         }
 
         function createTile(val) {
-            return {
-                val: val,
-                id: `tile-${tileIdCounter++}`,
-                isNew: true,
-                isMerged: false,
-                destroyId: null // used for tiles that got merged and should be removed after anim
-            };
+            return { val, id: `t-${tileIdCounter++}`, isNew: true, isMerged: false };
         }
 
         function addRandomTile() {
-            let emptyCells = [];
+            const empty = [];
+            for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) if (!grid[r][c]) empty.push({ r, c });
+            if (empty.length) {
+                const { r, c } = empty[Math.floor(Math.random() * empty.length)];
+                grid[r][c] = createTile(Math.random() < 0.9 ? 2 : 4);
+                render();
+            }
+        }
+
+        function render() {
+            const tSize = (tileContainer.clientWidth - (12 * (SIZE - 1))) / SIZE;
+            const getPos = (i) => i * (tSize + 12);
+
+            // Animate active tiles
             for (let r = 0; r < SIZE; r++) {
                 for (let c = 0; c < SIZE; c++) {
-                    if (grid[r][c] === null) emptyCells.push({ r, c });
-                }
-            }
-            if (emptyCells.length > 0) {
-                const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-                const val = Math.random() < 0.9 ? 2 : 4;
-                grid[r][c] = createTile(val);
-                renderAll();
-            }
-        }
+                    const t = grid[r][c];
+                    if (t) {
+                        let el = document.getElementById(t.id);
+                        if (!el) {
+                            el = document.createElement('div');
+                            el.id = t.id; el.className = 'tile';
+                            const inner = document.createElement('div');
+                            inner.className = 'tile-inner';
+                            el.appendChild(inner);
+                            el.style.width = el.style.height = `${tSize}px`;
+                            el.style.transform = `translate(${getPos(c)}px, ${getPos(r)}px)`;
+                            tileContainer.appendChild(el);
+                        } else {
+                            el.style.transform = `translate(${getPos(c)}px, ${getPos(r)}px)`;
+                        }
 
-        function getPositionLeft(c) {
-            return c * (tileSize + gapSize);
-        }
+                        const style = getTileStyle(t.val);
+                        const inner = el.firstChild;
+                        inner.style.backgroundColor = style.bg;
+                        inner.style.boxShadow = style.glow;
+                        inner.style.fontSize = style.size;
+                        inner.textContent = t.val;
 
-        function getPositionTop(r) {
-            return r * (tileSize + gapSize);
-        }
-
-        function updateTileDOM(tileData, r, c) {
-            let tileEl = document.getElementById(tileData.id);
-            let innerEl;
-
-            if (!tileEl) {
-                // Wrapper for sliding
-                tileEl = document.createElement('div');
-                tileEl.id = tileData.id;
-                tileEl.className = 'tile';
-                tileEl.style.zIndex = "2";
-
-                // Inner for appearance and pop/merge scaling
-                innerEl = document.createElement('div');
-                innerEl.className = 'tile-inner';
-                tileEl.appendChild(innerEl);
-
-                // Disable transition temporarily to instantly move to start pos
-                tileEl.style.transition = 'none';
-                tileEl.style.transform = `translate(${getPositionLeft(c)}px, ${getPositionTop(r)}px)`;
-
-                tileContainer.appendChild(tileEl);
-
-                // Force a reflow so the browser applies the instant transform synchronously
-                void tileEl.offsetWidth;
-
-                // Restore transition for future moves
-                tileEl.style.transition = '';
-            } else {
-                innerEl = tileEl.querySelector('.tile-inner');
-                // For existing tiles, update position (this will trigger the CSS transition)
-                tileEl.style.transform = `translate(${getPositionLeft(c)}px, ${getPositionTop(r)}px)`;
-            }
-
-            // Wrapper sizing
-            tileEl.style.width = `${tileSize}px`;
-            tileEl.style.height = `${tileSize}px`;
-
-            // Inner appearance update
-            const style = getTileStyle(tileData.val);
-            innerEl.style.backgroundColor = style.bg;
-            innerEl.style.color = style.color;
-            innerEl.style.fontSize = style.size;
-            innerEl.style.boxShadow = style.glow || '0 4px 15px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.2)';
-            innerEl.textContent = tileData.val;
-
-            // Handle animations by adding classes to the wrapper (CSS targets .tile-new .tile-inner)
-            if (tileData.isNew) {
-                tileEl.classList.add('tile-new');
-                tileData.isNew = false;
-                setTimeout(() => tileEl.classList.remove('tile-new'), 200);
-            }
-            if (tileData.isMerged) {
-                tileEl.style.zIndex = "3"; // Merged tiles sit on top
-                tileEl.classList.add('tile-merged');
-                tileData.isMerged = false;
-                setTimeout(() => {
-                    tileEl.classList.remove('tile-merged');
-                    tileEl.style.zIndex = "2";
-                }, 350); // 150ms delay + 200ms anim
-            }
-        }
-
-        function updateScore() {
-            scoreElement.textContent = score;
-        }
-
-        function checkGameOver() {
-            for (let r = 0; r < SIZE; r++) {
-                for (let c = 0; c < SIZE; c++) {
-                    if (grid[r][c] === null) return false;
-                    if (c < 3 && grid[r][c].val === grid[r][c + 1].val) return false;
-                    if (r < 3 && grid[r][c].val === grid[r + 1][c].val) return false;
-                }
-            }
-            return true;
-        }
-
-        function handleGameOver() {
-            gameOver = true;
-            finalScoreEl.textContent = score;
-            gameOverEl.classList.add('active');
-            playSound('over');
-
-            parent.postMessage({
-                type: 'GAME_OVER',
-                score: score
-            }, '*');
-        }
-
-        function renderAll() {
-            // Render active tiles
-            for (let r = 0; r < SIZE; r++) {
-                for (let c = 0; c < SIZE; c++) {
-                    const tile = grid[r][c];
-                    if (tile !== null) {
-                        updateTileDOM(tile, r, c);
+                        if (t.isNew) { el.classList.add('tile-new'); t.isNew = false; setTimeout(() => el.classList.remove('tile-new'), 300); }
+                        if (t.isMerged) {
+                            el.classList.add('tile-merged'); t.isMerged = false;
+                            createParticles(getPos(c) + tSize / 2, getPos(r) + tSize / 2, style.bg);
+                            setTimeout(() => el.classList.remove('tile-merged'), 300);
+                        }
                     }
                 }
             }
 
-            // Remove tiles that were merged away in the previous turn
-            pendingDestroyIds.forEach(id => {
+            // Animate tiles marked for destruction to their merge target
+            pendingDestroy.forEach(({ id, r, c }) => {
                 const el = document.getElementById(id);
                 if (el) {
-                    el.style.zIndex = "1"; // slide under newly merged tile
-                    // Ensure the inner element isn't popping again
-                    const inner = el.querySelector('.tile-inner');
-                    if (inner) inner.style.animation = 'none';
-                    setTimeout(() => el.remove(), 150); // wait for slide animation to finish
+                    el.style.transform = `translate(${getPos(c)}px, ${getPos(r)}px)`;
+                    el.style.zIndex = '1';
+                    setTimeout(() => el.remove(), 180);
                 }
             });
-            pendingDestroyIds = [];
+            pendingDestroy = [];
         }
 
-        // --- Core Movement Logic ---
-        function processArray(line) {
-            // line is an array of tile objects or nulls
-            let filtered = line.filter(tile => tile !== null);
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.backgroundColor = color;
+                p.style.width = p.style.height = `${Math.random() * 6 + 4}px`;
+                p.style.left = `${x}px`; p.style.top = `${y}px`;
+                p.style.boxShadow = `0 0 10px ${color}`;
+                tileContainer.appendChild(p);
+
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * 50 + 20;
+                const tx = Math.cos(angle) * dist, ty = Math.sin(angle) * dist;
+
+                p.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+                ], { duration: 600, easing: 'cubic-bezier(0, .9, .57, 1)' }).onfinish = () => p.remove();
+            }
+        }
+
+        function processLine(line, r, c, dr, dc, isHorizontal) {
+            let filtered = line.filter(item => item.tile !== null);
             let result = [];
-            let i = 0;
 
-            while (i < filtered.length) {
-                if (i + 1 < filtered.length && filtered[i].val === filtered[i + 1].val) {
+            for (let i = 0; i < filtered.length; i++) {
+                if (i + 1 < filtered.length && filtered[i].tile.val === filtered[i + 1].tile.val) {
                     // Merge!
-                    const val = filtered[i].val * 2;
+                    const val = filtered[i].tile.val * 2;
+                    const nt = createTile(val);
+                    nt.isNew = false; nt.isMerged = true;
                     score += val;
-                    const newTile = createTile(val);
-                    newTile.isNew = false; // it's a merge, not a raw spawn
-                    newTile.isMerged = true;
 
-                    // Keep track of the old tiles so we can animate them to the same spot before destroying
-                    pendingDestroyIds.push(filtered[i].id, filtered[i + 1].id);
-                    mergeMap[filtered[i].id] = newTile.id;
-                    mergeMap[filtered[i + 1].id] = newTile.id;
+                    // The result index will be result.length
+                    const targetIdx = result.length;
 
-                    // The new tile conceptually replaces them
-                    result.push(newTile);
-                    i += 2;
-                } else {
-                    result.push(filtered[i]);
+                    // Convert line index to absolute grid coordinates
+                    const getCoords = (idx) => {
+                        if (isHorizontal) return { r: r, c: (dc > 0 ? idx : SIZE - 1 - idx) };
+                        return { r: (dr > 0 ? idx : SIZE - 1 - idx), c: c };
+                    };
+
+                    const destination = getCoords(targetIdx);
+                    pendingDestroy.push({ id: filtered[i].tile.id, r: destination.r, c: destination.c });
+                    pendingDestroy.push({ id: filtered[i + 1].tile.id, r: destination.r, c: destination.c });
+
+                    result.push(nt);
                     i++;
+                } else {
+                    result.push(filtered[i].tile);
                 }
             }
-
-            while (result.length < SIZE) {
-                result.push(null);
-            }
+            while (result.length < SIZE) result.push(null);
             return result;
         }
 
-        function move(direction) {
-            if (gameOver) return false;
+        function move(dir) {
+            if (gameOver) return;
+            const oldStr = JSON.stringify(grid.map(r => r.map(t => t?.val)));
 
-            let moved = false;
-            let mergedThisTurn = false;
-
-            // To animate destroyed tiles to their merge destinations, we intercept processArray
-            // But a simpler approach for smooth CSS animations:
-            // 1. Calculate new grid
-            // 2. Identify tiles that moved or were destroyed
-            // 3. For destroyed tiles, move their DOM element to the new location, then queue for deletion
-
-            let oldGridStates = [];
-            for (let r = 0; r < SIZE; r++) {
-                for (let c = 0; c < SIZE; c++) {
-                    if (grid[r][c]) {
-                        oldGridStates.push({ r, c, tile: grid[r][c] });
-                    }
-                }
-            }
-
-            // Create a working grid
-            let tempGrid = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
-
-            if (direction === 'LEFT' || direction === 'RIGHT') {
+            if (dir === 'left' || dir === 'right') {
                 for (let r = 0; r < SIZE; r++) {
-                    let row = grid[r];
-                    if (direction === 'RIGHT') row = [...row].reverse();
-                    let processed = processArray(row);
-                    if (direction === 'RIGHT') processed = processed.reverse();
-                    tempGrid[r] = processed;
-                }
-            } else if (direction === 'UP' || direction === 'DOWN') {
-                for (let c = 0; c < SIZE; c++) {
-                    let col = [grid[0][c], grid[1][c], grid[2][c], grid[3][c]];
-                    if (direction === 'DOWN') col = col.reverse();
-                    let processed = processArray(col);
-                    if (direction === 'DOWN') processed = processed.reverse();
-                    for (let r = 0; r < SIZE; r++) tempGrid[r][c] = processed[r];
-                }
-            }
-
-            // Check if anything actually moved
-            // Compare IDs and Values
-            let gridChanged = false;
-            for (let r = 0; r < SIZE; r++) {
-                for (let c = 0; c < SIZE; c++) {
-                    const oldT = grid[r][c];
-                    const newT = tempGrid[r][c];
-                    if ((oldT === null && newT !== null) ||
-                        (oldT !== null && newT === null) ||
-                        (oldT && newT && oldT.id !== newT.id)) {
-                        gridChanged = true;
-                        break;
-                    }
-                }
-                if (gridChanged) break;
-            }
-
-            if (gridChanged) {
-                grid = tempGrid;
-
-                // Locate destinations for all tiles in the new grid
-                let newPositions = {};
-                for (let r = 0; r < SIZE; r++) {
+                    const line = [];
                     for (let c = 0; c < SIZE; c++) {
-                        if (tempGrid[r][c]) {
-                            newPositions[tempGrid[r][c].id] = { r, c };
-                        }
+                        const colIdx = dir === 'left' ? c : SIZE - 1 - c;
+                        line.push({ tile: grid[r][colIdx], c: colIdx });
+                    }
+                    const res = processLine(line, r, null, null, dir === 'left' ? 1 : -1, true);
+                    for (let c = 0; c < SIZE; c++) {
+                        const colIdx = dir === 'left' ? c : SIZE - 1 - c;
+                        grid[r][colIdx] = res[c];
                     }
                 }
-
-                // Animate old tiles to their new slots before deletion
-                oldGridStates.forEach(old => {
-                    let targetR = old.r;
-                    let targetC = old.c;
-                    let isMerged = pendingDestroyIds.includes(old.tile.id);
-
-                    if (isMerged) {
-                        mergedThisTurn = true;
-                        // Find the exactly matching merged tile destination
-                        const mergedIntoId = mergeMap[old.tile.id];
-                        if (newPositions[mergedIntoId]) {
-                            targetR = newPositions[mergedIntoId].r;
-                            targetC = newPositions[mergedIntoId].c;
-                        }
-                    } else {
-                        // Regular move
-                        if (newPositions[old.tile.id]) {
-                            targetR = newPositions[old.tile.id].r;
-                            targetC = newPositions[old.tile.id].c;
-                        }
+            } else {
+                for (let c = 0; c < SIZE; c++) {
+                    const line = [];
+                    for (let r = 0; r < SIZE; r++) {
+                        const rowIdx = dir === 'up' ? r : SIZE - 1 - r;
+                        line.push({ tile: grid[rowIdx][c], r: rowIdx });
                     }
-
-                    let el = document.getElementById(old.tile.id);
-                    if (el && (targetR !== old.r || targetC !== old.c)) {
-                        el.style.transform = `translate(${getPositionLeft(targetC)}px, ${getPositionTop(targetR)}px)`;
-                        if (isMerged) {
-                            el.style.zIndex = "1"; // slide under the new tile
-                        }
+                    const res = processLine(line, null, c, dir === 'up' ? 1 : -1, null, false);
+                    for (let r = 0; r < SIZE; r++) {
+                        const rowIdx = dir === 'up' ? r : SIZE - 1 - r;
+                        grid[rowIdx][c] = res[r];
                     }
-                });
+                }
+            }
 
-                renderAll();
+            if (oldStr !== JSON.stringify(grid.map(r => r.map(t => t?.val)))) {
+                scoreEl.textContent = score;
+                WCGames.submitScore(score);
+                if (pendingDestroy.length) playSound('merge'); else playSound('move');
+                render();
                 setTimeout(() => {
                     addRandomTile();
-                    if (checkGameOver()) {
-                        handleGameOver();
+                    if (!grid.flat().includes(null)) {
+                        let canMove = false;
+                        for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+                            if (c < SIZE - 1 && grid[r][c]?.val === grid[r][c + 1]?.val) canMove = true;
+                            if (r < SIZE - 1 && grid[r][c]?.val === grid[r + 1][c]?.val) canMove = true;
+                        }
+                        if (!canMove) { gameOver = true; playSound('over'); finalScoreEl.textContent = score; WCGames.gameOver(score); }
                     }
-                }, 150); // Delay new spawn slightly to emphasize the slide
-
-                updateScore();
-
-                if (mergedThisTurn) playSound('merge');
-                else playSound('move');
+                }, 100);
             }
-
-            return gridChanged;
         }
 
-        // --- Controls ---
-
-        // Keyboard
         window.addEventListener('keydown', (e) => {
-            if (!gameStarted || gameOver) return;
-            initAudio(); // Initialize audio on first interact
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                e.preventDefault(); // Prevent page scroll
-            }
-
-            switch (e.key) {
-                case 'ArrowUp': move('UP'); break;
-                case 'ArrowDown': move('DOWN'); break;
-                case 'ArrowLeft': move('LEFT'); break;
-                case 'ArrowRight': move('RIGHT'); break;
-            }
+            initAudio();
+            if (e.key === 'ArrowLeft') move('left');
+            if (e.key === 'ArrowRight') move('right');
+            if (e.key === 'ArrowUp') move('up');
+            if (e.key === 'ArrowDown') move('down');
         });
 
-        // Touch swipe
-        let touchStartX = 0;
-        let touchStartY = 0;
-
-        document.addEventListener('touchstart', (e) => {
-            initAudio();
-            touchStartX = e.changedTouches[0].screenX;
-            touchStartY = e.changedTouches[0].screenY;
-        }, { passive: false });
-
-        document.addEventListener('touchend', (e) => {
-            if (!gameStarted || gameOver) return;
-
-            const touchEndX = e.changedTouches[0].screenX;
-            const touchEndY = e.changedTouches[0].screenY;
-
-            const dx = touchEndX - touchStartX;
-            const dy = touchEndY - touchStartY;
-
-            const absDx = Math.abs(dx);
-            const absDy = Math.abs(dy);
-
-            // Minimum swipe distance
-            if (Math.max(absDx, absDy) > 30) {
-                if (absDx > absDy) {
-                    // Horizontal
-                    if (dx > 0) move('RIGHT');
-                    else move('LEFT');
-                } else {
-                    // Vertical
-                    if (dy > 0) move('DOWN');
-                    else move('UP');
-                }
-            }
-        }, { passive: false });
-
-        // Prevent default touch movement to avoid pull-to-refresh
-        document.body.addEventListener('touchmove', function (e) {
-            e.preventDefault();
-        }, { passive: false });
-
-        document.getElementById('btn-restart').addEventListener('click', () => {
-            initAudio();
-            playSound('move');
-            init();
+        let tsX, tsY;
+        document.addEventListener('touchstart', e => { initAudio(); tsX = e.touches[0].clientX; tsY = e.touches[0].clientY; });
+        document.addEventListener('touchend', e => {
+            const dx = e.changedTouches[0].clientX - tsX, dy = e.changedTouches[0].clientY - tsY;
+            if (Math.abs(dx) > Math.abs(dy)) { if (Math.abs(dx) > 30) move(dx > 0 ? 'right' : 'left'); }
+            else { if (Math.abs(dy) > 30) move(dy > 0 ? 'down' : 'up'); }
         });
 
-        // Start
-        document.getElementById('start-btn').addEventListener('click', () => {
-            initAudio();
-            document.getElementById('start-screen').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('start-screen').style.display = 'none';
-            }, 300);
-
-            gameStarted = true;
-            init();
-        });
+        WCGames.init({ id: '2048', onStart: () => { isStarted = true; init(); }, onRestart: () => init() });
+        setTimeout(render, 50);
     </script>
-
     <script src="/shared/i18n.js"></script>
 </body>
 

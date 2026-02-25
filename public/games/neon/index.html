@@ -4,318 +4,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Jump - Hyper Casual</title>
+    <title>Neon Jump</title>
+    <link rel="stylesheet" href="/shared/wcgames-style.css">
     <style>
+        :root {
+            --theme-color: #ec4899;
+            --theme-glow: rgba(236, 72, 153, 0.4);
+        }
+
         body {
             margin: 0;
             overflow: hidden;
-            background: #050505;
+            background: #050510;
             color: white;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Inter', system-ui, sans-serif;
             user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-            overscroll-behavior: none;
             touch-action: none;
         }
 
         canvas {
             display: block;
+            z-index: 5;
+            position: relative;
         }
 
         #ui {
             position: absolute;
-            top: 20px;
+            top: 40px;
             left: 0;
             width: 100%;
             text-align: center;
             pointer-events: none;
+            z-index: 10;
         }
 
         #score {
             font-size: 60px;
-            font-weight: bold;
-            color: #ff00ff;
-            text-shadow: 0 0 10px #ff00ff;
-        }
-
-        button:hover {
-            background: #d400d4;
-            box-shadow: 0 0 20px #ff00ff;
-        }
-
-        #game-over {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            display: none;
-            z-index: 20;
-            min-width: 200px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        h1 {
-            color: #333;
-            margin: 0 0 10px 0;
-            font-size: 24px;
-        }
-
-        p {
-            color: #666;
-            margin: 0 0 20px 0;
-            font-size: 16px;
-        }
-
-        #final-score {
-            color: #ff00ff;
-            font-weight: bold;
-            font-size: 24px;
-        }
-
-        button {
-            background: #ff00ff;
-            border: none;
-            padding: 15px 40px;
-            color: white;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 0 #cc00cc;
-            margin-top: 5px;
-        }
-
-        button:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        #start-screen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            z-index: 30;
-            min-width: 250px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        .start-btn {
-            background: #ff00ff;
-            border: none;
-            padding: 15px 40px;
-            color: white;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            box-shadow: 0 4px 0 #cc00cc;
-        }
-
-        .start-btn:active {
-            transform: translateY(4px);
-            box-shadow: none;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px var(--theme-glow), 0 0 40px var(--theme-glow);
         }
     </style>
-
-
-    <!-- WCGames Popup Theming -->
-    <style id="wcgames-popup-theme">
-        :root {
-            --theme-color: #ec4899 !important;
-            --theme-glow: rgba(236, 72, 153, 0.4) !important;
-        }
-
-        /* Strict override for the overlay containers */
-        .wcg-overlay {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-width: none !important;
-            background: rgba(10, 11, 26, 0.7) !important;
-            backdrop-filter: blur(5px) !important;
-            -webkit-backdrop-filter: blur(5px) !important;
-            display: flex !important;
-            /* Force flex, we manage vis via opacity */
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: 9999 !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            transition: opacity 0.3s ease !important;
-            border: none !important;
-            transform: none !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            text-align: center !important;
-        }
-
-        /* ONLY show if has .wcg-visible */
-        .wcg-overlay.wcg-visible {
-            opacity: 1 !important;
-            pointer-events: auto !important;
-        }
-
-        /* The Glassmorphism Popup Box */
-        .wcg-popup {
-            background: rgba(15, 17, 35, 0.85) !important;
-            backdrop-filter: blur(16px) !important;
-            -webkit-backdrop-filter: blur(16px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-radius: 24px !important;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px var(--theme-glow) !important;
-            padding: 40px 30px !important;
-            width: 85% !important;
-            max-width: 400px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            box-sizing: border-box !important;
-        }
-
-        /* Popup entry animation */
-        .wcg-overlay.wcg-visible .wcg-popup {
-            transform: scale(1) translateY(0);
-        }
-
-        /* Typography inside popup */
-        .wcg-popup h1,
-        .wcg-popup h2,
-        .wcg-popup .title {
-            font-family: 'Inter', 'Orbitron', 'Segoe UI', sans-serif !important;
-            font-size: 36px !important;
-            font-weight: 900 !important;
-            margin: 0 0 16px 0 !important;
-            color: #fff !important;
-            background: linear-gradient(to bottom right, #fff, var(--theme-color)) !important;
-            -webkit-background-clip: text !important;
-            -webkit-text-fill-color: transparent !important;
-            filter: drop-shadow(0 0 10px var(--theme-glow)) !important;
-            line-height: 1.2 !important;
-            border: none !important;
-        }
-
-        .wcg-popup p,
-        .wcg-popup .instructions,
-        .wcg-popup div[style*="font-size: 24px"],
-        .wcg-popup div:not(.title):not(.btn) {
-            font-family: 'Inter', sans-serif !important;
-            font-size: 16px !important;
-            color: #cbd5e1 !important;
-            line-height: 1.6 !important;
-            margin: 0 0 32px 0 !important;
-            max-width: 100% !important;
-            text-shadow: none !important;
-            font-weight: 400 !important;
-            background: none !important;
-            -webkit-text-fill-color: initial !important;
-            filter: none !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] {
-            font-size: 20px !important;
-            color: #fff !important;
-            font-weight: 700 !important;
-            margin-bottom: 30px !important;
-        }
-
-        .wcg-popup div[style*="font-size: 24px"] span,
-        .wcg-popup #final-score {
-            color: var(--theme-color) !important;
-        }
-
-        /* Buttons */
-        .wcg-popup button,
-        .wcg-popup .btn,
-        .wcg-popup .start-btn,
-        .wcg-popup .btn-start,
-        .wcg-popup .btn-restart {
-            font-family: 'Inter', 'Orbitron', sans-serif !important;
-            background: rgba(255, 255, 255, 0.05) !important;
-            border: 1px solid var(--theme-color) !important;
-            color: #fff !important;
-            font-size: 18px !important;
-            font-weight: 700 !important;
-            padding: 16px 40px !important;
-            border-radius: 100px !important;
-            cursor: pointer !important;
-            letter-spacing: 1px !important;
-            box-shadow: 0 0 20px var(--theme-glow), inset 0 0 10px var(--theme-glow) !important;
-            transition: all 0.2s ease !important;
-            margin: 0 !important;
-            width: 100% !important;
-            max-width: 250px !important;
-            -webkit-text-fill-color: initial !important;
-        }
-
-        .wcg-popup button:hover,
-        .wcg-popup .btn:hover,
-        .wcg-popup .start-btn:hover,
-        .wcg-popup .btn-start:hover,
-        .wcg-popup .btn-restart:hover {
-            background: var(--theme-color) !important;
-            color: #0f1123 !important;
-            box-shadow: 0 0 30px var(--theme-color), inset 0 0 15px rgba(255, 255, 255, 0.5) !important;
-            transform: scale(1.05) translateY(-2px) !important;
-        }
-
-        .wcg-popup button:active,
-        .wcg-popup .btn:active,
-        .wcg-popup .start-btn:active,
-        .wcg-popup .btn-start:active,
-        .wcg-popup .btn-restart:active {
-            transform: scale(0.95) !important;
-        }
-
-        /* Anti-FOUC safeguard: hide target popups until themed */
-        body:not(.wcg-ready) #start-screen,
-        body:not(.wcg-ready) #game-over,
-        body:not(.wcg-ready) #game-over-screen {
-            opacity: 0 !important;
-            pointer-events: none !important;
-            visibility: hidden !important;
-        }
-    </style>
-    <!-- End WCGames Popup Theming -->
+    <script src="/shared/wcgames-core.js"></script>
 </head>
 
-<body class="wcg-ready">
+<body>
+    <!-- Aurora Background Layers -->
+    <div class="aurora-bg">
+        <div class="aurora-blob blob-1"></div>
+        <div class="aurora-blob blob-2" style="background: var(--theme-color); opacity: 0.3;"></div>
+        <div class="aurora-blob blob-3"></div>
+    </div>
+    <div class="glass-overlay"></div>
+
     <div id="ui">
         <div id="score">0</div>
     </div>
 
-    <div id="start-screen" class="wcg-overlay wcg-visible" style="display: flex;">
+    <div id="start-screen" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="title">NEON JUMP</h1>
-            <p data-i18n="instruction">Tap or Space to Jump.<br>Avoid the pipes!</p>
-            <button class="start-btn" onclick="startGame()" data-i18n="play">PLAY</button>
+            <p data-i18n="instruction">Tap or Space to jump.<br>Avoid the neon pipes!</p>
+            <button onclick="WCGames.start()" data-i18n="play">PLAY</button>
         </div>
     </div>
 
-    <div id="game-over" class="wcg-overlay" style="display: none;">
+    <div id="game-over" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="game_over">GAME OVER</h1>
-            <p><span data-i18n="final_score">Score: </span><span id="final-score">0</span></p>
-            <button class="start-btn" onclick="restartGame()" data-i18n="play_again">RETRY</button>
+            <p><span data-i18n="final_score">Final Score: </span><span id="final-score">0</span></p>
+            <button onclick="WCGames.restart()" data-i18n="play_again">RETRY</button>
         </div>
     </div>
 
@@ -325,19 +83,16 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
-        const gameOverEl = document.getElementById('game-over');
         const finalScoreEl = document.getElementById('final-score');
 
         // Audio Manager
         class AudioManager {
-            constructor() {
-                this.ctx = null;
-            }
+            constructor() { this.ctx = null; }
             init() {
                 if (this.ctx) return;
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            playNote(freq, type, duration, volume) {
+            play(freq, type, dur, vol) {
                 if (!this.ctx) return;
                 if (this.ctx.state === 'suspended') this.ctx.resume();
                 const osc = this.ctx.createOscillator();
@@ -345,51 +100,41 @@
                 osc.type = type;
                 if (Array.isArray(freq)) {
                     osc.frequency.setValueAtTime(freq[0], this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(freq[1], this.ctx.currentTime + duration);
+                    osc.frequency.exponentialRampToValueAtTime(freq[1], this.ctx.currentTime + dur);
                 } else {
                     osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
                 }
-                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + duration);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + dur);
             }
+            jump() { this.play(520, 'sine', 0.1, 0.15); }
+            score(n) {
+                this.play(660 + (n % 12) * 30, 'sine', 0.12, 0.15);
+                setTimeout(() => this.play(880 + (n % 12) * 30, 'sine', 0.1, 0.1), 50);
+            }
+            hit() { this.play([300, 60], 'sawtooth', 0.4, 0.2); }
         }
         const audio = new AudioManager();
 
-        // Game Constants
-        const GRAVITY = 0.5;
-        const JUMP_FORCE = -8;
-        const PIPE_SPEED = 3.5;
-        const PIPE_SPAWN_RATE = 100; // frames
-        const PIPE_GAP = 180;
+        // Game state
+        let player = { x: 0, y: 0, radius: 14, velocity: 0 };
+        let pipes = [], particles = [], stars = [];
+        let frames = 0, score = 0, isGameOver = false, isStarted = false;
+        let time = 0, screenShake = 0;
+        const GRAVITY = 0.45, JUMP = -7.5, PIPE_GAP = 170, PIPE_SPEED = 3, PIPE_WIDTH = 55;
 
-        let player = { x: 50, y: 300, w: 30, h: 30, velocity: 0 };
-        let pipes = [];
-        let ghosts = []; // Player jump trails
-        let frames = 0;
-        let score = 0;
-        let isGameOver = false;
-        let isStarted = false;
-        let bgScrollX = 0; // Scrolling grid
-        let stars = [];
-        let bgGrad, horizonGrad; // Cached gradients
-
-        // Explicitly set flags to false on load
-        isStarted = false;
-        isGameOver = false;
-
+        // Init stars
         function initStars() {
             stars = [];
-            for (let i = 0; i < 150; i++) {
+            for (let i = 0; i < 80; i++) {
                 stars.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    size: Math.random() * 2,
-                    opacity: Math.random(),
-                    speed: 0.2 + Math.random() * 0.5
+                    x: Math.random() * 2000,
+                    y: Math.random() * 2000,
+                    size: Math.random() * 2 + 0.5,
+                    speed: Math.random() * 0.5 + 0.2,
+                    twinkle: Math.random() * Math.PI * 2
                 });
             }
         }
@@ -398,331 +143,383 @@
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            initStars();
-
-            // Cache gradients
-            bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            bgGrad.addColorStop(0, '#050515');
-            bgGrad.addColorStop(1, '#1a0525');
-
-            const horizonY = canvas.height * 0.5;
-            horizonGrad = ctx.createLinearGradient(0, horizonY - 50, 0, horizonY + 2);
-            horizonGrad.addColorStop(0, 'transparent');
-            horizonGrad.addColorStop(1, '#00ffff');
-
+            player.x = canvas.width * 0.2;
             if (!isStarted) player.y = canvas.height / 2;
         }
         window.addEventListener('resize', resize);
         resize();
 
-        // Spawn first pipe in advance so it's visible behind the start screen
-        createPipe();
-
-        function handleAction() {
-            audio.init();
-            jump();
-        }
-
         function jump() {
             if (isGameOver || !isStarted) return;
-            player.velocity = JUMP_FORCE;
-
-            // Ghost trail on jump
-            ghosts.push({
-                x: player.x, y: player.y,
-                w: player.w, h: player.h,
-                life: 1.0
-            });
-
-            audio.playNote([440, 660], 'sine', 0.1, 0.1);
+            player.velocity = JUMP;
+            audio.jump();
+            // Spawn jump particles
+            for (let i = 0; i < 6; i++) {
+                particles.push({
+                    x: player.x,
+                    y: player.y + player.radius,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: Math.random() * 2 + 1,
+                    life: 0.6 + Math.random() * 0.3,
+                    color: Math.random() > 0.5 ? '#ff00ff' : '#ff66cc',
+                    size: Math.random() * 4 + 2
+                });
+            }
         }
 
-        window.addEventListener('pointerdown', handleAction);
+        window.addEventListener('pointerdown', jump);
         window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') {
-                e.preventDefault();
-                handleAction();
-            }
+            if (e.code === 'Space') { e.preventDefault(); jump(); }
         });
 
         function createPipe() {
-            const minHeight = 50;
-            const maxHeight = canvas.height - PIPE_GAP - minHeight;
-            const h = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
-            pipes.push({ x: canvas.width, y: 0, w: 60, h: h, type: 'top', passed: false });
-            pipes.push({ x: canvas.width, y: h + PIPE_GAP, w: 60, h: canvas.height - h - PIPE_GAP, type: 'bottom', passed: false });
+            const SECTIONS = 7;
+            const sectionH = canvas.height / SECTIONS;
+            // Gap can start at sections 2~5 (index 1~4), so sections 1 and 7 always have pipe
+            const gapStart = Math.floor(Math.random() * 4) + 1; // 1,2,3,4
+            const topH = gapStart * sectionH;
+            const gapSize = sectionH * 2; // gap spans 2 sections
+            const hue = (frames * 2) % 360;
+
+            // Animation: only one side animates (top or bottom, never both)
+            // Starts at 10%, increases 1% per score, capped at 60%
+            const animChance = Math.min(1.0, 0.1 + score * 0.01);
+            const animated = Math.random() < animChance;
+            const animSide = Math.random() > 0.5 ? 'top' : 'bottom'; // which side moves
+            const animSpeed = 1 + Math.random() * 2; // speed: 1~3
+            const animAmp = sectionH * 0.8; // max grow/shrink amount
+            const animPhase = Math.random() * Math.PI * 2; // random start phase
+
+            pipes.push({
+                x: canvas.width, topH, gapSize, hue, passed: false,
+                baseTopH: topH, baseGapSize: gapSize,
+                animated, animSide, animSpeed, animAmp, animPhase
+            });
         }
 
         function update() {
             if (isGameOver || !isStarted) return;
-
+            time += 0.016;
             player.velocity += GRAVITY;
             player.y += player.velocity;
 
-            // Background Scroll
-            bgScrollX -= PIPE_SPEED * 0.8;
-            if (bgScrollX <= -100) bgScrollX = 0;
+            // Screen boundaries
+            if (player.y + player.radius > canvas.height || player.y - player.radius < 0) endGame();
 
-            // Ghost Trail
-            if (frames % 3 === 0 && player.velocity < 5 && player.velocity > -10) {
-                ghosts.push({ x: player.x, y: player.y, w: player.w, h: player.h, life: 1.0 });
-            }
+            // Spawn pipes
+            if (frames % 95 === 0) createPipe();
 
-            // Boundary Check
-            if (player.y + player.h > canvas.height || player.y < 0) {
-                gameOver();
-            }
-
-            // Pipe Management
-            if (frames > 0 && frames % PIPE_SPAWN_RATE === 0) createPipe();
-
+            // Update pipes
+            const sectionH = canvas.height / 7;
             for (let i = pipes.length - 1; i >= 0; i--) {
-                const pipe = pipes[i];
-                pipe.x -= PIPE_SPEED;
+                const p = pipes[i];
+                p.x -= PIPE_SPEED;
 
-                // Collision Detection (Forgiving Hitbox)
-                const PADDING = 6;
-                if (player.x + PADDING < pipe.x + pipe.w &&
-                    player.x + player.w - PADDING > pipe.x &&
-                    player.y + PADDING < pipe.y + pipe.h &&
-                    player.y + player.h - PADDING > pipe.y) {
-                    gameOver();
+                // Animate pipe
+                if (p.animated) {
+                    const wave = Math.sin(time * p.animSpeed + p.animPhase) * p.animAmp;
+                    if (p.animSide === 'top') {
+                        // Top pipe grows/shrinks, gap moves down/up
+                        p.topH = p.baseTopH + wave;
+                        // Clamp: section 1 must have pipe (topH >= sectionH)
+                        p.topH = Math.max(sectionH, p.topH);
+                        // Clamp: section 7 must have pipe (bottom pipe end <= canvas.height - sectionH)
+                        p.topH = Math.min(canvas.height - sectionH - p.baseGapSize, p.topH);
+                    } else {
+                        // Bottom pipe grows/shrinks, gap size changes
+                        const newGap = p.baseGapSize - wave;
+                        // Clamp gap: keep reasonable and ensure section 7 has pipe
+                        p.gapSize = Math.max(sectionH * 1.2, newGap);
+                        p.gapSize = Math.min(canvas.height - p.topH - sectionH, p.gapSize);
+                    }
                 }
 
-                // Score Counting
-                if (!pipe.passed && pipe.type === 'top' && player.x > pipe.x + pipe.w) {
-                    pipe.passed = true;
+                // Collision detection (circle vs rect)
+                const pr = player.radius - 2;
+                // Top pipe
+                if (player.x + pr > p.x && player.x - pr < p.x + PIPE_WIDTH &&
+                    player.y - pr < p.topH) endGame();
+                // Bottom pipe
+                if (player.x + pr > p.x && player.x - pr < p.x + PIPE_WIDTH &&
+                    player.y + pr > p.topH + p.gapSize) endGame();
+
+                // Score
+                if (!p.passed && player.x > p.x + PIPE_WIDTH) {
+                    p.passed = true;
                     score++;
                     scoreEl.textContent = score;
-                    audio.playNote([660, 880], 'square', 0.1, 0.05);
-                    window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+                    audio.score(score);
                 }
 
-                // Remove off-screen pipes
-                if (pipe.x + pipe.w < 0) {
-                    pipes.splice(i, 1);
-                }
+                // Cleanup
+                if (p.x + PIPE_WIDTH < -10) pipes.splice(i, 1);
             }
+
+            // Trail particles
+            if (frames % 2 === 0) {
+                particles.push({
+                    x: player.x - player.radius,
+                    y: player.y + (Math.random() - 0.5) * 10,
+                    vx: -1.5,
+                    vy: (Math.random() - 0.5) * 1,
+                    life: 0.4 + Math.random() * 0.3,
+                    color: '#ff00ff',
+                    size: Math.random() * 3 + 1
+                });
+            }
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.025;
+                p.size *= 0.97;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // Screen shake decay
+            if (screenShake > 0) screenShake *= 0.9;
 
             frames++;
         }
 
-        function draw() {
-            // Layer 1: Cosmic Gradient (Cached)
-            ctx.fillStyle = bgGrad;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Layer 2: Flickering Starfield (Optimized to fillRect)
-            for (let i = 0; i < stars.length; i++) {
-                const s = stars[i];
-                s.opacity += (Math.random() - 0.5) * 0.1;
-                s.opacity = Math.max(0.1, Math.min(1, s.opacity));
-                ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
-                ctx.fillRect(s.x, s.y, s.size, s.size);
-                s.x -= s.speed;
-                if (s.x < -s.size) s.x = canvas.width;
-            }
-
-            // Layer 3: 3D Perspective Grid (Batched Lines)
-            const horizonY = canvas.height * 0.5;
-            ctx.strokeStyle = '#220044'; // Darker grid
+        function drawGrid() {
+            const gridSize = 50;
+            const scrollOffset = (frames * 1.5) % gridSize;
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.06)';
             ctx.lineWidth = 1;
-            ctx.beginPath();
 
-            // Vanishing lines
-            const vpX = canvas.width / 2;
-            const lineCount = 24;
-            for (let i = 0; i <= lineCount; i++) {
-                const x = (canvas.width / lineCount) * i;
-                ctx.moveTo(vpX, horizonY);
+            // Horizontal lines
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            // Vertical lines (scrolling)
+            for (let x = -scrollOffset; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
-            }
-            ctx.stroke();
-
-            // Horizontal receding lines (Batched with alpha)
-            for (let i = 0; i < 15; i++) {
-                const y = horizonY + (Math.pow(i / 15, 2) * (canvas.height - horizonY));
-                const scrollY = (bgScrollX % 50) / 50 * (horizonY / 15);
-                const finalY = y + scrollY;
-                if (finalY > canvas.height) continue;
-
-                ctx.globalAlpha = (i / 15);
-                ctx.beginPath();
-                ctx.moveTo(0, finalY);
-                ctx.lineTo(canvas.width, finalY);
                 ctx.stroke();
             }
-            ctx.globalAlpha = 1;
+        }
 
-            // Layer 4: Horizon Glow (Cached)
-            ctx.fillStyle = horizonGrad;
-            ctx.globalAlpha = 0.2; // Reduced alpha
-            ctx.fillRect(0, horizonY - 50, canvas.width, 52);
-            ctx.globalAlpha = 1;
-
-            ctx.strokeStyle = '#004444'; // Extremely subtle cyan
-            ctx.lineWidth = 1; // Thinner line
-            // Removed expensive shadowBlur from here
-            ctx.beginPath();
-            ctx.moveTo(0, horizonY);
-            ctx.lineTo(canvas.width, horizonY);
-            ctx.stroke();
-
-            // Draw Ghosts (Batched)
-            ctx.shadowBlur = 0;
-            ctx.globalAlpha = 0.4;
-            ctx.fillStyle = '#ff00ff';
-            for (let i = ghosts.length - 1; i >= 0; i--) {
-                const g = ghosts[i];
-                ctx.fillRect(g.x, g.y, g.w, g.h);
-                g.life -= 0.04;
-                g.x -= PIPE_SPEED;
-                if (g.life <= 0) ghosts.splice(i, 1);
-            }
-            ctx.globalAlpha = 1;
-
-            // Draw Pipes (Batched for Performance)
-            if (pipes.length > 0) {
-                // Batch 1: Outer Neon Strokes with Glow
-                ctx.shadowBlur = isStarted ? 10 : 0;
-                ctx.shadowColor = '#00ffff';
-                ctx.strokeStyle = '#00ffff';
-                ctx.lineWidth = 3;
+        function drawStars() {
+            stars.forEach(s => {
+                s.x -= s.speed;
+                s.twinkle += 0.03;
+                if (s.x < 0) s.x = canvas.width;
+                const alpha = 0.3 + Math.sin(s.twinkle) * 0.2;
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
                 ctx.beginPath();
-                pipes.forEach(pipe => {
-                    ctx.rect(pipe.x, pipe.y, pipe.w, pipe.h);
-                });
-                ctx.stroke();
-
-                // Batch 2: Inner Fills (No Glow)
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = 'rgba(0, 255, 255, 0.1)';
-                ctx.beginPath();
-                pipes.forEach(pipe => {
-                    ctx.rect(pipe.x, pipe.y, pipe.w, pipe.h);
-                });
+                ctx.arc(s.x, s.y % canvas.height, s.size, 0, Math.PI * 2);
                 ctx.fill();
-            }
-
-            // Draw Player
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#ff00ff';
-            ctx.strokeStyle = '#ff00ff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(player.x, player.y, player.w, player.h);
-            ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
-            ctx.shadowBlur = 0;
-            ctx.fillRect(player.x, player.y, player.w, player.h);
-
-            if (!isStarted) {
-                ctx.shadowBlur = 10;
-                ctx.fillStyle = 'white';
-                ctx.font = '24px "Courier New"';
-                ctx.textAlign = 'center';
-                ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2 + 100);
-            }
-
-            requestAnimationFrame(() => {
-                update();
-                draw();
             });
         }
 
-        function gameOver() {
+        function drawPipe(p) {
+            const glow = `hsl(${p.hue}, 100%, 60%)`;
+            const glowDark = `hsl(${p.hue}, 100%, 30%)`;
+
+            // Top pipe
+            const topGrad = ctx.createLinearGradient(p.x, 0, p.x + PIPE_WIDTH, 0);
+            topGrad.addColorStop(0, glowDark);
+            topGrad.addColorStop(0.5, glow);
+            topGrad.addColorStop(1, glowDark);
+            ctx.fillStyle = topGrad;
+            ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topH);
+
+            // Top pipe border glow
+            ctx.strokeStyle = glow;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = glow;
+            ctx.strokeRect(p.x, 0, PIPE_WIDTH, p.topH);
+
+            // Top pipe cap
+            ctx.fillStyle = glow;
+            ctx.fillRect(p.x - 5, p.topH - 8, PIPE_WIDTH + 10, 8);
+            ctx.strokeRect(p.x - 5, p.topH - 8, PIPE_WIDTH + 10, 8);
+
+            // Bottom pipe
+            const botY = p.topH + p.gapSize;
+            const botGrad = ctx.createLinearGradient(p.x, 0, p.x + PIPE_WIDTH, 0);
+            botGrad.addColorStop(0, glowDark);
+            botGrad.addColorStop(0.5, glow);
+            botGrad.addColorStop(1, glowDark);
+            ctx.fillStyle = botGrad;
+            ctx.fillRect(p.x, botY, PIPE_WIDTH, canvas.height - botY);
+
+            // Bottom pipe border glow
+            ctx.strokeRect(p.x, botY, PIPE_WIDTH, canvas.height - botY);
+
+            // Bottom pipe cap
+            ctx.fillRect(p.x - 5, botY, PIPE_WIDTH + 10, 8);
+            ctx.strokeRect(p.x - 5, botY, PIPE_WIDTH + 10, 8);
+
+            ctx.shadowBlur = 0;
+        }
+
+        function drawPlayer() {
+            const pulse = Math.sin(time * 8) * 0.2 + 0.8;
+            const px = player.x;
+            const py = player.y;
+            const r = player.radius;
+
+            // Outer glow
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = '#ff00ff';
+
+            // Glow ring
+            ctx.beginPath();
+            ctx.arc(px, py, r + 4, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 0, 255, ${pulse * 0.4})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Main body (gradient)
+            const grad = ctx.createRadialGradient(px - 3, py - 3, 0, px, py, r);
+            grad.addColorStop(0, '#ff88dd');
+            grad.addColorStop(0.6, '#ff00ff');
+            grad.addColorStop(1, '#aa00aa');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(px, py, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Border
+            ctx.strokeStyle = '#ff66ff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner highlight
+            ctx.beginPath();
+            ctx.arc(px - 3, py - 4, r * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 200, 255, 0.4)';
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+        }
+
+        function drawFloorCeiling() {
+            // Top line
+            const grad1 = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            grad1.addColorStop(0, 'rgba(0, 255, 255, 0)');
+            grad1.addColorStop(0.5, 'rgba(0, 255, 255, 0.6)');
+            grad1.addColorStop(1, 'rgba(0, 255, 255, 0)');
+            ctx.strokeStyle = grad1;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00ffff';
+            ctx.beginPath();
+            ctx.moveTo(0, 1);
+            ctx.lineTo(canvas.width, 1);
+            ctx.stroke();
+
+            // Bottom line
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 1);
+            ctx.lineTo(canvas.width, canvas.height - 1);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Screen shake
+            if (screenShake > 0.5) {
+                ctx.save();
+                ctx.translate(
+                    (Math.random() - 0.5) * screenShake,
+                    (Math.random() - 0.5) * screenShake
+                );
+            }
+
+            // Background layers
+            drawGrid();
+            drawStars();
+
+            // Pipes
+            pipes.forEach(p => drawPipe(p));
+
+            // Particles (behind player)
+            drawParticles();
+
+            // Player
+            if (isStarted) drawPlayer();
+
+            // Floor/ceiling neon lines
+            drawFloorCeiling();
+
+            if (screenShake > 0.5) ctx.restore();
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        function endGame() {
             if (isGameOver) return;
             isGameOver = true;
-            audio.playNote([220, 55], 'sawtooth', 0.4, 0.2);
-
-            const gameOverScreen = document.getElementById('game-over');
-            gameOverScreen.style.display = 'flex';
-            gameOverScreen.offsetHeight; // trigger reflow
-            gameOverScreen.classList.add('wcg-visible');
-
+            screenShake = 15;
+            audio.hit();
+            // Death burst particles
+            for (let i = 0; i < 20; i++) {
+                const angle = (Math.PI * 2 / 20) * i;
+                const speed = 2 + Math.random() * 4;
+                particles.push({
+                    x: player.x,
+                    y: player.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 0.8 + Math.random() * 0.4,
+                    color: Math.random() > 0.5 ? '#ff00ff' : '#00ffff',
+                    size: Math.random() * 5 + 2
+                });
+            }
             finalScoreEl.textContent = score;
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+            WCGames.gameOver(score);
         }
 
-        function restartGame() {
-            // 1. Hide Game Over Screen
-            const gameOverScreen = document.getElementById('game-over');
-            gameOverScreen.style.display = 'none';
-            gameOverScreen.classList.remove('wcg-visible');
-
-            // 2. Reset state
-            pipes = [];
-            ghosts = [];
-            score = 0;
-            frames = 0;
+        function resetGame() {
             isGameOver = false;
-
+            isStarted = true;
             player.y = canvas.height / 2;
             player.velocity = 0;
-
-            scoreEl.textContent = score;
-
-            // 3. Prep initial pipe immediately
-            createPipe();
-
-            // 4. State handled
+            pipes = [];
+            particles = [];
+            frames = 0;
+            score = 0;
+            time = 0;
+            screenShake = 0;
+            scoreEl.textContent = '0';
         }
 
-        function startGame() {
-            audio.init();
-
-            const startScreen = document.getElementById('start-screen');
-            startScreen.style.display = 'none';
-            startScreen.classList.remove('wcg-visible');
-
-            isStarted = true;
-        }
+        WCGames.init({
+            id: 'neon',
+            onStart: () => { audio.init(); resetGame(); },
+            onRestart: () => { audio.init(); resetGame(); }
+        });
 
         draw();
-
-        // Notify platform
-        window.parent.postMessage({ type: 'GAME_READY' }, '*');
     </script>
-    <!-- Bottom Banner Container -->
-    <style>
-        #bottom-banner {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            display: none;
-            /* hidden for now */
-            justify-content: center;
-            z-index: 1000;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px 0;
-        }
-
-        #bottom-banner .adsbygoogle {
-            display: inline-block;
-            width: 320px;
-            height: 50px;
-        }
-
-        @media(min-width: 768px) {
-            #bottom-banner .adsbygoogle {
-                width: 728px;
-                height: 90px;
-            }
-        }
-    </style>
-    <div id="bottom-banner" style="display: none !important;">
-        <script async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6684397532194817"
-            crossorigin="anonymous"></script>
-        <!-- HyperGame_Bottom_Banner -->
-        <ins class="adsbygoogle" data-ad-client="ca-pub-6684397532194817" data-ad-slot="8181343233"></ins>
-        <script>
-            (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-    </div>
-
     <script src="/shared/i18n.js"></script>
-    </script>
-
 </body>
 
 </html>
