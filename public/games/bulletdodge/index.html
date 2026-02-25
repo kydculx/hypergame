@@ -15,62 +15,92 @@
             --bg-popup: rgba(10, 12, 30, 0.9);
         }
 
+        /* Deep space background */
         body {
             margin: 0;
+            padding: 0;
             overflow: hidden;
-            background: radial-gradient(ellipse at 30% 20%, #1a0a2e 0%, #050510 50%, #0a0a1a 100%);
-            color: white;
-            font-family: 'Orbitron', sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
+            background: radial-gradient(circle at center, #0c0a1f 0%, #020205 100%);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
             touch-action: none;
         }
 
-        /* Scrolling starfield + tactical grid */
+        /* Base atmosphere: Nebulas and Vignette (Grid Removed) */
         body::before {
             content: '';
             position: fixed;
             inset: 0;
             background:
-                /* Tactical grid */
-                linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
-                /* Stars layer 1 (bright) */
-                radial-gradient(1.5px 1.5px at 25px 45px, #fff, transparent),
-                radial-gradient(1px 1px at 75px 120px, rgba(255, 255, 255, 0.9), transparent),
-                radial-gradient(1.2px 1.2px at 140px 30px, #fff, transparent),
-                radial-gradient(1px 1px at 180px 160px, rgba(200, 220, 255, 0.8), transparent),
-                /* Stars layer 2 (dim) */
-                radial-gradient(0.8px 0.8px at 50px 90px, rgba(255, 255, 255, 0.5), transparent),
-                radial-gradient(0.8px 0.8px at 110px 70px, rgba(255, 255, 255, 0.4), transparent),
-                radial-gradient(0.8px 0.8px at 160px 140px, rgba(180, 200, 255, 0.3), transparent);
-            background-size:
-                60px 60px, 60px 60px,
-                200px 200px, 200px 200px, 200px 200px, 200px 200px,
-                300px 300px, 300px 300px, 300px 300px;
-            animation: starScroll 40s linear infinite;
+                /* Danger/Vignette overlay */
+                radial-gradient(circle at center, transparent 50%, rgba(2, 2, 5, 0.4) 100%),
+                radial-gradient(ellipse at 70% 80%, rgba(239, 68, 68, 0.04) 0%, transparent 60%),
+                /* Nebula glows */
+                radial-gradient(circle at 20% 30%, rgba(56, 189, 248, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
+            background-size: 100% 100%;
+            animation: nebulaPulse 10s ease-in-out infinite alternate;
             z-index: -2;
         }
 
-        @keyframes starScroll {
+        @keyframes nebulaPulse {
+            from {
+                filter: brightness(1) saturate(1);
+            }
+
             to {
-                background-position:
-                    0 60px, 60px 0,
-                    0 200px, 0 200px, 0 200px, 0 200px,
-                    0 150px, 0 150px, 0 150px;
+                filter: brightness(1.2) saturate(1.1);
             }
         }
 
-        /* Danger vignette */
+        /* Twinkling and randomly scattered stars */
         body::after {
             content: '';
             position: fixed;
             inset: 0;
             background:
-                radial-gradient(circle at center, transparent 30%, rgba(5, 5, 16, 0.9) 100%),
-                radial-gradient(ellipse at 70% 80%, rgba(239, 68, 68, 0.06) 0%, transparent 60%);
+                /* Variety of stars at different offsets and larger sizes */
+                radial-gradient(2px 2px at 20px 30px, #fff, transparent),
+                radial-gradient(3.5px 3.5px at 150px 80px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 280px 140px, #fff, transparent),
+                radial-gradient(4px 4px at 60px 250px, #fff, transparent),
+                radial-gradient(2.2px 2.2px at 210px 320px, #fff, transparent),
+                radial-gradient(3px 3px at 30px 420px, #fff, transparent),
+                radial-gradient(1.8px 1.8px at 350px 480px, #fff, transparent);
+            background-size: 500px 600px;
+            animation:
+                starScroll 35s linear infinite,
+                twinkle 4s ease-in-out infinite alternate;
             z-index: -1;
+            opacity: 0.7;
             pointer-events: none;
+        }
+
+        @keyframes starScroll {
+            from {
+                background-position: 0 0, 0 0, 0 0;
+            }
+
+            to {
+                background-position: 0 300px, 0 400px, 0 200px;
+            }
+        }
+
+        @keyframes twinkle {
+            0% {
+                opacity: 0.4;
+                transform: scale(0.98);
+            }
+
+            50% {
+                opacity: 0.9;
+                transform: scale(1);
+            }
+
+            100% {
+                opacity: 0.6;
+                transform: scale(1.02);
+            }
         }
 
         /* HUD Score */
@@ -79,7 +109,7 @@
             top: 15px;
             width: 100%;
             pointer-events: none;
-            z-index: 10000;
+            z-index: 100;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -153,13 +183,21 @@
 <body>
     <div id="ui">
         <div id="score-display">0.00</div>
+        <div id="shield-container"
+            style="display: none; align-items: center; gap: 5px; margin-top: 5px; color: #0ea5e9; font-weight: bold; text-shadow: 0 0 10px #0ea5e9;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path
+                    d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.67-3.13 8.35-7 9.55-3.87-1.2-7-4.88-7-9.55V6.3l7-3.12z" />
+            </svg>
+            <span id="shield-count">0</span>
+        </div>
     </div>
 
     <div id="start-screen" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="title">BULLET DODGE</h1>
             <p data-i18n="instruction">Swipe to move.<br>Survive the barrage!</p>
-            <button onclick="WCGames.start()" data-i18n="play">SURVIVE</button>
+            <button onclick="WCGames.start()" ontouchstart="WCGames.start()" data-i18n="play">SURVIVE</button>
         </div>
     </div>
 
@@ -167,7 +205,7 @@
         <div class="wcg-popup">
             <h1 data-i18n="game_over">DESTROYED</h1>
             <p><span data-i18n="final_score">Time: </span><span id="final-score">0.00</span></p>
-            <button onclick="WCGames.restart()" data-i18n="play_again">RETRY</button>
+            <button onclick="WCGames.restart()" ontouchstart="WCGames.restart()" data-i18n="play_again">RETRY</button>
         </div>
     </div>
 
@@ -245,19 +283,53 @@
 
                 // Muffled wind/thrust at low speed, sharp swoosh at high speed
                 const targetFreq = 200 + (speedPercentage * 1800); // 200Hz -> 2000Hz sweep
-                const targetVol = speedPercentage * 0.4; // Max volume for the swoosh
+                const targetVol = speedPercentage * 0.15; // Max volume for the swoosh
 
                 this.engineFilter.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
                 this.engineGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
             }
 
             static explosion() {
+                this.playTone(150, 'sawtooth', 0.3, 0.2);
+                setTimeout(() => this.playTone(80, 'square', 0.4, 0.2), 50);
+            }
+
+            static playGameOver() {
                 if (this.engineGain) {
-                    this.engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05); // Fade out engine
+                    this.engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
                 }
-                this.playTone(150, 'sawtooth', 0.4, 0.3);
-                setTimeout(() => this.playTone(80, 'square', 0.6, 0.4), 100);
-                setTimeout(() => this.playTone(40, 'sawtooth', 0.8, 0.4), 200);
+
+                // 1. Initial Impact (Explosion)
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = this.createWhiteNoise();
+                const noiseFilter = audioCtx.createBiquadFilter();
+                noiseFilter.type = 'lowpass';
+                noiseFilter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                noiseFilter.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 1.5);
+
+                const noiseGain = audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                noiseGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(audioCtx.destination);
+                noise.start();
+
+                // 2. Dramatic Descending Siren
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 2);
+
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 2);
             }
         }
 
@@ -268,13 +340,16 @@
         let animationId;
 
         // Entities
-        let player = { x: 0, y: 0, radius: 10, speed: 6, vx: 0, vy: 0, angle: -Math.PI / 2, isShielded: false, trail: [] };
+        let player = { x: 0, y: 0, radius: 10, speed: 6, vx: 0, vy: 0, angle: -Math.PI / 2, isShielded: false, shields: 0, trail: [] };
         let bullets = [];
+        let items = [];
         let particles = [];
 
         // Difficulty controls
         let spawnRate = 30; // frames
+        let itemSpawnRate = 60 * 5; // Once every 15s roughly
         let frameCount = 0;
+        let itemFrameCount = 0;
         let difficultyMultiplier = 1;
 
         // Virtual Joystick
@@ -346,18 +421,18 @@
             handleInputStart(e.touches[0].clientX, e.touches[0].clientY);
         }, { passive: false });
         window.addEventListener('touchmove', (e) => {
-            e.preventDefault();
+            if (isPlaying) e.preventDefault();
             handleInputMove(e.touches[0].clientX, e.touches[0].clientY);
         }, { passive: false });
         window.addEventListener('touchend', (e) => {
-            e.preventDefault();
+            if (isPlaying) e.preventDefault();
             handleInputEnd();
         });
 
         function spawnBullet() {
             let side = Math.floor(Math.random() * 4);
             let x, y, vx, vy;
-            let speed = (3 + Math.random() * 4) * difficultyMultiplier;
+            let speed = ((3 + Math.random() * 4) * difficultyMultiplier) / 2;
             let radius = 4 + Math.random() * 6;
 
             // 0: top, 1: right, 2: bottom, 3: left
@@ -396,6 +471,25 @@
             bullets.push({ x, y, vx, vy, radius, color: '#ef4444' });
         }
 
+        function spawnItem() {
+            let side = Math.floor(Math.random() * 4);
+            let x, y, vx, vy;
+            let speed = 2;
+            let radius = 12;
+
+            if (side === 0) {
+                x = Math.random() * width; y = -radius; vx = (Math.random() - 0.5) * 2; vy = speed;
+            } else if (side === 1) {
+                x = width + radius; y = Math.random() * height; vx = -speed; vy = (Math.random() - 0.5) * 2;
+            } else if (side === 2) {
+                x = Math.random() * width; y = height + radius; vx = (Math.random() - 0.5) * 2; vy = -speed;
+            } else {
+                x = -radius; y = Math.random() * height; vx = speed; vy = (Math.random() - 0.5) * 2;
+            }
+
+            items.push({ x, y, vx, vy, radius, type: 'shield', color: '#0ea5e9' });
+        }
+
         function spawnParticles(x, y, color) {
             for (let i = 0; i < 30; i++) {
                 particles.push({
@@ -416,7 +510,7 @@
             scoreDisplay.innerText = survivedTime.toFixed(2);
 
             // Difficulty curve
-            difficultyMultiplier = 1 + (survivedTime / 20); // Speed scales up every 20s
+            difficultyMultiplier = Math.min(6, 1 + (survivedTime / 20)); // Capped at 6x (approx 100s)
             // Spawn rate gets faster, minimum 5 frames
             spawnRate = Math.max(5, Math.floor(25 - (survivedTime / 2)));
 
@@ -447,8 +541,41 @@
                 if (survivedTime > 60) { spawnBullet(); spawnBullet(); }
             }
 
-            // Shield logic for first 2 seconds
+            // Item Spawning
+            itemFrameCount++;
+            if (itemFrameCount >= itemSpawnRate) {
+                spawnItem();
+                itemFrameCount = 0;
+            }
+
+            // Shield logic for first 2 seconds (respawn shield)
             player.isShielded = survivedTime < 2;
+
+            // Items movement and collection
+            for (let i = items.length - 1; i >= 0; i--) {
+                let it = items[i];
+                it.x += it.vx;
+                it.y += it.vy;
+
+                if (it.x < -50 || it.x > width + 50 || it.y < -50 || it.y > height + 50) {
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                let dx = player.x - it.x;
+                let dy = player.y - it.y;
+                let dist = Math.hypot(dx, dy);
+
+                if (dist < player.radius + it.radius) {
+                    if (it.type === 'shield') {
+                        player.shields++;
+                        updateShieldHUD();
+                        SoundFX.playTone(800, 'sine', 0.1, 0.2);
+                        setTimeout(() => SoundFX.playTone(1200, 'sine', 0.2, 0.1), 50);
+                    }
+                    items.splice(i, 1);
+                }
+            }
 
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
@@ -468,6 +595,14 @@
 
                 // Smaller hitbox for player core
                 if (dist < (player.radius * 0.6) + b.radius && !player.isShielded) {
+                    if (player.shields > 0) {
+                        player.shields--;
+                        updateShieldHUD();
+                        bullets.splice(i, 1);
+                        spawnParticles(b.x, b.y, b.color);
+                        SoundFX.explosion(); // Minor feedback
+                        continue;
+                    }
                     gameOver();
                 }
             }
@@ -487,15 +622,45 @@
 
             if (!isPlaying && particles.length === 0) return;
 
-            // Draw player core glow
-            if (isPlaying) {
+            // 1. Draw Shield (Energy Field) - Below Player
+            if (isPlaying && player.shields > 0) {
+                const pulse = Math.sin(Date.now() / 150) * 2;
+                const r = player.radius + 12 + pulse;
+
+                // Outer glow
                 ctx.beginPath();
-                ctx.arc(player.x, player.y, player.radius + 5, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+                ctx.arc(player.x, player.y, r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(14, 165, 233, 0.2)';
                 ctx.fill();
+
+                // Hexagonal mesh effect (Solid shield look)
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(Date.now() / 1000);
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    let angle = (i / 6) * Math.PI * 2;
+                    let x = Math.cos(angle) * r;
+                    let y = Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = 'rgba(14, 165, 233, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Inner shimmering ring
+                ctx.beginPath();
+                ctx.arc(0, 0, r - 4, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.setLineDash([5, 10]);
+                ctx.lineDashOffset = Date.now() / 20;
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
             }
 
-            // Draw player spaceship & Engine Booster
+            // 2. Draw Player spaceship & Engine Booster
             ctx.save();
             ctx.translate(player.x, player.y);
             ctx.rotate(player.angle);
@@ -504,47 +669,38 @@
             if (isPlaying && (Math.abs(player.vx) > 0.5 || Math.abs(player.vy) > 0.5)) {
                 const speedMag = Math.hypot(player.vx, player.vy);
                 const flicker = Math.random() * 5;
-                const extension = (speedMag / player.speed) * 15 + flicker; // Grows based on speed + flicker
+                const extension = (speedMag / player.speed) * 15 + flicker;
 
                 ctx.beginPath();
-                ctx.moveTo(-player.radius * 0.5, 0); // Start at back indent
-                ctx.lineTo(-player.radius - extension, -player.radius * 0.4); // Top edge of flame
-                ctx.lineTo(-player.radius * 1.5 - extension * 1.5, 0); // Tip of flame (further back)
-                ctx.lineTo(-player.radius - extension, player.radius * 0.4); // Bottom edge of flame
+                ctx.moveTo(-player.radius * 0.5, 0);
+                ctx.lineTo(-player.radius - extension, -player.radius * 0.4);
+                ctx.lineTo(-player.radius * 1.5 - extension * 1.5, 0);
+                ctx.lineTo(-player.radius - extension, player.radius * 0.4);
                 ctx.closePath();
 
-                // Main flame
                 ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#ef4444'; // Red glow
                 ctx.fill();
 
-                // Inner hot core
                 ctx.beginPath();
                 ctx.moveTo(-player.radius * 0.5, 0);
                 ctx.lineTo(-player.radius - extension * 0.4, -player.radius * 0.2);
                 ctx.lineTo(-player.radius * 1.2 - extension * 0.8, 0);
                 ctx.lineTo(-player.radius - extension * 0.4, player.radius * 0.2);
                 ctx.fillStyle = '#fff';
-                ctx.shadowBlur = 0;
                 ctx.fill();
             }
 
-            // Spaceship body (vector design)
+            // Spaceship body
             ctx.beginPath();
-            ctx.moveTo(player.radius * 1.5, 0); // Nose
-            ctx.lineTo(-player.radius, player.radius * 0.8); // Right Wing
-            ctx.lineTo(-player.radius * 0.5, 0); // Back indent
-            ctx.lineTo(-player.radius, -player.radius * 0.8); // Left Wing
+            ctx.moveTo(player.radius * 1.5, 0);
+            ctx.lineTo(-player.radius, player.radius * 0.8);
+            ctx.lineTo(-player.radius * 0.5, 0);
+            ctx.lineTo(-player.radius, -player.radius * 0.8);
             ctx.closePath();
-
-            ctx.fillStyle = '#1e3a8a'; // Dark blue interior
+            ctx.fillStyle = '#1e3a8a';
             ctx.fill();
-
-            ctx.strokeStyle = '#38bdf8'; // Neon blue outline
+            ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 2;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#38bdf8';
             ctx.stroke();
 
             // Cockpit
@@ -557,40 +713,78 @@
 
             ctx.restore();
 
-            // Draw Laser Bullets
+            // 3. Draw Laser Bullets
             for (let b of bullets) {
                 let angle = Math.atan2(b.vy, b.vx);
-                let length = b.radius * 3; // Elongate the laser
+                let length = b.radius * 3;
 
                 ctx.save();
                 ctx.translate(b.x, b.y);
                 ctx.rotate(angle);
 
-                // Outer glow & body
                 ctx.beginPath();
                 ctx.roundRect(-length, -b.radius, length * 2, b.radius * 2, b.radius);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = b.color;
+                ctx.fillStyle = b.color;
+                ctx.globalAlpha = 0.3;
                 ctx.fill();
+                ctx.globalAlpha = 1;
 
-                // Inner bright core
                 ctx.beginPath();
                 ctx.roundRect(-length * 0.8, -b.radius * 0.4, length * 1.6, b.radius * 0.8, b.radius * 0.4);
-                ctx.fillStyle = b.color;
-                ctx.shadowBlur = 0;
-                ctx.fill();
-
-                // White hot center
-                ctx.beginPath();
-                ctx.roundRect(-length * 0.5, -b.radius * 0.2, length, b.radius * 0.4, b.radius * 0.2);
                 ctx.fillStyle = '#fff';
                 ctx.fill();
 
                 ctx.restore();
             }
 
-            // Draw Particles
+            // 4. Draw Items
+            for (let it of items) {
+                ctx.save();
+                ctx.translate(it.x, it.y);
+                const time = Date.now() / 500;
+                ctx.rotate(time);
+
+                const pulse = Math.sin(Date.now() / 300) * 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, it.radius + pulse, 0, Math.PI * 2);
+                const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, it.radius + pulse);
+                grad.addColorStop(0, 'rgba(14, 165, 233, 0.6)');
+                grad.addColorStop(1, 'rgba(14, 165, 233, 0)');
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    let angle = (i / 6) * Math.PI * 2;
+                    let x = Math.cos(angle) * it.radius * 0.8;
+                    let y = Math.sin(angle) * it.radius * 0.8;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fillStyle = '#1e3a8a';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+
+                for (let i = 0; i < 3; i++) {
+                    const orbAngle = time * 2 + (i * Math.PI * 2 / 3);
+                    const orbX = Math.cos(orbAngle) * (it.radius + 5);
+                    const orbY = Math.sin(orbAngle) * (it.radius + 5);
+                    ctx.beginPath();
+                    ctx.arc(orbX, orbY, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#0ea5e9';
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            // 5. Draw Particles
             for (let p of particles) {
                 ctx.globalAlpha = p.life;
                 ctx.beginPath();
@@ -600,26 +794,6 @@
             }
             ctx.globalAlpha = 1;
 
-            // Draw Virtual Joystick (debug/visual feedback)
-            if (isDragging && isPlaying) {
-                ctx.beginPath();
-                ctx.arc(joystickCenter.x, joystickCenter.y, 50, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.arc(currentTouch.x, currentTouch.y, 20, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-                ctx.fill();
-
-                ctx.beginPath();
-                ctx.moveTo(joystickCenter.x, joystickCenter.y);
-                ctx.lineTo(currentTouch.x, currentTouch.y);
-                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-            }
         }
 
         function gameLoop() {
@@ -640,14 +814,19 @@
             player.vy = 0;
             player.angle = -Math.PI / 2;
             player.trail = [];
+            player.shields = 0;
+            updateShieldHUD();
             isDragging = false;
 
             bullets = [];
+            items = [];
             particles = [];
             frameCount = 0;
+            itemFrameCount = 0;
             difficultyMultiplier = 1;
             spawnRate = 30;
 
+            WCGames.hideAllPopups();
             startTime = Date.now();
             isPlaying = true;
 
@@ -655,9 +834,20 @@
             gameLoop();
         }
 
+        function updateShieldHUD() {
+            const container = document.getElementById('shield-container');
+            const count = document.getElementById('shield-count');
+            if (player.shields > 0) {
+                container.style.display = 'flex';
+                count.textContent = player.shields;
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
         function gameOver() {
             isPlaying = false;
-            SoundFX.explosion();
+            SoundFX.playGameOver();
             spawnParticles(player.x, player.y, '#38bdf8');
             spawnParticles(player.x, player.y, '#fff');
 
@@ -666,6 +856,7 @@
 
             const finalScore = Math.floor(finalTime * 100);
             WCGames.gameOver(finalScore);
+            WCGames.showPopup('game-over');
         }
 
         WCGames.init({
