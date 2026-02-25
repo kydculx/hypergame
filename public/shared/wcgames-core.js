@@ -81,7 +81,7 @@
 
             if (id === 'game-over' || id === 'game-over-screen') {
                 const scoreEl = document.getElementById('final-score');
-                if (scoreEl) scoreEl.textContent = data.score || 0;
+                if (scoreEl) scoreEl.textContent = Math.abs(data.score || 0);
             }
 
             el.classList.add('wcg-visible');

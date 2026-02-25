@@ -112,7 +112,9 @@ export const useGameStore = create<GameState>()(
         const currentBest = get().personalBests[gameId];
 
         // 1. Check if this is a new personal best
-        // If currentBest is undefined or 0 (buggy residue), any legitimate score is a record.
+        // Mine Sweeper special case: only register clears (negative scores)
+        if (gameId === 'minesweeper' && score > 0) return;
+
         let isNewRecord = false;
         if (currentBest === undefined || (gameId === 'minesweeper' && currentBest === 0)) {
           isNewRecord = true;
