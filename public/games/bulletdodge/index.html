@@ -244,19 +244,20 @@
             static engineFilter = null;
             static engineGain = null;
 
+            static whiteNoiseBuffer = null;
+
             static createWhiteNoise() {
-                const bufferSize = audioCtx.sampleRate * 2; // 2 seconds of noise
+                if (this.whiteNoiseBuffer) return this.whiteNoiseBuffer;
+                const bufferSize = audioCtx.sampleRate * 2;
                 const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
                 const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1;
-                }
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                this.whiteNoiseBuffer = buffer;
                 return buffer;
             }
 
             static playTone(freq, type, duration, vol = 0.1) {
                 try {
-                    if (audioCtx.state === 'suspended') audioCtx.resume();
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
                     osc.type = type;
@@ -269,6 +270,11 @@
                     gain.connect(audioCtx.destination);
                     osc.start();
                     osc.stop(audioCtx.currentTime + duration);
+
+                    osc.onended = () => {
+                        gain.disconnect();
+                        osc.disconnect();
+                    };
                 } catch (e) {
                     console.warn("Audio play failed:", e);
                 }
@@ -302,7 +308,7 @@
             }
 
             static updateEngine(speedPercentage) {
-                if (!this.engineFilter || !this.engineGain) return;
+                if (!this.engineFilter || !this.engineGain || audioCtx.state !== 'running') return;
 
                 // Muffled wind/thrust at low speed, sharp swoosh at high speed
                 const targetFreq = 200 + (speedPercentage * 1800); // 200Hz -> 2000Hz sweep
@@ -339,6 +345,12 @@
                 noiseGain.connect(audioCtx.destination);
                 noise.start();
 
+                noise.onended = () => {
+                    noiseGain.disconnect();
+                    noiseFilter.disconnect();
+                    noise.disconnect();
+                };
+
                 // 2. Dramatic Descending Siren
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -353,6 +365,11 @@
                 gain.connect(audioCtx.destination);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 2);
+
+                osc.onended = () => {
+                    gain.disconnect();
+                    osc.disconnect();
+                };
             }
         }
 

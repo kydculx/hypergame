@@ -376,6 +376,12 @@
         const PATH_SOFT_LIMIT = 8;        // 부드러운 경계 복귀 시작
         const PATH_HARD_LIMIT = 12;       // 강제 경계 복귀
 
+        // Gap Generation Settings
+        const GAP_START_THRESHOLD = 10;   // 빈 도미노 시작 시점
+        const GAP_MIN_PROB = 0.20;        // 최소 빈 도미노 확률
+        const GAP_MAX_PROB = 0.60;        // 최대 빈 도미노 확률
+        const GAP_PROB_INC = 0.002;       // 진행도비례 확률 증가량
+
         // Domino Config
         const BASE_COLOR = 0xe0e0e0;
 
@@ -879,8 +885,8 @@
                 totalGenerated++;
 
                 let gapProbability = 0;
-                if (totalGenerated > 10) {
-                    gapProbability = Math.min(0.45, 0.15 + (totalGenerated * 0.002));
+                if (totalGenerated > GAP_START_THRESHOLD) {
+                    gapProbability = Math.min(GAP_MAX_PROB, GAP_MIN_PROB + (totalGenerated * GAP_PROB_INC));
                 }
 
                 let speedMultiplier = Math.min(2.5, 1.0 + (totalGenerated * 0.005));
