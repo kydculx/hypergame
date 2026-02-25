@@ -15,6 +15,9 @@
             background: linear-gradient(to bottom, #1e293b, #0f172a);
             font-family: 'Orbitron', 'Segoe UI', sans-serif;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
             touch-action: none;
             color: #fff;
         }
@@ -857,6 +860,11 @@
             (adsbygoogle = window.adsbygoogle || []).push({});
         </script>
     </div>
+
+    <script>
+        // Prevent context menu globally
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
+    </script>
 
     <script src="/shared/i18n.js"></script>
 </body>

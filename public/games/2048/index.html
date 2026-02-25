@@ -43,6 +43,9 @@
             min-height: 100vh;
             touch-action: none;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* Ambient scanline overlay */
@@ -544,6 +547,9 @@
 
         WCGames.init({ id: '2048', onStart: () => { isStarted = true; init(); }, onRestart: () => init() });
         setTimeout(render, 50);
+
+        // Prevent context menu globally
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
     </script>
     <script src="/shared/i18n.js"></script>
 </body>

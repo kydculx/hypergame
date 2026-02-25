@@ -24,6 +24,10 @@
             color: #fff;
             font-family: 'Inter', sans-serif;
             touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* Base atmosphere: Nebulas and Vignette (Grid Removed) */
@@ -212,6 +216,21 @@
     <canvas id="game-canvas"></canvas>
 
     <script>
+        // Polyfill/Fallback for roundRect (compatibility for older mobile browsers)
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                this.closePath();
+                return this;
+            };
+        }
+
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         const scoreDisplay = document.getElementById('score-display');
@@ -236,19 +255,23 @@
             }
 
             static playTone(freq, type, duration, vol = 0.1) {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                try {
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                    gain.gain.setValueAtTime(vol > 0 ? vol : 0.001, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
 
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + duration);
+                } catch (e) {
+                    console.warn("Audio play failed:", e);
+                }
             }
 
             static start() {
@@ -835,13 +858,19 @@
         }
 
         function updateShieldHUD() {
-            const container = document.getElementById('shield-container');
-            const count = document.getElementById('shield-count');
-            if (player.shields > 0) {
-                container.style.display = 'flex';
-                count.textContent = player.shields;
-            } else {
-                container.style.display = 'none';
+            try {
+                const container = document.getElementById('shield-container');
+                const count = document.getElementById('shield-count');
+                if (!container || !count) return;
+
+                if (player.shields > 0) {
+                    container.style.display = 'flex';
+                    count.textContent = player.shields;
+                } else {
+                    container.style.display = 'none';
+                }
+            } catch (e) {
+                console.warn("HUD update failed:", e);
             }
         }
 
@@ -852,11 +881,18 @@
             spawnParticles(player.x, player.y, '#fff');
 
             const finalTime = (Date.now() - startTime) / 1000;
-            document.getElementById('final-score').innerText = finalTime.toFixed(2);
+
+            // Show popup first
+            WCGames.showPopup('game-over');
+
+            // Set score after a tiny delay to ensure the popup is fully initialized
+            setTimeout(() => {
+                const scoreEl = document.getElementById('final-score');
+                if (scoreEl) scoreEl.innerText = finalTime.toFixed(2);
+            }, 50);
 
             const finalScore = Math.floor(finalTime * 100);
             WCGames.gameOver(finalScore);
-            WCGames.showPopup('game-over');
         }
 
         WCGames.init({
@@ -867,6 +903,9 @@
 
         resize();
         setTimeout(draw, 100);
+
+        // Prevent context menu globally
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
     </script>
 
     <script src="/shared/i18n.js"></script>
