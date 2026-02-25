@@ -1,9 +1,0 @@
-{
-  "title": "Bullet Dodge",
-  "instruction": "Dodge all incoming red bullets and survive to the end.",
-  "play": "Play",
-  "game_over": "Game Over",
-  "final_score": "Score: ",
-  "play_again": "Retry",
-  "category": "ACTION"
-}

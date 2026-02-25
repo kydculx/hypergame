@@ -1,9 +1,0 @@
-{
-  "title": "Mine Sweeper",
-  "instruction": "Deduce the locations of all hidden mines and clear the board without detonating a single explosive.",
-  "play": "Play",
-  "game_over": "Game Over",
-  "final_score": "Score: ",
-  "play_again": "Retry",
-  "category": "PUZZLE"
-}

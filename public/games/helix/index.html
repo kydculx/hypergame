@@ -4,64 +4,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Helix Jump - Hyper Casual</title>
+    <title>WCGames - Helix Jump</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background: #0a0a0c;
-            /* Deep dark base */
-            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(to bottom, #1e293b, #0f172a);
+            font-family: 'Orbitron', 'Segoe UI', sans-serif;
             user-select: none;
             touch-action: none;
-        }
-
-        /* Aurora Background */
-        .aurora-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -2;
-            overflow: hidden;
-            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0a0a0c 100%);
-        }
-
-        .aurora-blob {
-            position: absolute;
-            width: 600px;
-            height: 600px;
-            border-radius: 50%;
-            filter: blur(100px);
-            opacity: 0.4;
-            mix-blend-mode: screen;
-            animation: move 20s infinite alternate ease-in-out;
-        }
-
-        .blob-1 {
-            background: #4f46e5;
-            top: -100px;
-            left: -100px;
-            animation-duration: 25s;
-        }
-
-        .blob-2 {
-            background: #9333ea;
-            bottom: -100px;
-            right: -100px;
-            animation-duration: 30s;
-            animation-delay: -5s;
-        }
-
-        .blob-3 {
-            background: #06b6d4;
-            top: 40%;
-            left: 30%;
-            width: 400px;
-            height: 400px;
-            animation-duration: 22s;
-            animation-delay: -10s;
+            color: #fff;
         }
 
         @keyframes move {
@@ -91,19 +46,122 @@
         }
 
         #ui {
-            position: absolute;
+            position: fixed;
             top: 20px;
-            width: 100%;
-            text-align: center;
-            color: white;
-            pointer-events: none;
+            left: 20px;
             z-index: 10;
         }
 
         #score {
-            font-size: 64px;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            font-size: 48px;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.4);
+            letter-spacing: 2px;
+        }
+
+        #combo-ui {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            padding: 5px 15px;
+            background: rgba(255, 0, 255, 0.2);
+            border-left: 4px solid #ff00ff;
+            backdrop-filter: blur(10px);
+            font-size: 18px;
+            font-weight: 700;
+            color: #ff00ff;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+            display: none;
+            clip-path: polygon(0 0, 100% 0, 90% 100%, 0% 100%);
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from {
+                opacity: 0.8;
+                transform: scale(1);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+        }
+
+        .wcg-overlay {
+            background: rgba(10, 10, 20, 0.7);
+            backdrop-filter: blur(8px);
+        }
+
+        .wcg-popup {
+            background: rgba(20, 20, 40, 0.4);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.1), inset 0 0 20px rgba(0, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wcg-popup::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00ffff, transparent);
+            animation: scan 3s infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .wcg-popup h1 {
+            font-size: 42px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: none;
+            letter-spacing: 4px;
+        }
+
+        .wcg-popup p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            color: rgba(255, 255, 255, 0.8);
+            letter-spacing: 1px;
+        }
+
+        .wcg-popup button {
+            background: transparent;
+            border: 1px solid #ff00ff;
+            color: #ff00ff;
+            padding: 12px 40px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            z-index: 1;
+        }
+
+        .wcg-popup button:hover {
+            background: #ff00ff;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.6);
+            transform: translateY(-2px);
         }
 
         #level {
@@ -123,12 +181,6 @@
 </head>
 
 <body class="">
-    <!-- Aurora Background Layers -->
-    <div class="aurora-bg">
-        <div class="aurora-blob blob-1"></div>
-        <div class="aurora-blob blob-2"></div>
-        <div class="aurora-blob blob-3"></div>
-    </div>
     <div class="glass-overlay"></div>
 
     <div id="ui">
@@ -153,30 +205,40 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Post-processing for Neon Bloom -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
     <script>
         // --- Constants ---
         const BALL_RADIUS = 0.35;
         const POLE_RADIUS = 1.2;
         const PLATFORM_WIDTH = 2;
         const FLOOR_HEIGHT = 4;
-        const FALL_SPEED = 0.15; // Constant falling speed (replaces gravity)
+        const FALL_SPEED = 0.10; // Constant falling speed (replaces gravity)
         const BOUNCE_FORCE = 0.22;
         const BASE_GAP_SIZE = 1.5;
         const BASE_DANGER_PROB = 0.15;
+        const MAX_PLATFORM_ROT_SPEED = 0.008; // Increased slightly for late game
+        const ROTATION_START_INDEX = 5; // Rotation starts after 5 floors
 
         const COLORS = {
-            bg: 0x222222,
-            pole: 0xffffff,
-            ball: 0xff0055,
-            safe: 0x00aaff,
-            danger: 0xff3300,
-            splat: 0xff0055
+            bg: 0x0a0a0c,
+            pole: 0x1e1b4b,  // Deep Purple
+            ball: 0x00ffff,   // Cyan
+            safe: 0xff00ff,   // Magenta
+            danger: 0xff3300, // Red
+            splat: 0x00ffff   // Match Ball
         };
 
-        let scene, camera, renderer;
-        let ball, pole;
+        let scene, camera, renderer, composer;
+        let ball, pole, backgroundGroup;
         let platforms = [];
         let splats = [];
+        let skyscrapers = [], floatingShapes = [], dataLines = [], pulseRings = [];
         let score = 0;
         let gameState = 'START';
         let comboCount = 0;
@@ -218,7 +280,7 @@
         function init() {
             scene = new THREE.Scene();
             // scene.background = new THREE.Color(COLORS.bg); // Use CSS background
-            scene.fog = new THREE.Fog(0x0a0a0c, 10, 40); // Darker fog to match aurora
+            scene.fog = new THREE.Fog(0x1a1a2e, 10, 60); // Brighter, further fog
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 8, 12); // Higher and slightly further for better top-down perspective
@@ -233,17 +295,24 @@
             const dl = new THREE.DirectionalLight(0xffffff, 0.8);
             dl.position.set(5, 10, 5);
             scene.add(dl);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7)); // Brighter ambient light
 
             // Objects
             ball = new THREE.Mesh(
-                new THREE.SphereGeometry(BALL_RADIUS, 16, 16),
-                new THREE.MeshPhongMaterial({ color: COLORS.ball })
+                new THREE.SphereGeometry(BALL_RADIUS, 32, 32),
+                new THREE.MeshStandardMaterial({
+                    color: COLORS.ball,
+                    emissive: COLORS.ball,
+                    emissiveIntensity: 0.8, // Balanced
+                    roughness: 0.2,
+                    metalness: 0.8
+                })
             );
             ball.position.set(0, ballY, POLE_RADIUS + PLATFORM_WIDTH / 2);
             scene.add(ball);
 
             createPole();
+            createBackground();
 
             // Listeners
             window.addEventListener('pointerdown', e => { isDrag = true; lastX = e.clientX || e.touches[0].clientX; });
@@ -260,11 +329,122 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
             });
 
+            // Post-processing setup
+            const renderScene = new THREE.RenderPass(scene, camera);
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                0.8, // Balanced strength (was 1.1)
+                0.3, // radius
+                0.3  // Balanced threshold (was 0.15)
+            );
+
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
             // Start
             animate();
         }
 
 
+
+        function createBackground() {
+            backgroundGroup = new THREE.Group();
+            scene.add(backgroundGroup);
+
+            // 1. Digital Tunnel (Pulsing Rings)
+            for (let i = 0; i < 30; i++) {
+                const ringGeo = new THREE.TorusGeometry(18, 0.04, 8, 40);
+                const ringMat = new THREE.MeshStandardMaterial({
+                    color: 0x00ffff,
+                    emissive: 0x00ffff,
+                    emissiveIntensity: 2,
+                    transparent: true,
+                    opacity: 0.2
+                });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = -i * 20;
+                backgroundGroup.add(ring);
+                pulseRings.push(ring);
+            }
+
+            // 2. Skyscrapers (Complex Geometry)
+            const boxMat = new THREE.MeshStandardMaterial({
+                color: 0x0a0a1a,
+                roughness: 0.1,
+                metalness: 1.0
+            });
+
+            for (let i = 0; i < 180; i++) {
+                const h = 10 + Math.random() * 50;
+                const w = 2 + Math.random() * 5;
+                const type = Math.random();
+                let geo;
+                if (type < 0.7) geo = new THREE.BoxGeometry(w, h, w);
+                else geo = new THREE.CylinderGeometry(w / 1.5, w / 1.5, h, 6);
+
+                const building = new THREE.Mesh(geo, boxMat);
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 40 + Math.random() * 60;
+                building.position.set(Math.sin(angle) * dist, -i * 10 + (Math.random() * 20), Math.cos(angle) * dist);
+
+                const wire = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(geo),
+                    new THREE.LineBasicMaterial({ color: Math.random() < 0.5 ? 0x00ffff : 0xff00ff, transparent: true, opacity: 0.8 })
+                );
+                building.add(wire);
+                backgroundGroup.add(building);
+                skyscrapers.push(building);
+            }
+
+            // 3. Floating Neon Shapes
+            const shapes = [new THREE.TetrahedronGeometry(1.2), new THREE.OctahedronGeometry(1.2), new THREE.IcosahedronGeometry(1.2)];
+            for (let i = 0; i < 100; i++) {
+                const geo = shapes[Math.floor(Math.random() * shapes.length)];
+                const mat = new THREE.MeshStandardMaterial({
+                    color: Math.random() < 0.5 ? 0x00ffff : 0xff00ff,
+                    emissive: Math.random() < 0.5 ? 0x00ffff : 0xff00ff,
+                    emissiveIntensity: 2.0,
+                    wireframe: true
+                });
+                const shape = new THREE.Mesh(geo, mat);
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 25 + Math.random() * 20;
+                shape.position.set(Math.sin(angle) * dist, -i * 10, Math.cos(angle) * dist);
+                shape.userData = { rotSpeed: 0.005 + Math.random() * 0.015 };
+                backgroundGroup.add(shape);
+                floatingShapes.push(shape);
+            }
+
+            // 4. Data Rain (Vertical Neon Lines)
+            for (let i = 0; i < 150; i++) {
+                const h = 5 + Math.random() * 15;
+                const lineGeo = new THREE.CylinderGeometry(0.015, 0.015, h, 4);
+                const lineMat = new THREE.MeshStandardMaterial({
+                    color: 0x00ffff,
+                    emissive: 0x00ffff,
+                    emissiveIntensity: 3,
+                    transparent: true,
+                    opacity: 0.5
+                });
+                const line = new THREE.Mesh(lineGeo, lineMat);
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 20 + Math.random() * 70;
+                line.position.set(Math.sin(angle) * dist, Math.random() * -1000, Math.cos(angle) * dist);
+                line.userData = { speed: 0.3 + Math.random() * 0.7 };
+                backgroundGroup.add(line);
+                dataLines.push(line);
+            }
+
+            // 5. Grid Floor
+            const gridGeo = new THREE.PlaneGeometry(300, 300, 50, 50);
+            const gridMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.1 });
+            const grid = new THREE.Mesh(gridGeo, gridMat);
+            grid.rotation.x = -Math.PI / 2;
+            grid.position.y = -500;
+            backgroundGroup.add(grid);
+        }
 
         function createPole() {
             pole = new THREE.Group();
@@ -272,10 +452,16 @@
 
             // Core Cylinder
             const cyl = new THREE.Mesh(
-                new THREE.CylinderGeometry(POLE_RADIUS, POLE_RADIUS, 1000, 32), // Much longer pole
-                new THREE.MeshLambertMaterial({ color: COLORS.pole })
+                new THREE.CylinderGeometry(POLE_RADIUS, POLE_RADIUS, 2000, 32),
+                new THREE.MeshStandardMaterial({
+                    color: COLORS.pole,
+                    emissive: 0x4c1d95, // Neon Glow
+                    emissiveIntensity: 0.5,
+                    roughness: 0.1,
+                    metalness: 0.9
+                })
             );
-            cyl.position.y = -450;
+            cyl.position.y = -950;
             pole.add(cyl);
 
             // Initial Platforms
@@ -298,7 +484,12 @@
             lastPlatformRotation += offset;
             group.rotation.y = lastPlatformRotation;
 
-            group.userData = { id: index, passed: false };
+            const rotFactor = Math.max(0, Math.min(1, (index - ROTATION_START_INDEX) / 20));
+            group.userData = {
+                id: index,
+                passed: false,
+                rotSpeed: (Math.random() - 0.5) * 2 * MAX_PLATFORM_ROT_SPEED * rotFactor
+            };
 
             // Progressive Difficulty Logic
             // Gap tightens slightly as you go deeper (min 1.1)
@@ -320,10 +511,14 @@
             shape.absarc(0, 0, POLE_RADIUS, endAngle, startAngle, true); // Inner hole
 
             const isDanger = index > 0 && Math.random() < dangerProb;
-            const mat = new THREE.MeshLambertMaterial({
+            const mat = new THREE.MeshStandardMaterial({
                 color: isDanger ? COLORS.danger : COLORS.safe,
+                emissive: isDanger ? COLORS.danger : COLORS.safe,
+                emissiveIntensity: isDanger ? 0.4 : 0.5, // Balanced
                 transparent: true,
-                opacity: 1.0
+                opacity: 1.0,
+                roughness: 0.3,
+                metalness: 0.7
             });
             const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: false });
 
@@ -514,13 +709,43 @@
                     }
                 }
 
+                // Update Platform Rotations
+                platforms.forEach(p => {
+                    if (p.userData && p.userData.rotSpeed) {
+                        p.rotation.y += p.userData.rotSpeed;
+                    }
+                });
+
                 // Recycling: Optional but good for long runs
                 // (Omitted for simplicity in this pass, but typically remove p where p.y > ballY + 20)
 
-                if (ballY < -900) ballY = 2; // Safety reset if they fall too far off pole (unlikely with dynamic gen)
+                // Parallax Background movement
+                if (backgroundGroup) {
+                    backgroundGroup.position.y = ballY * 0.2;
+                    backgroundGroup.rotation.y += 0.0005;
+
+                    // Animate Rings
+                    pulseRings.forEach((r, i) => {
+                        r.scale.setScalar(1 + Math.sin(Date.now() * 0.001 + i) * 0.05);
+                    });
+
+                    // Animate Shapes
+                    floatingShapes.forEach(s => {
+                        s.rotation.x += s.userData.rotSpeed;
+                        s.rotation.y += s.userData.rotSpeed;
+                    });
+
+                    // Animate Data Rain
+                    dataLines.forEach(l => {
+                        l.position.y -= l.userData.speed;
+                        if (l.position.y < ballY - 50) l.position.y = ballY + 50;
+                    });
+                }
+
+                if (ballY < -1800) ballY = 2; // Safety reset for much longer pole
             }
 
-            renderer.render(scene, camera);
+            composer.render();
         }
 
         function gameOver() {
@@ -537,9 +762,28 @@
             splats.forEach(s => safeRemove(s));
             if (pole) scene.remove(pole);
 
+            // Clean up Background
+            if (backgroundGroup) {
+                backgroundGroup.children.forEach(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                    if (child.children) {
+                        child.children.forEach(c => {
+                            if (c.geometry) c.geometry.dispose();
+                            if (c.material) c.material.dispose();
+                        });
+                    }
+                });
+                scene.remove(backgroundGroup);
+            }
+
             // Reset internal state
             platforms = [];
             splats = [];
+            skyscrapers = [];
+            floatingShapes = [];
+            dataLines = [];
+            pulseRings = [];
             score = 0;
             comboCount = 0;
             ballY = 2;
@@ -558,6 +802,7 @@
 
             // Rebuild level
             createPole();
+            createBackground();
         }
 
         // Initialize Shared Core

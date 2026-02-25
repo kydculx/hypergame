@@ -15,9 +15,9 @@ function buildGameLocales(globResult: Record<string, any>) {
     };
     const gamesLocal: Record<string, any> = {};
     for (const path in globResult) {
-        // Path Example: './game-locales/2048/locales/en/translation.json'
+        // Path Example: '../public/games/2048/locales/en/translation.json'
         const parts = path.split('/');
-        const folderName = parts[2]; // corrected index: . (0), game-locales (1), 2048 (2)
+        const folderName = parts[3]; // corrected index: .. (0), public (1), games (2), 2048 (3)
         const gameId = folderToGameId[folderName] || folderName;
         gamesLocal[gameId] = globResult[path].default || globResult[path];
     }
@@ -28,13 +28,13 @@ const resources = {
     en: {
         translation: {
             ...translationEN,
-            games: buildGameLocales(import.meta.glob('./game-locales/*/locales/en/translation.json', { eager: true }))
+            games: buildGameLocales(import.meta.glob('../public/games/*/locales/en/translation.json', { eager: true }))
         }
     },
     ko: {
         translation: {
             ...translationKO,
-            games: buildGameLocales(import.meta.glob('./game-locales/*/locales/ko/translation.json', { eager: true }))
+            games: buildGameLocales(import.meta.glob('../public/games/*/locales/ko/translation.json', { eager: true }))
         }
     }
 };

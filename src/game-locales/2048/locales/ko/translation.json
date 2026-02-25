@@ -1,9 +1,0 @@
-{
-  "title": "2048",
-  "instruction": "같은 숫자의 타일을 하나로 합쳐서 궁극의 2048 타일을 완성하세요!",
-  "play": "시작",
-  "game_over": "게임오버",
-  "final_score": "점수: ",
-  "play_again": "다시하기",
-  "category": "퍼즐"
-}

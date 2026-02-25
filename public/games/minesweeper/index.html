@@ -133,18 +133,130 @@
         .num-6 {
             color: #06b6d4;
         }
+
+        /* Essential Animations for Neon feel */
+        @keyframes reveal-flash {
+            0% {
+                background: #fff;
+                transform: scale(1.1);
+                box-shadow: 0 0 20px #fff;
+            }
+
+            100% {
+                background: rgba(15, 23, 42, 0.4);
+                transform: scale(1);
+                box-shadow: none;
+            }
+        }
+
+        .revealed-flash {
+            animation: reveal-flash 0.3s ease-out forwards;
+        }
+
+        @keyframes flag-ripple {
+            0% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6);
+            }
+
+            100% {
+                box-shadow: 0 0 0 15px transparent;
+            }
+        }
+
+        .flag-ripple {
+            animation: flag-ripple 0.4s ease-out forwards;
+        }
+
+        @keyframes shake {
+
+            10%,
+            90% {
+                transform: translate3d(-1px, 0, 0);
+            }
+
+            20%,
+            80% {
+                transform: translate3d(2px, 0, 0);
+            }
+
+            30%,
+            50%,
+            70% {
+                transform: translate3d(-4px, 0, 0);
+            }
+
+            40%,
+            60% {
+                transform: translate3d(4px, 0, 0);
+            }
+        }
+
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        #danger-vignette {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+            background: radial-gradient(circle at center, transparent 40%, rgba(239, 68, 68, 0.2) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .bomb-hit #danger-vignette {
+            opacity: 1;
+        }
+
+        /* Circuit Board (PCB) Atmosphere - Brightened */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                /* Circuit traces (horizontal/vertical) - Higher Opacity */
+                linear-gradient(90deg, rgba(59, 130, 246, 0.08) 1px, transparent 1px) 0 0 / 40px 40px,
+                linear-gradient(rgba(59, 130, 246, 0.08) 1px, transparent 1px) 0 0 / 40px 40px,
+                /* Thicker support traces */
+                linear-gradient(90deg, rgba(59, 130, 246, 0.03) 2px, transparent 2px) 20px 20px / 120px 120px,
+                linear-gradient(rgba(59, 130, 246, 0.03) 2px, transparent 2px) 20px 20px / 120px 120px,
+                /* Base Glow - Slightly lighter for visibility */
+                radial-gradient(circle at 50% 50%, #0a0a25 0%, #030308 100%);
+            z-index: -2;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                /* Circuit 'Nodes' or 'Chips' - More Vibrant */
+                radial-gradient(circle at 2px 2px, rgba(59, 130, 246, 0.25) 1.5px, transparent 1.5px) 0 0 / 40px 40px,
+                /* Glowing data flow pulses - Sharper */
+                linear-gradient(45deg, transparent 45%, rgba(59, 130, 246, 0.15) 50%, transparent 55%);
+            background-size: 40px 40px, 200% 200%;
+            z-index: -1;
+            animation: circuitPulse 8s linear infinite;
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        @keyframes circuitPulse {
+            0% {
+                background-position: 0 0, 0% 0%;
+            }
+
+            100% {
+                background-position: 0 0, 100% 100%;
+            }
+        }
     </style>
     <script src="/shared/wcgames-core.js"></script>
 </head>
 
 <body>
-    <!-- Aurora Background Layers -->
-    <div class="aurora-bg">
-        <div class="aurora-blob blob-1"></div>
-        <div class="aurora-blob blob-2" style="background: var(--theme-color); opacity: 0.3;"></div>
-        <div class="aurora-blob blob-3"></div>
-    </div>
-    <div class="glass-overlay"></div>
+    <div id="danger-vignette"></div>
 
     <div id="ui">
         <div id="score-display">0</div>
@@ -172,6 +284,39 @@
     </div>
 
     <script>
+        // Audio Synthesizer
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        class SoundFX {
+            static playTone(freq, type, duration, vol = 0.1) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            }
+
+            static reveal() { this.playTone(600 + Math.random() * 200, 'sine', 0.1, 0.05); }
+            static flag() { this.playTone(300, 'triangle', 0.1, 0.1); }
+
+            static explosion() {
+                this.playTone(100, 'sawtooth', 0.5, 0.3);
+                setTimeout(() => this.playTone(60, 'square', 0.8, 0.3), 100);
+            }
+
+            static victory() {
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((note, i) => {
+                    setTimeout(() => this.playTone(note, 'sine', 0.4, 0.1), i * 150);
+                });
+            }
+        }
+
         const ROWS = 10, COLS = 10, MINES = 15;
         let grid = [], revealedCount = 0, flagsCount = 0, isGameOver = false, time = 0, timer = null, initial = true;
 
@@ -185,6 +330,7 @@
 
         function init() {
             gridEl.innerHTML = ''; grid = []; revealedCount = 0; flagsCount = 0; time = 0; isGameOver = false; initial = true;
+            document.body.classList.remove('bomb-hit', 'shake');
             if (timer) clearInterval(timer);
             scoreEl.textContent = '0'; mineEl.textContent = MINES;
 
@@ -245,7 +391,10 @@
             const cell = grid[r][c];
             if (cell.revealed || cell.flagged) return;
 
-            cell.revealed = true; cell.el.classList.add('revealed'); revealedCount++;
+            cell.revealed = true;
+            cell.el.classList.add('revealed', 'revealed-flash');
+            revealedCount++;
+            SoundFX.reveal();
             if (cell.n > 0) {
                 cell.el.textContent = cell.n; cell.el.classList.add(`num-${cell.n}`);
             } else {
@@ -259,16 +408,33 @@
             cell.flagged = !cell.flagged;
             cell.el.textContent = cell.flagged ? '🚩' : '';
             cell.el.classList.toggle('flagged', cell.flagged);
+
+            if (cell.flagged) {
+                cell.el.classList.remove('flag-ripple');
+                void cell.el.offsetWidth; // trigger reflow
+                cell.el.classList.add('flag-ripple');
+            }
+
             flagsCount += cell.flagged ? 1 : -1;
             mineEl.textContent = Math.max(0, MINES - flagsCount);
+            SoundFX.flag();
         }
 
         function endGame(win) {
             isGameOver = true;
             clearInterval(timer);
-            titleEl.textContent = win ? "MISSION CLEAR" : "EXPLOSION";
+            const t = window.WCGamesTranslation || {};
+            titleEl.textContent = win ? (t.mission_clear || "MISSION CLEAR") : (t.game_over || "GAME OVER");
             titleEl.style.color = win ? "#22c55e" : "#ef4444";
             finalEl.textContent = time;
+
+            if (win) {
+                SoundFX.victory();
+            } else {
+                document.body.classList.add('bomb-hit', 'shake');
+                SoundFX.explosion();
+                setTimeout(() => document.body.classList.remove('shake'), 500);
+            }
 
             grid.flat().forEach(cell => {
                 if (cell.mine) {

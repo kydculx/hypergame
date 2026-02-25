@@ -71,12 +71,12 @@ export const useGameStore = create<GameState>()(
         },
         {
           id: 'helix',
-          thumbnailUrl: 'games/helix/thumb.svg',
+          thumbnailUrl: 'games/helix/thumb.png',
           gameUrl: 'games/helix/index.html',
         },
         {
           id: 'geometry',
-          thumbnailUrl: 'games/geometry/thumb.svg',
+          thumbnailUrl: 'games/geometry/thumb.png',
           gameUrl: 'games/geometry/index.html',
         },
         {

@@ -1,9 +1,0 @@
-{
-  "title": "Toy Domino",
-  "instruction": "Strategically place the right-sized dominoes to complete the circuit and trigger a continuous fall.",
-  "play": "Play",
-  "game_over": "Game Over",
-  "final_score": "Score: ",
-  "play_again": "Retry",
-  "category": "PUZZLE"
-}

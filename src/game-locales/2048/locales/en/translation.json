@@ -1,9 +1,0 @@
-{
-  "title": "2048",
-  "instruction": "Combine matching numbers to reach the ultimate 2048 tile!",
-  "play": "Play",
-  "game_over": "Game Over",
-  "final_score": "Score: ",
-  "play_again": "Retry",
-  "category": "PUZZLE"
-}

@@ -1,9 +1,0 @@
-{
-  "title": "점프",
-  "instruction": "빛나는 큐브를 조종해 위험천만한 파이프 장애물들을 끊임없이 돌파하세요.",
-  "play": "시작",
-  "game_over": "게임오버",
-  "final_score": "점수: ",
-  "play_again": "다시하기",
-  "category": "액션"
-}

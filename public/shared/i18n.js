@@ -20,20 +20,17 @@ function autoTagElements() {
 
     // The "Final Score:" text node before the span
     const overScoreWrap = document.querySelector('[id*="game-over"] p') || document.querySelector('[id*="game-over"] div[style*="font-size: 24px"]');
-    if (overScoreWrap) {
-        // We will just tag the text node if possible, or wrap it. 
-        // For simplicity, we create a specific key for 'Final Score: ' and set it.
-        // But since the child is a span with the score, we can't just replace innerHTML.
-        // Let's create a span around the text node.
-        Array.from(overScoreWrap.childNodes).forEach(node => {
-            if (node.nodeType === 3 && node.textContent.trim().length > 0) { // Text node
+    if (overScoreWrap && !overScoreWrap.querySelector('[data-i18n="final_score"]')) {
+        // Tag only the first non-empty text node as the label
+        for (const node of Array.from(overScoreWrap.childNodes)) {
+            if (node.nodeType === 3 && node.textContent.trim().length > 0) {
                 const span = document.createElement('span');
                 span.setAttribute('data-i18n', 'final_score');
-                // The span wrapper doesn't have the text yet, updateTranslations will fill it.
                 overScoreWrap.insertBefore(span, node);
                 node.remove();
+                break; // Stop after first one
             }
-        });
+        }
     }
 
     const overBtn = document.querySelector('[id*="game-over"] button');
@@ -47,6 +44,7 @@ async function updateTranslations(lang) {
         const res = await fetch(`locales/${normalizedLang}/translation.json`);
         if (!res.ok) throw new Error('Translation not found');
         const translations = await res.json();
+        window.WCGamesTranslation = translations;
 
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
