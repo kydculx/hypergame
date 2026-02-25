@@ -264,7 +264,7 @@
                     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
                     gain.gain.setValueAtTime(vol > 0 ? vol : 0.001, audioCtx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+                    gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + duration); // Safari prefers non-zero
 
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
@@ -307,8 +307,16 @@
                 this.engineNoise.start();
             }
 
+            static lastEngineUpdate = 0;
+            static lastSpeedPerc = -1;
             static updateEngine(speedPercentage) {
                 if (!this.engineFilter || !this.engineGain || audioCtx.state !== 'running') return;
+
+                // Throttle updates to 30fps and skip if speed hasn't changed much
+                const now = Date.now();
+                if (now - this.lastEngineUpdate < 33 && Math.abs(speedPercentage - this.lastSpeedPerc) < 0.01) return;
+                this.lastEngineUpdate = now;
+                this.lastSpeedPerc = speedPercentage;
 
                 // Muffled wind/thrust at low speed, sharp swoosh at high speed
                 const targetFreq = 200 + (speedPercentage * 1800); // 200Hz -> 2000Hz sweep
@@ -338,7 +346,7 @@
 
                 const noiseGain = audioCtx.createGain();
                 noiseGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                noiseGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+                noiseGain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
 
                 noise.connect(noiseFilter);
                 noiseFilter.connect(noiseGain);
@@ -359,7 +367,7 @@
                 osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 2);
 
                 gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
 
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
@@ -694,7 +702,7 @@
                 ctx.arc(0, 0, r - 4, 0, Math.PI * 2);
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
                 ctx.setLineDash([5, 10]);
-                ctx.lineDashOffset = Date.now() / 20;
+                ctx.lineDashOffset = (Date.now() / 20) % 1000; // Keep offset small for Safari stability
                 ctx.stroke();
                 ctx.setLineDash([]);
                 ctx.restore();
