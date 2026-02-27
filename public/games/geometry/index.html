@@ -31,19 +31,9 @@
             touch-action: none;
         }
 
-        /* --- BACKGROUND LAYERS --- */
+        /* Background layer simplified to black */
         .grid-bg {
-            position: fixed;
-            inset: 0;
-            background: radial-gradient(circle at center, #0a0a2a 0%, #000 100%);
-            z-index: -2;
-        }
-
-        .grid-bg::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at center, transparent 0%, var(--bg) 80%);
+            display: none;
         }
 
         canvas {
@@ -190,13 +180,13 @@
 
     <script>
         /**
-         * GEOMETRIC DASH - MAIN ENGINE
-         * Organised Refactoring v2
+         * GEOMETRIC DASH - REFACTORED ENGINE
+         * Senior Level Codebase following SRP & Naming Conventions
          */
 
         /* --- 1. CONFIGURATION & CONSTANTS --- */
         const COLORS = {
-            bg: 0x000000,
+            bg: 0x161644,
             accents: [0x00f3ff, 0xff00ff, 0xffcc00, 0x00ff66],
             player: 0xffffff,
             spike: 0xff3366,
@@ -207,19 +197,24 @@
         const CONFIG = {
             playerXRatio: 0.00,
             baseZ: 12,
-            BPM: 140
+            BPM: 140,
+            // PERFORMANCE SETTINGS (Adjustable by User)
+            visibilityRoad: 200,       // Max distance ahead to show road
+            visibilityBuildings: 200,  // Max distance ahead to show buildings
+            cleanupDistance: 100       // Distance behind player to remove objects
         };
 
         const BEAT_LEN = 60 / CONFIG.BPM;
 
         /* --- 2. GLOBAL STATE --- */
-        let scene, camera, renderer, player, playerContainer;
-        let obstacles = [], particles = [], echoes = [], dataStorm = [], backgroundBuildings = [], trail = [], streaks = [];
-        let score = 0, gameState = 'START', sector = 0;
+        let scene, camera, renderer, composer, bloomPass, player, playerContainer, worldGroup, backgroundGroup;
+        let obstacles = [], particles = [], echoes = [], trail = [], backgroundBuildings = [];
+        let roadChunks = [];
+        let score = 0, gameState = 'PLAYING', sector = 0;
+        let trackProgress = 0; // Current world-space X position
+        let worldX = 0; // Cumulative world distance traveled
         let velocityY = 0, isGrounded = true;
         let cameraShake = 0, time = 0, beatTimer = 0, beatPulse = 0;
-        let targetZ = CONFIG.baseZ;
-        let worldGroup, composer;
 
         /* --- 3. GEOMETRY TEMPLATES --- */
         const spikeGeo = new THREE.ConeGeometry(0.5, 1, 4);
@@ -228,154 +223,125 @@
         const icosaGeo = new THREE.IcosahedronGeometry(0.6);
         const tetraGeo = new THREE.TetrahedronGeometry(0.7);
 
-        /* --- 4. AUDIO ENGINE --- */
-        class SoundManager {
-            constructor() {
-                this.ctx = null;
-                this.master = null;
-                this.isMuted = false;
-                this.initialized = false;
-            }
-
-            init() {
-                if (this.initialized) return;
-                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                this.master = this.ctx.createGain();
-                this.master.connect(this.ctx.destination);
-                this.master.gain.value = 0.3;
-                this.initialized = true;
-                this.startMusic();
-            }
-
-            playJump() {
-                if (!this.initialized || this.isMuted) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-                osc.connect(gain);
-                gain.connect(this.master);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.15);
-            }
-
-            playHalt() {
-                if (!this.initialized || this.isMuted) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
-                osc.connect(gain);
-                gain.connect(this.master);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.5);
-            }
-
-            playPulse(isKick = false) {
-                if (!this.initialized || this.isMuted) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.frequency.setValueAtTime(isKick ? 100 : 200, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-                gain.gain.setValueAtTime(isKick ? 0.4 : 0.1, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-                osc.connect(gain);
-                gain.connect(this.master);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.1);
-            }
-
-            startMusic() {
-                setInterval(() => {
-                    if (gameState !== 'PLAYING' || this.isMuted) return;
-                    this.playPulse(true); // Kick Beat
-
-                    const notes = [55, 65, 73, 82];
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(notes[sector % notes.length], this.ctx.currentTime);
-                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
-                    osc.connect(gain);
-                    gain.connect(this.master);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.4);
-                }, BEAT_LEN * 1000);
-            }
+        /* --- 4. SHARED RESOURCES (OPTIMIZATION) --- */
+        const unitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const unitEdgesGeo = new THREE.EdgesGeometry(unitBoxGeo);
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x111122, metalness: 0.8, roughness: 0.2 });
+        const sharedMaterials = {};
+        const lineMaterials = {};
+        /* --- 5. LOGIC HELPERS --- */
+        function LogicGetWorldTrackY(x) {
+            // Vertical movement (Dips and Climbs) - Smoother frequency
+            return Math.sin(x * 0.012) * 15 + Math.cos(x * 0.005) * 20;
         }
 
-        const sound = new SoundManager();
+        function LogicGetWorldTrackZ(x) {
+            // Horizontal movement (Left and Right) - Sweeping curves
+            return Math.sin(x * 0.015) * 25 + Math.cos(x * 0.008) * 18;
+        }
+
+        function LogicGetWorldTrackVector(x) {
+            const eps = 0.1;
+            const p0 = new THREE.Vector3(x, LogicGetWorldTrackY(x), LogicGetWorldTrackZ(x));
+            const p1 = new THREE.Vector3(x + eps, LogicGetWorldTrackY(x + eps), LogicGetWorldTrackZ(x + eps));
+            return {
+                pos: p0,
+                tan: p1.clone().sub(p0).normalize()
+            };
+        }
+
+        function LogicGetRoadOffset(relativeX) {
+            // OBSOLETE in True World Alignment - world positions are used directly
+            return 0;
+        }
+
+
+        function LogicGetSharedMaterial(color, opacity = 1, emissive = false, wireframe = false, emissiveIntensity = 1) {
+            const key = `${color}_${opacity}_${emissive}_${wireframe}_${emissiveIntensity}`;
+            if (!sharedMaterials[key]) {
+                const params = {
+                    color: color,
+                    transparent: opacity < 1,
+                    opacity: opacity,
+                    wireframe: wireframe
+                };
+                if (emissive) {
+                    params.emissive = color;
+                    params.emissiveIntensity = emissiveIntensity;
+                }
+                if (wireframe || emissive) {
+                    sharedMaterials[key] = new THREE.MeshBasicMaterial(params);
+                } else {
+                    // Optimization: Matte finish (No reflections)
+                    params.metalness = 0.0;
+                    params.roughness = 1.0;
+                    sharedMaterials[key] = new THREE.MeshStandardMaterial(params);
+                }
+            }
+            return sharedMaterials[key];
+        }
+
+        function LogicGetSharedLineMaterial(color, opacity = 1) {
+            const key = `${color}_${opacity}`;
+            if (!lineMaterials[key]) {
+                lineMaterials[key] = new THREE.LineBasicMaterial({
+                    color: color,
+                    transparent: opacity < 1,
+                    opacity: opacity
+                });
+            }
+            return lineMaterials[key];
+        }
 
         /* --- 5. INITIALIZATION & RESIZE --- */
-        function init() {
+        function DrawInitializeScene() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(COLORS.bg);
 
             const aspect = window.innerWidth / window.innerHeight;
-            camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
-            camera.position.set(0, 2, CONFIG.baseZ);
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+            camera.position.set(-18, 4, 0);
             camera.lookAt(-4, 0, 0);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             document.body.appendChild(renderer.domElement);
 
-            scene.fog = new THREE.FogExp2(0x050510, 0.02);
-
-            // Post-processing: Neon Bloom
-            const renderScene = new THREE.RenderPass(scene, camera);
-            const bloomPass = new THREE.UnrealBloomPass(
-                new THREE.Vector2(window.innerWidth, window.innerHeight),
-                1.3, // Slightly reduced strength for global glow
-                0.4, // Radius
-                0.15 // Lower threshold for global neon effect
-            );
+            // 블룸 포스트프로세싱: 반 해상도 + 높은 threshold로 깜빡임 최소화
+            const bloomResolution = 0.25; // 더 낮추면 부드러워져 깜빡임 감소
             composer = new THREE.EffectComposer(renderer);
-            composer.addPass(renderScene);
+            composer.addPass(new THREE.RenderPass(scene, camera));
+            bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(Math.max(1, Math.floor(window.innerWidth * bloomResolution)), Math.max(1, Math.floor(window.innerHeight * bloomResolution))),
+                1.0,   // strength (낮춰서 경계 증폭 완화)
+                0.5,   // radius (넓게 번지면 부드러움)
+                0.5    // threshold (밝은 픽셀만 블룸 → 경계 노이즈 감소)
+            );
             composer.addPass(bloomPass);
 
-            // World Lighting
-            const ambient = new THREE.AmbientLight(0x4040ff, 0.4);
+            scene.fog = new THREE.FogExp2(COLORS.bg, 0.008);
+
+            const ambient = new THREE.AmbientLight(0xffffff, 2.0);
             scene.add(ambient);
-            const dirLight = new THREE.DirectionalLight(0xff00ff, 0.8);
-            dirLight.position.set(5, 5, 5);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(5, 10, 5);
             scene.add(dirLight);
 
             worldGroup = new THREE.Group();
             scene.add(worldGroup);
 
-            // Circuit Grid Floor
-            createCircuitFloor();
+            backgroundGroup = new THREE.Group();
+            scene.add(backgroundGroup);
 
-            // Background Skyscrapers
-            createBackgroundCity();
+            DrawInitFloor();
+            DrawInitCityBackground();
 
-            for (let i = 0; i < 60; i++) spawnDataPoint();
-
-            // Player Setup
             playerContainer = new THREE.Group();
             playerContainer.position.set(-6, -1.5, 0);
 
-            // Neon Player Redesign
-            const playerCore = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({
-                color: 0x00ffff,
-                emissive: 0x00ffff,
-                emissiveIntensity: 2.5
-            }));
-            const playerShell = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({
-                color: 0xff00ff,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.8
-            }));
+            const playerCore = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5 }));
+            const playerShell = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true }));
             playerShell.scale.setScalar(1.1);
 
             player = new THREE.Group();
@@ -385,206 +351,228 @@
             playerContainer.add(player);
             scene.add(playerContainer);
 
-            // Global Events
-            window.addEventListener('pointerdown', jump);
-            window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); jump(); } });
-            window.addEventListener('resize', resize);
+            window.addEventListener('pointerdown', LogicHandleJump);
+            window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); LogicHandleJump(); } });
+            window.addEventListener('resize', DrawResize);
 
-            resize();
-            animate();
+            DrawResize();
+            LogicMainLoop();
         }
 
-        function resize() {
+        function DrawResize() {
             const aspect = window.innerWidth / window.innerHeight;
-            camera.aspect = aspect;
-
-            const targetBaseVFOV = 60;
-            const targetBaseAspect = 1.777;
-            const halfVFOVRad = THREE.MathUtils.degToRad(targetBaseVFOV / 2);
-            const targetTanHalfHFOV = Math.tan(halfVFOVRad) * targetBaseAspect;
-            const newHalfVFOVRad = Math.atan(targetTanHalfHFOV / aspect);
-            camera.fov = THREE.MathUtils.radToDeg(newHalfVFOVRad * 2);
-            camera.updateProjectionMatrix();
-
+            if (camera) {
+                camera.aspect = aspect;
+                camera.updateProjectionMatrix();
+            }
             renderer.setSize(window.innerWidth, window.innerHeight);
-
-            const heightAtZ = 2 * Math.tan(newHalfVFOVRad) * CONFIG.baseZ;
-            const widthAtZ = heightAtZ * aspect;
-            playerContainer.position.x = (-4 - widthAtZ / 2) + (widthAtZ * CONFIG.playerXRatio);
+            if (composer) {
+                composer.setSize(window.innerWidth, window.innerHeight);
+                composer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+                if (bloomPass) {
+                    const bloomResolution = 0.25;
+                    bloomPass.resolution.set(Math.max(1, Math.floor(window.innerWidth * bloomResolution)), Math.max(1, Math.floor(window.innerHeight * bloomResolution)));
+                }
+            }
+            playerContainer.position.set(-6, -1.5, 0);
         }
 
         /* --- 6. ENVIRONMENT GENERATION --- */
-        function createCircuitFloor() {
-            // 1. Deep Space Foundation (Solid to avoid sorting issues)
-            const baseGeo = new THREE.PlaneGeometry(200, 20);
-            const baseMat = new THREE.MeshBasicMaterial({ color: 0x010108 });
-            const base = new THREE.Mesh(baseGeo, baseMat);
-            base.rotation.x = -Math.PI / 2;
-            base.position.y = -2.1;
-            worldGroup.add(base);
+        function LogicSpawnWorldChunk(wx) {
+            const step = 2; // Much smaller steps for smoothness
+            const roadLen = step + 0.4;
+            const roadWidth = 6;
 
-            // 2. The Energy Road (Solid base)
-            const roadGeo = new THREE.PlaneGeometry(200, 4.6);
-            const roadMat = new THREE.MeshStandardMaterial({
-                color: 0x1a0033,
-                emissive: 0x1a0033,
-                emissiveIntensity: 0.5
-            });
-            const road = new THREE.Mesh(roadGeo, roadMat);
-            road.rotation.x = -Math.PI / 2;
-            road.position.y = -2.05;
-            worldGroup.add(road);
+            const vec = LogicGetWorldTrackVector(wx);
+            const target = vec.pos.clone().add(vec.tan);
 
-            // 3. Digital Grid (Subtle glow)
-            const gridGeo = new THREE.PlaneGeometry(200, 4.2, 80, 2);
-            const gridMat = new THREE.MeshStandardMaterial({
-                color: 0x00ffff,
-                emissive: 0x00ffff,
-                emissiveIntensity: 3,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.3
-            });
-            const grid = new THREE.Mesh(gridGeo, gridMat);
-            grid.rotation.x = -Math.PI / 2;
-            grid.position.y = -2.03;
-            worldGroup.add(grid);
-            worldGroup.userData.roadGrid = grid; // For animation
+            const chunkGroup = new THREE.Group();
+            chunkGroup.position.copy(vec.pos).add(new THREE.Vector3(0, -2, 0));
+            chunkGroup.lookAt(target.clone().add(new THREE.Vector3(0, -2, 0)));
 
-            // 4. Neon Rails
-            const railGeo = new THREE.BoxGeometry(200, 0.15, 0.15);
-            const railMatL = new THREE.MeshStandardMaterial({ color: 0x00f3ff, emissive: 0x00f3ff, emissiveIntensity: 8 });
-            const railMatR = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 8 });
+            // Road Surface
+            const road = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x050515, 1, false));
+            road.scale.set(roadWidth, 0.1, roadLen);
+            chunkGroup.add(road);
 
-            const leftL = new THREE.Mesh(railGeo, railMatL);
-            leftL.position.set(0, -2, -2.2);
-            worldGroup.add(leftL);
-
-            const rightL = new THREE.Mesh(railGeo, railMatR);
-            rightL.position.set(0, -2, 2.2);
-            worldGroup.add(rightL);
-
-            // 5. Central Energy Core
-            const coreGeo = new THREE.PlaneGeometry(200, 0.1);
-            const coreMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 12 });
-            const core = new THREE.Mesh(coreGeo, coreMat);
-            core.rotation.x = -Math.PI / 2;
-            core.position.y = -2.02;
-            worldGroup.add(core);
-
-            worldGroup.renderOrder = 0;
-        }
-
-
-
-        function createBackgroundCity() {
-            const buildingMat = new THREE.MeshStandardMaterial({
-                color: 0x050515,
-                roughness: 0.1,
-                metalness: 1.0
+            // Neon Rails (사이버 네온 강화)
+            const accentColor = COLORS.accents[sector % 4];
+            const railMat = LogicGetSharedMaterial(accentColor, 1, true, false, 2.0);
+            [-1, 1].forEach(side => {
+                const rail = new THREE.Mesh(unitBoxGeo, railMat);
+                rail.scale.set(0.15, 0.3, roadLen);
+                rail.position.set(side * (roadWidth / 2), 0.1, 0);
+                chunkGroup.add(rail);
             });
 
-            for (let i = 0; i < 35; i++) { // Increased count
-                const h = 8 + Math.random() * 35; // Taller buildings
-                const w = 4 + Math.random() * 6;
-                const geo = new THREE.BoxGeometry(w, h, w);
-                const building = new THREE.Mesh(geo, buildingMat);
+            // Center Dashes (Rhythmic)
+            if (Math.floor(wx / step) % 5 === 0) {
+                const dash = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0xffffff, 1, true, false, 2.0));
+                dash.scale.set(0.1, 0.05, roadLen * 0.8);
+                dash.position.set(0, 0.06, 0);
+                chunkGroup.add(dash);
+            }
 
-                building.position.set(
-                    (Math.random() - 0.5) * 150,
-                    h / 2 - 2.5,
-                    -20 - Math.random() * 50
-                );
+            worldGroup.add(chunkGroup);
+            roadChunks.push(chunkGroup);
 
-                // Neon Accents on Buildings
-                if (Math.random() > 0.4) {
-                    const accentColor = COLORS.accents[Math.floor(Math.random() * COLORS.accents.length)];
-                    const stripeGeo = new THREE.PlaneGeometry(w + 0.1, 0.2);
-                    const stripeMat = new THREE.MeshStandardMaterial({
-                        color: accentColor,
-                        emissive: accentColor,
-                        emissiveIntensity: 5
-                    });
+            // 3. Spawn Buildings near this road segment (사이버 도시 스타일)
+            if (Math.random() > 0.7) { // Even more throttled spawn rate
+                const count = 1; // Single building per segment
+                for (let i = 0; i < count; i++) {
+                    // 사이버 도시 네온 팔레트 (시안, 마젠타, 전기파랑, 보라)
+                    const neonColors = [0x00f3ff, 0xff00ff, 0x0066ff, 0x9933ff];
+                    const w = 6 + Math.random() * 12;
+                    const h = 350 + Math.random() * 250;
+                    const d = 6 + Math.random() * 12;
 
-                    // Add vertical or horizontal glowing stripes
-                    for (let j = 0; j < 3; j++) {
-                        const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-                        stripe.position.y = (Math.random() - 0.5) * h;
-                        stripe.position.z = w / 2 + 0.1;
-                        building.add(stripe);
+                    const buildingRoot = new THREE.Group();
+
+                    // 건물 본체: 딥 블루 계열 (사이버 느낌)
+                    const mainBody = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x0a0a18, 1.0, false));
+                    mainBody.scale.set(w, h, d);
+                    buildingRoot.add(mainBody);
+
+                    const neonColor = neonColors[Math.floor(Math.random() * neonColors.length)];
+                    // 아웃라인: 선명도 최대 (네온 엣지 강조)
+                    const wire = new THREE.LineSegments(unitEdgesGeo, LogicGetSharedLineMaterial(neonColor, 1.0));
+                    wire.scale.set(1.002, 1.002, 1.002);
+                    wire.frustumCulled = false;
+                    mainBody.add(wire);
+
+                    // 실루엣 타입 (A: 단일 박스, B: 옥상 한 단 줄어든 타워, C: 상단 좁아진 계단식)
+                    const buildingType = Math.random();
+                    if (buildingType < 0.35) {
+                        // 타입 B: 상단에 더 작은 박스 (setback)
+                        const topW = w * (0.4 + Math.random() * 0.2);
+                        const topH = h * (0.08 + Math.random() * 0.08);
+                        const topD = d * (0.4 + Math.random() * 0.2);
+                        const topBox = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x0a0a18, 1.0, false));
+                        topBox.scale.set(topW / w, topH / h, topD / d);
+                        topBox.position.set(0, 0.5 + (topH / h) / 2, 0);
+                        topBox.frustumCulled = false;
+                        mainBody.add(topBox);
+                        const topWire = new THREE.LineSegments(unitEdgesGeo, LogicGetSharedLineMaterial(neonColor, 1.0));
+                        topWire.scale.set(1.002, 1.002, 1.002);
+                        topWire.frustumCulled = false;
+                        topBox.add(topWire);
+                    } else if (buildingType < 0.7) {
+                        // 타입 C: 상단 절반 계단식 (taper)
+                        const taper = 0.85 + Math.random() * 0.1;
+                        const topBox = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x0a0a18, 1.0, false));
+                        topBox.scale.set(taper, 0.5, taper);
+                        topBox.position.set(0, 0.5 + 0.25, 0);
+                        topBox.frustumCulled = false;
+                        mainBody.add(topBox);
+                        const topWire = new THREE.LineSegments(unitEdgesGeo, LogicGetSharedLineMaterial(neonColor, 1.0));
+                        topWire.scale.set(1.002, 1.002, 1.002);
+                        topWire.frustumCulled = false;
+                        topBox.add(topWire);
                     }
-                }
 
-                // Holographic Billboards
-                if (Math.random() > 0.8) {
-                    const billboardGeo = new THREE.PlaneGeometry(6, 4);
-                    const billboardMat = new THREE.MeshBasicMaterial({
-                        color: 0x00ffff,
-                        transparent: true,
-                        opacity: 0.4,
-                        side: THREE.DoubleSide,
-                        wireframe: true
+                    // 창문·패널: 층 수 줄임 (2~4층), 앞/뒤 면 모두
+                    const stripCount = 2 + Math.floor(Math.random() * 3); // 2~4층
+                    const winColors = [0x00f3ff, 0xff00ff, 0xffffff];
+                    for (let layer = 0; layer < stripCount; layer++) {
+                        const yNorm = -0.5 + (layer + 1) / (stripCount + 1);
+                        const stripColor = winColors[Math.floor(Math.random() * winColors.length)];
+                        const winMat = LogicGetSharedMaterial(stripColor, 1, true, false, 2.5);
+                        [-0.5, 0.5].forEach(zSide => {
+                            const strip = new THREE.Mesh(unitBoxGeo, winMat);
+                            strip.scale.set(0.8, 0.065, 1.02); // 두께 더 증가 (컬링 방지)
+                            strip.position.set(0, yNorm, zSide);
+                            strip.frustumCulled = false;
+                            mainBody.add(strip);
+                        });
+                    }
+
+                    // 옥상: 안테나 1~2개
+                    const antCount = 1 + Math.floor(Math.random() * 2);
+                    for (let a = 0; a < antCount; a++) {
+                        const antH = 8 + Math.random() * 12;
+                        const antScaleX = (0.055 + Math.random() * 0.025); // 더 두껍게 (컬링 방지)
+                        const antScaleZ = (0.055 + Math.random() * 0.025);
+                        const ant = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(neonColor, 1, true, false, 2.5));
+                        ant.scale.set(antScaleX, antH / h, antScaleZ);
+                        ant.position.set((Math.random() - 0.5) * 0.6, 0.5 + (antH / h) / 2, (Math.random() - 0.5) * 0.6);
+                        ant.frustumCulled = false;
+                        mainBody.add(ant);
+                    }
+
+                    // 옥상 모서리 네온 라이트 (2개만: 대각 한 쌍)
+                    const lightMat = LogicGetSharedMaterial(neonColor, 1, true, false, 2.8);
+                    [[-0.45, 0.48, -0.45], [0.45, 0.48, 0.45]].forEach(([ox, oy, oz]) => {
+                        const light = new THREE.Mesh(unitBoxGeo, lightMat);
+                        light.scale.set(0.08, 0.055, 0.08); // 더 두껍게 (컬링 방지)
+                        light.position.set(ox, oy, oz);
+                        light.frustumCulled = false;
+                        mainBody.add(light);
                     });
-                    const billboard = new THREE.Mesh(billboardGeo, billboardMat);
-                    billboard.position.set(w / 2 + 2, h / 2, 0);
-                    billboard.rotation.y = Math.PI / 2;
-                    building.add(billboard);
+
+                    const side = Math.random() > 0.5 ? 1 : -1;
+                    const distZ = side * (35 + Math.random() * 65);
+                    const wy = LogicGetWorldTrackY(wx) - (h / 2) + 50 + Math.random() * 30;
+                    const wz = LogicGetWorldTrackZ(wx) + distZ;
+
+                    buildingRoot.position.set(wx, wy, wz);
+                    buildingRoot.frustumCulled = false; // 프러스텀 경계에서 깜빡임 방지
+                    backgroundGroup.add(buildingRoot);
+                    backgroundBuildings.push(buildingRoot);
                 }
-
-                const wire = new THREE.LineSegments(
-                    new THREE.EdgesGeometry(geo),
-                    new THREE.LineBasicMaterial({
-                        color: 0x00ffff,
-                        transparent: true,
-                        opacity: 0.2
-                    })
-                );
-                building.add(wire);
-                worldGroup.add(building);
-                backgroundBuildings.push(building);
-            }
-
-            // Flying Vehicles (Energy Streaks)
-            streaks = []; // Reset streaks array
-            for (let i = 0; i < 15; i++) {
-                const streakGeo = new THREE.BoxGeometry(2, 0.2, 0.2);
-                const streakMat = new THREE.MeshStandardMaterial({
-                    color: 0x00ffff,
-                    emissive: 0x00ffff,
-                    emissiveIntensity: 10
-                });
-                const streak = new THREE.Mesh(streakGeo, streakMat);
-                streak.position.set(
-                    (Math.random() - 0.5) * 200,
-                    10 + Math.random() * 30,
-                    -30 - Math.random() * 40
-                );
-                streak.userData = { speed: 0.2 + Math.random() * 0.5, isStreak: true };
-                scene.add(streak);
-                backgroundBuildings.push(streak);
-                streaks.push(streak);
             }
         }
 
-        function spawnDataPoint() {
-            const size = Math.random() * 0.6 + 0.2;
-            const geo = Math.random() > 0.5 ? new THREE.IcosahedronGeometry(size, 0) : new THREE.TetrahedronGeometry(size, 0);
-            const mat = new THREE.MeshBasicMaterial({ color: COLORS.accents[sector % 4], wireframe: true, transparent: true, opacity: 0.15 });
-            const m = new THREE.Mesh(geo, mat);
-            m.position.set((Math.random() - 0.5) * 120, Math.random() * 40 - 10, -10 - Math.random() * 40);
-            m.userData = { rot: (Math.random() - 0.5) * 0.015 };
-            scene.add(m);
-            dataStorm.push(m);
+        function DrawInitFloor() {
+            // Initial burst of chunks
+            for (let x = -100; x < 500; x += 2) {
+                LogicSpawnWorldChunk(x);
+            }
         }
 
-        function spawnParticles(x, y, count, color, isExplosion = false) {
+        function DrawInitCityBackground() {
+            // NO-OP: Handled by LogicSpawnWorldChunk
+        }
+
+        let lastSpawnX = 500;
+        function LogicUpdateWorld(worldX) {
+            // Spawn new chunks ahead in discrete steps
+            const step = 2; // Match the step size in LogicSpawnWorldChunk
+            while (lastSpawnX < worldX + 600) {
+                LogicSpawnWorldChunk(lastSpawnX);
+                lastSpawnX += step;
+            }
+
+            // Cleanup old buildings far behind
+            for (let i = backgroundBuildings.length - 1; i >= 0; i--) {
+                const b = backgroundBuildings[i];
+                const dx = b.position.x - worldX;
+                // Configurable building visibility
+                b.visible = (dx > -100 && dx < CONFIG.visibilityBuildings);
+                // Configurable cleanup
+                if (dx < -CONFIG.cleanupDistance) {
+                    scene.remove(b);
+                    backgroundBuildings.splice(i, 1);
+                }
+            }
+            // Cleanup old road chunks
+            for (let i = roadChunks.length - 1; i >= 0; i--) {
+                const c = roadChunks[i];
+                const dx = c.position.x - worldX;
+                // Configurable road visibility
+                c.visible = (dx > -100 && dx < CONFIG.visibilityRoad);
+                // Configurable cleanup
+                if (dx < -CONFIG.cleanupDistance) {
+                    worldGroup.remove(c);
+                    roadChunks.splice(i, 1);
+                }
+            }
+        }
+
+        function LogicSpawnParticles(x, y, count, color, isExplosion = false) {
+            const mat = LogicGetSharedMaterial(color, 0.8);
             for (let i = 0; i < count; i++) {
-                const p = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshStandardMaterial({
-                    color: color,
-                    emissive: color,
-                    emissiveIntensity: 2,
-                    transparent: true
-                }));
+                const p = new THREE.Mesh(boxGeo, mat);
+                p.scale.setScalar(0.15);
                 p.position.set(x, y, (Math.random() - 0.5) * 1);
                 const v = isExplosion ?
                     new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4) :
@@ -595,25 +583,14 @@
             }
         }
 
-        function updateTrail() {
+        function LogicUpdateTrail(dt) {
             if (gameState !== 'PLAYING') return;
-
-            // Collect position
-            trail.push({ x: playerContainer.position.x, y: playerContainer.position.y });
-            if (trail.length > 20) {
-                const old = trail.shift();
-            }
-
-            // Draw trail (simple spheres/cubes for that "energy" look)
-            const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
-            if (time % 2 === 0) { // Throttle
-                const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshStandardMaterial({
-                    color: colors[Math.floor(time * 10) % colors.length],
-                    emissive: colors[Math.floor(time * 10) % colors.length],
-                    emissiveIntensity: 2,
-                    transparent: true,
-                    opacity: 0.6
-                }));
+            time += dt;
+            if (Math.floor(time * 60) % 3 === 0) {
+                const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
+                const color = colors[Math.floor(time * 10) % colors.length];
+                const p = new THREE.Mesh(boxGeo, LogicGetSharedMaterial(color, 0.6));
+                p.scale.setScalar(0.3);
                 p.position.set(playerContainer.position.x - 0.5, playerContainer.position.y, 0);
                 p.userData = { life: 1.0, vel: new THREE.Vector3(-0.05, (Math.random() - 0.5) * 0.02, 0) };
                 scene.add(p);
@@ -621,116 +598,105 @@
             }
         }
 
-        function spawnEcho() {
+        function LogicSpawnEcho() {
             const e = player.clone();
             e.position.copy(playerContainer.position);
             e.rotation.copy(player.rotation);
-            e.material = new THREE.MeshBasicMaterial({ color: COLORS.accents[sector % 4], transparent: true, opacity: 0.3, wireframe: true });
+            const mat = LogicGetSharedMaterial(COLORS.accents[sector % 4], 0.3, true);
+            e.traverse(node => { if (node.isMesh) node.material = mat; });
+            e.userData = { life: 1.0 };
             scene.add(e);
             echoes.push(e);
         }
 
-        function spawnObstacle(x) {
-            const types = [
+        function LogicSpawnObstacle(x) {
+            const OBS_TYPES = [
                 { geo: spikeGeo, isSpike: true },
                 { geo: boxGeo, isSpike: false },
                 { geo: octaGeo, isSpike: false },
                 { geo: icosaGeo, isSpike: false },
                 { geo: tetraGeo, isSpike: false }
             ];
-            const type = types[Math.floor(Math.random() * types.length)];
-            const color = COLORS.obstacles[Math.floor(Math.random() * COLORS.obstacles.length)];
-
-            // Solid/Matte Material for depth clarity
-            const mat = new THREE.MeshStandardMaterial({
-                color: color,
-                emissive: color,
-                emissiveIntensity: 2.0,
-                metalness: 0.8,
-                roughness: 0.2
-            });
-
-            const m = new THREE.Mesh(type.geo, mat);
-            const wire = new THREE.Mesh(type.geo, new THREE.MeshStandardMaterial({
-                color: 0xffffff,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.8 // Much more visible
-            }));
+            const type = OBS_TYPES[Math.floor(Math.random() * OBS_TYPES.length)];
+            const m = new THREE.Mesh(type.geo, LogicGetSharedMaterial(COLORS.accents[sector % 4]));
+            const wire = new THREE.Mesh(type.geo, new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.5 }));
             wire.scale.set(1.05, 1.05, 1.05);
             m.add(wire);
+            const wx = x;
+            const vec = LogicGetWorldTrackVector(wx);
+            m.position.copy(vec.pos).add(new THREE.Vector3(0, -1.5, 0));
 
-            m.position.set(x, -1.5, 0);
+            const target = vec.pos.clone().add(vec.tan);
+            m.lookAt(target);
+
             if (!type.isSpike) m.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            else m.rotation.y = Math.PI / 4;
-
-            scene.add(m);
-            m.renderOrder = 10; // Ensure rendered after road
+            else m.rotation.y += Math.PI / 4;
+            worldGroup.add(m);
+            m.renderOrder = 10;
             obstacles.push(m);
         }
 
         /* --- 7. GAMEPLAY MECHANICS --- */
-        function jump() {
-            sound.init();
+        function LogicHandleJump() {
             if (gameState !== 'PLAYING' || !isGrounded) return;
-
             const speed = 0.18 + (score / 50000);
             const speedScale = speed / 0.18;
             velocityY = 0.28 * speedScale;
             isGrounded = false;
             cameraShake = 0.1;
-            spawnParticles(playerContainer.position.x, playerContainer.position.y - 0.5, 6, COLORS.accents[sector % 4]);
-            sound.playJump();
+            LogicSpawnParticles(playerContainer.position.x, playerContainer.position.y - 0.5, 6, COLORS.accents[sector % 4]);
+            WCGames.Audio.play([150, 800], 'sawtooth', 0.15, 0.2);
         }
 
-        function onGameOver() {
+        function LogicGameOver() {
             if (gameState === 'OVER') return;
             gameState = 'OVER';
             cameraShake = 0.6;
             player.visible = false;
-            spawnParticles(playerContainer.position.x, playerContainer.position.y, 30, COLORS.spike, true);
+            LogicSpawnParticles(playerContainer.position.x, playerContainer.position.y, 30, COLORS.spike, true);
 
-            document.getElementById('game-over').classList.add('visible');
-            document.getElementById('final-score').textContent = Math.floor(score);
-
-            sound.playHalt();
+            // Show UI via SDK
+            WCGames.Audio.play([400, 40], 'square', 0.5, 0.3);
             WCGames.gameOver(Math.floor(score));
         }
 
         /* --- 8. MAIN ENGINE LOOP --- */
-        function animate() {
-            requestAnimationFrame(animate);
-            const dt = 1 / 60;
-            time += dt;
+        function LogicMainLoop() {
+            requestAnimationFrame(LogicMainLoop);
+            const dt = WCGames.updateDelta();
+            const frameFactor = dt / (1 / 60);
 
             // BPM Engine
             beatTimer += dt;
             if (beatTimer >= BEAT_LEN) {
                 beatTimer = 0;
                 beatPulse = 1.0;
-                if (gameState === 'PLAYING') spawnEcho();
+                if (gameState === 'PLAYING') {
+                    // LogicSpawnEcho(); // Removed player echo effect
+                    WCGames.Audio.play(sector % 2 === 0 ? 100 : 200, 'sine', 0.1, 0.1);
+                }
             }
-            beatPulse *= 0.92;
+            beatPulse *= Math.pow(0.92, frameFactor);
 
             if (gameState === 'PLAYING') {
-                const speed = 0.18 + (score / 50000);
-                const speedScale = speed / 0.18;
+                const baseSpeed = 0.18 + (score / 50000);
+                const speed = baseSpeed * frameFactor;
+                const speedScale = baseSpeed / 0.18;
 
                 // Physics Scaling
-                const dynamicGravity = 0.016 * Math.pow(speedScale, 2);
+                const dynamicGravity = 0.016 * Math.pow(speedScale, 2) * frameFactor;
                 velocityY -= dynamicGravity;
-                playerContainer.position.y += velocityY;
+                playerContainer.position.y += velocityY * frameFactor;
 
                 if (playerContainer.position.y <= -1.5) {
                     if (velocityY < -0.1) cameraShake = 0.05;
                     playerContainer.position.y = -1.5; velocityY = 0; isGrounded = true;
                     player.rotation.z = Math.round(player.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
                 } else {
-                    player.rotation.z -= 0.15 * speedScale;
+                    player.rotation.z -= 0.15 * speedScale * frameFactor;
                 }
 
-                // Progression & UI
-                score += speed * 10;
+                score += baseSpeed * 10 * frameFactor;
                 document.getElementById('score').textContent = Math.floor(score);
                 document.getElementById('score').style.transform = `scale(${1 + beatPulse * 0.2})`;
 
@@ -739,104 +705,122 @@
                     sector = newSector;
                     const c = COLORS.accents[sector % 4];
                     document.documentElement.style.setProperty('--accent', '#' + c.toString(16).padStart(6, '0'));
-
-                    // Update city wireframes & billboards color
-                    backgroundBuildings.forEach(b => {
-                        b.traverse(node => {
-                            if (node.isMesh && node.material && node.material.color && !node.userData.isCore) {
-                                if (node.material.color.setHex) node.material.color.setHex(c);
-                            }
-                        });
-                    });
                 }
 
-                updateTrail();
+                worldX += speed;
+                const vec = LogicGetWorldTrackVector(worldX);
 
-                // Road Grid Animation
-                if (worldGroup.userData.roadGrid) {
-                    worldGroup.userData.roadGrid.position.x = (worldGroup.userData.roadGrid.position.x - speed * 0.5) % 5;
-                }
+                // Full 3D transformation matrix alignment
+                // 1. Move world so player's world entry is at 0,0,0
+                // 2. Align world tangent with global X axis
+                worldGroup.position.set(0, 0, 0);
+                worldGroup.rotation.set(0, 0, 0);
+                worldGroup.updateMatrix();
 
-                // Object Management
-                backgroundBuildings.forEach(b => {
-                    if (b.userData.speed) {
-                        // Flying Vehicle movement
-                        b.position.x -= b.userData.speed;
-                        if (b.position.x < -100) b.position.x = 100;
-                    } else {
-                        // Standard building parallax
-                        b.position.x -= 0.02;
-                        if (b.position.x < -100) b.position.x = 100;
-                    }
-                });
+                // Pivot rotation to align tangent to X
+                const quat = new THREE.Quaternion().setFromUnitVectors(vec.tan, new THREE.Vector3(1, 0, 0));
+                worldGroup.applyQuaternion(quat);
 
-                if (obstacles.length === 0 || obstacles[obstacles.length - 1].position.x < 20) {
-                    spawnObstacle(obstacles.length === 0 ? 15 : obstacles[obstacles.length - 1].position.x + 10 + Math.random() * 8);
-                }
+                // Translation after rotation to keep relative position
+                const offset = vec.pos.clone().applyQuaternion(quat).negate();
+                worldGroup.position.copy(offset);
+
+                backgroundGroup.rotation.copy(worldGroup.rotation);
+                backgroundGroup.position.copy(worldGroup.position);
+
+                const playerPos = playerContainer.position;
+                const tempVec = new THREE.Vector3();
 
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     const o = obstacles[i];
-                    o.position.x -= speed;
-                    if (o.position.x < -25) { scene.remove(o); obstacles.splice(i, 1); }
-                    else if (playerContainer.position.distanceTo(o.position) < 0.8) onGameOver();
+                    // Clean up far behind (based on worldX)
+                    if (o.position.x < worldX - 20) {
+                        worldGroup.remove(o); obstacles.splice(i, 1);
+                        continue;
+                    }
+
+                    // True 3D Scene-Space Collision Check
+                    o.getWorldPosition(tempVec);
+                    const distToPlayer = tempVec.distanceTo(playerPos);
+
+                    if (distToPlayer < 0.9) {
+                        LogicGameOver();
+                    }
                 }
+
+                if (obstacles.length === 0 || obstacles[obstacles.length - 1].position.x < worldX + 30) {
+                    LogicSpawnObstacle(worldX + 40 + Math.random() * 15);
+                }
+
+                // LogicUpdateTrail(dt); // Removed player trail effect
+                LogicUpdateWorld(worldX);
             }
 
             // FX Updates
-            particles.forEach((p, i) => {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
                 p.position.add(p.userData.vel);
                 p.userData.life -= 0.02;
-                p.material.opacity = p.userData.life;
+                p.scale.setScalar(p.userData.life * 0.15);
                 if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
-            });
-
-            echoes.forEach((e, i) => {
-                e.material.opacity -= 0.02;
+            }
+            for (let i = echoes.length - 1; i >= 0; i--) {
+                const e = echoes[i];
+                e.userData.life -= 0.02;
                 e.scale.multiplyScalar(1.02);
-                if (e.material.opacity <= 0) { scene.remove(e); echoes.splice(i, 1); }
-            });
+                if (e.userData.life <= 0) { scene.remove(e); echoes.splice(i, 1); }
+            }
 
-            dataStorm.forEach(m => {
-                m.rotation.y += m.userData.rot;
-                m.rotation.x += m.userData.rot * 0.5;
-                m.position.x -= 0.08;
-                if (m.position.x < -100) m.position.x = 100;
-                m.material.opacity = (0.1 + beatPulse * 0.2);
-                m.material.color.setHex(COLORS.accents[sector % 4]);
-            });
+            DrawMainRender();
+        }
 
-
-
-            // Camera System
+        function DrawMainRender() {
             const shakeOffset = (Math.random() - 0.5) * cameraShake;
-            camera.position.set(shakeOffset, 2 + shakeOffset, CONFIG.baseZ);
+            camera.position.set(-18 + shakeOffset, 4 + shakeOffset, shakeOffset);
+            camera.lookAt(-4, 0, 0);
             cameraShake *= 0.9;
-
-            if (composer) composer.render();
-            else renderer.render(scene, camera);
+            composer.render(); // 블룸 적용 (반해상도·파라미터 조정으로 깜빡임 완화)
         }
 
         /* --- 9. SYSTEM INTEGRATION --- */
         WCGames.init({
             id: 'geometry',
             onStart: () => {
+                WCGames.Audio.init();
                 gameState = 'PLAYING'; player.visible = true; playerContainer.position.y = -1.5;
                 document.getElementById('start-screen').classList.remove('visible');
             },
             onRestart: () => {
-                obstacles.forEach(o => scene.remove(o));
-                particles.forEach(p => scene.remove(p));
-                echoes.forEach(e => scene.remove(e));
-                streaks.forEach(s => scene.remove(s));
-                obstacles = []; particles = []; echoes = []; streaks = []; score = 0; sector = 0; gameState = 'PLAYING';
-                playerContainer.position.y = 5; player.visible = true;
+                // Safe clear worldGroup and backgroundGroup
+                while (worldGroup.children.length > 0) {
+                    const child = worldGroup.children[0];
+                    if (child.geometry && child.geometry !== unitBoxGeo) child.geometry.dispose();
+                    worldGroup.remove(child);
+                }
+                while (backgroundGroup.children.length > 0) {
+                    const child = backgroundGroup.children[0];
+                    if (child.geometry && child.geometry !== unitBoxGeo) child.geometry.dispose();
+                    backgroundGroup.remove(child);
+                }
+
+                // Clear UI FX in scene
+                particles.forEach(p => { if (p && p.geometry && p.geometry !== unitBoxGeo) p.geometry.dispose(); scene.remove(p); });
+                echoes.forEach(e => { if (e && e.geometry && e.geometry !== unitBoxGeo) e.geometry.dispose(); scene.remove(e); });
+
+                obstacles = []; particles = []; echoes = []; backgroundBuildings = []; roadChunks = [];
+                score = 0; sector = 0; gameState = 'PLAYING';
+                worldX = 0; lastSpawnX = 500;
+
+                playerContainer.position.y = -1.5; player.visible = true; velocityY = 0; isGrounded = true;
+                player.rotation.set(0, 0, 0);
+
+                DrawInitFloor();
                 document.getElementById('game-over').classList.remove('visible');
             }
         });
 
-        init();
+        DrawInitializeScene();
 
-        // Prevent context menu globally
         window.addEventListener('contextmenu', (e) => e.preventDefault());
     </script>
     <script src="/shared/i18n.js"></script>

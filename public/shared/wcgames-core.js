@@ -4,14 +4,19 @@
  */
 (function () {
     const WCGames = {
-        state: 'INIT', // INIT, PLAYING, OVER
+        state: 'INIT', // INIT, PLAYING, PAUSED, OVER
         config: {},
         lastGameOverTime: 0,
+        debug: false,
+        dt: 0,
+        _lastTime: 0,
 
         init(config) {
             this.config = config;
+            this.debug = new URLSearchParams(window.location.search).has('debug');
             this.setupUI();
             this.setupListeners();
+            this.setupVisibilityHandler();
             this.notifyReady();
 
             // Show start screen by default
@@ -19,7 +24,7 @@
                 this.showPopup('start-screen');
             }
 
-            console.log(`[WCGames] Initialized: ${config.id}`);
+            if (this.debug) console.log(`[WCGames] Initialized: ${config.id}`);
         },
 
         setupUI() {
@@ -53,26 +58,80 @@
                     }
                 }
             });
+
+            // Prevent context menu to avoid long-press issues on mobile
+            window.addEventListener('contextmenu', (e) => e.preventDefault());
+        },
+
+        setupVisibilityHandler() {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    if (this.state === 'PLAYING') this.pause();
+                } else {
+                    if (this.state === 'PAUSED') this.resume();
+                }
+            });
         },
 
         start() {
+            if (this.state === 'PLAYING') return;
             this.state = 'PLAYING';
+            this._lastTime = performance.now();
             this.hideAllPopups();
-            if (this.config.onStart) this.config.onStart();
+            this.safeCall(this.config.onStart);
+        },
+
+        pause() {
+            if (this.state !== 'PLAYING') return;
+            this.state = 'PAUSED';
+            this.safeCall(this.config.onPause);
+            if (this.debug) console.log('[WCGames] Game Paused');
+        },
+
+        resume() {
+            if (this.state !== 'PAUSED') return;
+            this.state = 'PLAYING';
+            this._lastTime = performance.now(); // Reset timer to avoid dt spike
+            this.safeCall(this.config.onResume);
+            if (this.debug) console.log('[WCGames] Game Resumed');
         },
 
         gameOver(score) {
+            if (this.state === 'OVER') return;
+            // Validate score
+            const finalScore = Math.max(0, parseInt(score) || 0);
+
             this.state = 'OVER';
             this.lastGameOverTime = Date.now();
-            this.showPopup('game-over', { score });
-            this.notifyGameOver(score);
-            if (this.config.onGameOver) this.config.onGameOver(score);
+            this.showPopup('game-over', { score: finalScore });
+            this.notifyGameOver(finalScore);
+            this.safeCall(this.config.onGameOver, finalScore);
         },
 
         restart() {
             this.hideAllPopups();
-            if (this.config.onRestart) this.config.onRestart();
+            this.safeCall(this.config.onRestart);
             this.start();
+        },
+
+        // Utilities
+        updateDelta() {
+            const now = performance.now();
+            const delta = (now - this._lastTime) / 1000;
+            this._lastTime = now;
+            // Cap delta to 1/30s to prevent spikes after tab switching
+            this.dt = Math.min(delta, 0.033);
+            return this.dt;
+        },
+
+        safeCall(fn, ...args) {
+            if (typeof fn === 'function') {
+                try {
+                    fn(...args);
+                } catch (e) {
+                    console.error('[WCGames] Callback Error:', e);
+                }
+            }
         },
 
         showPopup(id, data = {}) {
@@ -103,7 +162,43 @@
         },
 
         submitScore(score) {
+            if (typeof score !== 'number' || isNaN(score)) return;
             window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+        },
+
+        /**
+         * Global AudioManager to replace duplicated code in games.
+         */
+        Audio: {
+            ctx: null,
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            },
+            play(freq, type = 'sine', dur = 0.1, vol = 0.1) {
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = type;
+                if (Array.isArray(freq)) {
+                    osc.frequency.setValueAtTime(freq[0], this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(freq[1], this.ctx.currentTime + dur);
+                } else {
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                }
+
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + dur);
+            }
         }
     };
 

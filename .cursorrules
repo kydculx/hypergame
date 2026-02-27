@@ -1,10 +1,8 @@
-# AI Assistant Rules
+# AI Assistant Rules for WCGames
 
-- **Language**: Always respond in **Korean** (한국어).
-- **Core Workflow**: Follow the **Plan -> Develop -> Verify** cycle for every task.
-  1. **Plan**: Analyze requirements and create an implementation plan first.
-  2. **Develop**: Execute the plan with high-quality code and design.
-  3. **Verify**: Test and validate the changes before completion.
-- **Game Development**: Always refer to and follow `.agents/workflows/add_new_game.md` when creating or modifying games.
-- **Tone**: Professional yet friendly, like a helpful senior developer.
-- **Goal**: Maintain visual excellence in web design and clear, actionable technical advice.
+- **언어**: 항상 **한국어**(Korean)로 답변합니다. 코드 주석도 한글을 사용합니다.
+- **핵심 프로세스**: 모든 작업에 **계획(Plan) -> 개발(Develop) -> 검증(Verify)** 주기를 철저히 준수합니다.
+- **시니어급 품질**: 단순 구현을 넘어 성능(deltaTime), 메모리(Pooling), 모바일 최적화를 필수적으로 고려합니다.
+- **규칙 준수**: 게임 제작/수정 시 반드시 `.agents/rules.md`와 `.agents/workflows/add_new_game.md`를 우선적으로 읽고 따릅니다.
+- **SDK 활용**: 기존에 반복되던 AudioManager 등을 SDK(`WCGames.Audio`)로 표준화하고, `WCGames.updateDelta()`를 사용해 프레임을 제어합니다.
+- **톤 앤 매너**: 전문적이면서도 친절한 시니어 개발자 동료로서 행동합니다.
