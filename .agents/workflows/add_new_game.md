@@ -1,38 +1,71 @@
 ---
-description: 플랫폼에 새로운 HTML5 웹게임을 추가하고 연동하는 가이드라인
+description: 플랫폼에 새로운 HTML5 웹게임을 추가하고 연동하는 가이드라인 (상세판)
 ---
 
-이 워크플로우는 WCGames 플랫폼에 새로운 HTML5 아케이드 게임을 추가할 때 지켜야 하는 필수 절차입니다.
+이 워크플로우는 WCGames 플랫폼에 새로운 HTML5 아케이드 게임을 추가할 때 지켜야 하는 필수 기술 지침이며, 반드시 **계획 -> 개발 -> 검증** 프로세스를 따릅니다.
 
-## 1. 정적 파일 복사
-새로운 게임의 소스코드(HTML, JS, CSS, Asset 등)는 반드시 다음 경로에 위치해야 합니다.
-- `public/games/{게임영문이름}/index.html`
+## 0. 작업 프로세스 체크리스트
+- [ ] **계획**: 게임 컨셉, 필요한 에셋, SDK 연동 포인트 정의
+- [ ] **개발**: 폴더 생성, `index.html` 구현, 스타일 및 SDK 적용
+- [ ] **검증**: 로컬 실행, 점수 전송 테스트, 브라우저 호환성 확인
 
-## 2. 썸네일 추가
-해당 게임의 썸네일 이미지는 반드시 동일한 폴더 내에 SVG 또는 PNG 포맷으로 추가해야 합니다.
-- `public/games/{게임영문이름}/thumb.svg` 또는 `thumb.png`
+## 1. 프로젝트 구조 및 파일 위치
+모든 게임은 `public/games/{game_id}/` 내에 위치해야 합니다.
+- `index.html`: 메인 실행 파일
+- `thumb.svg`: 300x300 썸네일 (SVG 권장)
+- `locales/`: 다국어 번역 (ko, en)
 
-## 3. Zustand 스토어 업데이트
-`src/hooks/useGameStore.ts` 파일을 열어 `games` 배열에 새로운 게임 객체를 추가합니다.
-객체는 다음 구조를 따라야 합니다:
+## 2. 필수 SDK 및 스타일 포함
+`index.html`의 `<head>`에 다음을 반드시 포함하세요.
+```html
+<link rel="stylesheet" href="/shared/wcgames-style.css">
+<script src="/shared/wcgames-core.js"></script>
+<script src="/shared/i18n.js"></script>
+```
 
-```typescript
-{
-  id: '{게임영문이름}',
-  title: '{게임 표시 이름}',
-  description: '{게임에 대한 짧은 설명}',
-  thumbnailUrl: 'games/{게임영문이름}/thumb.svg',
-  gameUrl: 'games/{게임영문이름}/index.html',
-  category: 'action' | 'puzzle' | 'casual',
+## 3. UI/UX 스타일 (Neon & Glassmorphism)
+- 배경은 어두운 색상 유지
+- 모달/팝업은 `backdrop-blur` 적용 (`.wcg-popup` 클래스 활용)
+- 표준 ID 사용: `#start-screen`, `#game-over`, `#final-score`
+- **모바일 롱프레스 복사/붙여넣기 방지**: `body`에 다음 CSS를 반드시 적용
+```css
+body {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
 }
 ```
 
-## 4. 사운드 이펙트 추가 (선택)
-HTML5 아케이드 게임의 타격감과 리듬감을 살리기 위해 버튼 터치, 득점(아이템 획득), 게임 오버 등에 즉각적인 피드백을 주는 사운드를 추가하는 것을 권장합니다.
-- 무거운 외부 오디오 파일(`.mp3`, `.wav`) 로드로 인한 딜레이를 방지하기 위해 가급적 **Web Audio API (`AudioContext`) 기반의 자체 합성음(Synthesizer)** 코드를 `index.html` 내에 명시하여 사용하세요. (예시: `OscillatorNode`를 활용한 8-bit/레트로풍 효과음 생성)
-- 사운드는 반드시 유저의 첫 번째 상호작용(클릭/터치) 시점에 초기화(`audioCtx.resume()`)되어야 모바일 브라우저의 오디오 정책 차단을 피할 수 있습니다.
+## 4. SDK 연동 (JavaScript)
+게임 초기화 시 `WCGames.init()`를 호출하고, 종료 시 `WCGames.gameOver(score)`를 호출합니다.
+**PLAY 버튼(onStart)에서 반드시 AudioContext를 초기화**해야 합니다. 모바일 브라우저는 사용자 제스처 없이 오디오 재생이 불가합니다.
 
-## 5. 로컬 테스트 실행
+```javascript
+let audioCtx = null;
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+WCGames.init({
+    id: 'game-id',
+    onStart: () => {
+        initAudio(); // 사운드 초기화 필수!
+        /* 게임 시작 루틴 */
+    },
+    onRestart: () => { /* 재시작 루틴 */ }
+});
+```
+
+## 5. 다국어 지원 (i18n)
+`data-i18n` 속성을 요소에 추가하고 `locales/` 내 JSON 파일에 번역을 작성합니다.
+
+## 6. 플랫폼 등록
+`src/hooks/useGameStore.ts`의 `games` 배열에 해당 게임의 정보를 추가하여 목록에 표시되게 합니다.
+
+## 7. 로컬 테스트
 // turbo
 npm run dev
-브라우저에서 `localhost:5173` 으로 접속한 뒤, 메인 화면 썸네일과 실제 게임 실행, 사운드 출력, 그리고 리더보드 연동이 정상적으로 구성되었는지 확인합니다.
+`localhost:5173`에서 게임 실행, 점수 전송, 다국어 전환을 최종 확인합니다.
