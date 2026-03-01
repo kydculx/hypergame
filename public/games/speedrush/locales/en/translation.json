@@ -1,0 +1,9 @@
+{
+  "title": "Speed Rush",
+  "instruction": "Steer left/right to dodge\\nBarricades and collect Boosters.",
+  "play": "INITIATE",
+  "game_over": "SYSTEM HALT",
+  "final_score": "DATA LOG: ",
+  "play_again": "REBOOT",
+  "category": "ACTION"
+}

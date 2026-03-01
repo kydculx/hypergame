@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WCGames - Speed Rush</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/shared/wcgames-style.css">
+    <style>
+        /* --- DESIGN SYSTEM --- */
+        :root {
+            --accent: #00f3ff;
+            --bg: #000;
+            --surface: #111;
+            --text: #fff;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            color: #fff;
+            font-family: 'Orbitron', 'Segoe UI', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+        }
+
+        /* Background layer simplified to black */
+        .grid-bg {
+            display: none;
+        }
+
+        canvas {
+            display: block;
+            z-index: 5;
+            position: relative;
+        }
+
+        /* --- HUD & UI --- */
+        #ui {
+            position: fixed;
+            top: 40px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #score {
+            font-size: 40px;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.8), 0 0 20px rgba(0, 243, 255, 0.4);
+            transition: transform 0.1s ease-out;
+        }
+
+        /* --- VIRTUAL JOYSTICK --- */
+        #joystick-area {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 240px;
+            height: 80px;
+            z-index: 20;
+            display: none;
+            /* Keep hidden, using full screen touch now */
+            touch-action: none;
+            user-select: none;
+            pointer-events: none;
+            /* Disable interaction on UI element itself */
+        }
+
+        #joystick-base {
+            width: 240px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            position: absolute;
+            top: 34px;
+            left: 0;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        #joystick-knob {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 243, 255, 0.9);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            position: absolute;
+            left: 90px;
+            /* center (240-60)/2 */
+            top: 10px;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 1);
+            transition: transform 0.05s linear;
+        }
+
+        /* --- OVERLAYS & POPUPS --- */
+        .wcg-overlay {
+            background: rgba(5, 5, 15, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .wcg-popup {
+            background: rgba(10, 10, 30, 0.4);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.1), inset 0 0 20px rgba(0, 243, 255, 0.05);
+            padding: 50px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
+        }
+
+        .wcg-popup::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00f3ff, transparent);
+            animation: scan 3s infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .wcg-popup h1 {
+            font-size: 42px;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #00f3ff, #ff00ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 4px;
+            font-weight: 900;
+        }
+
+        .wcg-popup p {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: 35px;
+            color: rgba(255, 255, 255, 0.8);
+            letter-spacing: 1px;
+        }
+
+        .wcg-popup button {
+            background: transparent;
+            border: 1px solid #00f3ff;
+            color: #00f3ff;
+            padding: 15px 50px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: 3px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            z-index: 1;
+        }
+
+        .wcg-popup button:hover {
+            background: #00f3ff;
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.6);
+            transform: translateY(-3px);
+        }
+    </style>
+    <script src="/shared/wcgames-core.js"></script>
+</head>
+
+<body>
+    <div class="grid-bg"></div>
+
+    <!-- HUD -->
+    <div id="ui">
+        <div id="score">0</div>
+    </div>
+
+    <!-- VIRTUAL JOYSTICK -->
+    <div id="joystick-area">
+        <div id="joystick-base"></div>
+        <div id="joystick-knob"></div>
+    </div>
+
+    <!-- SYSTEM OVERLAYS -->
+    <div id="start-screen" class="wcg-overlay">
+        <div class="wcg-popup">
+            <h1 data-i18n="title">SPEED RUSH</h1>
+            <p data-i18n="instruction">Steer left/right to dodge<br>Barricades and collect Boosters.</p>
+            <button onclick="WCGames.start()" data-i18n="play">INITIATE</button>
+        </div>
+    </div>
+
+    <div id="game-over" class="wcg-overlay">
+        <div class="wcg-popup">
+            <h1 data-i18n="game_over">MISSION COMPLETE</h1>
+            <p><span data-i18n="final_score">Total Items: </span><span id="final-score">0</span></p>
+            <button onclick="WCGames.restart()" data-i18n="play_again">START AGAIN</button>
+        </div>
+    </div>
+
+    <!-- ENGINE DEPENDENCIES -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+    <script>
+        /**
+         * SPEED RUSH - REFACTORED ENGINE
+         * Senior Level Codebase following SRP & Naming Conventions
+         */
+
+        /* --- 1. CONFIGURATION & CONSTANTS --- */
+        const COLORS = {
+            bg: 0x201435,           // 짙은 보라색/인디고 (일러스트 베이스)
+            accents: [0x00f3ff, 0xff00ff, 0xffcc00, 0x00ff66],
+            player: 0xffffff,
+            spike: 0xff3366,
+            grid: 0x00f3ff,
+            obstacles: [0xff3366, 0xff9933, 0x33ff99, 0x9933ff, 0x00ccff, 0xffff33]
+        };
+
+        const CONFIG = {
+            playerXRatio: 0.00,        // 플레이어 X축 위치 비율
+            baseZ: 12,                // 기본 카메라 Z 깊이
+            BPM: 140,                 // 게임 리듬 (BPM)
+            // 성능 설정 (가시거리 및 최적화)
+            visibilityRoad: 400,       // 도로 가시거리 (앞쪽)
+            visibilityBuildings: 400,  // 건물 가시거리 (앞쪽)
+            cleanupDistance: 100,      // 지나간 오브젝트 제거 거리 (뒤쪽)
+            // 비주얼 튜닝 (빛 번짐 및 환경)
+            bloomStrength: 1.2,       // 빛 번짐(블룸) 강도 상향 (일러스트 느낌)
+            bloomRadius: 0.2,         // 블룸 반경 (퍼짐 정도)
+            bloomThreshold: 0.15,     // 블룸 활성 임계값 (더 많이 번지게)
+            fogDensity: 0.005,       // 안개 밀도
+            ambientLightIntensity: 1.5, // 주변광 밝기 상향 (색감 강조)
+            dirLightIntensity: 1.0,   // 직사광 밝기
+            // 건물 생성 규칙
+            buildingWidthRange: [5, 20],     // 건물 너비 범위 [최소, 최대]
+            buildingHeightRange: [200, 300], // 건물 높이 범위 [최소, 최대]
+            buildingDepthRange: [1, 10],     // 건물 깊이 범위 [최소, 최대]
+            buildingSpawnRate: 0.2,          // 건물 생성 빈도 상향 (0.5 -> 0.2, 낮을수록 더 많이 생성)
+            neonIntensity: 2.0,              // 건물 네온 윤곽선 밝기 (블러 효과 영향)
+            neonLineWidth: 0.5,              // 건물 네온 윤곽선 두께 (메쉬 프레임 방식)
+            windowIntensity: 2.5,             // 건물 창문 밝기 상향
+            // 카메라 설정 (사이버카 시점 최적화)
+            cameraPos: { x: -20, y: 8, z: 0 },
+            cameraLookAt: { x: -2, y: 1, z: 0 },
+            // 도로 생성 조건
+            roadSpawnStep: 2,                // 도로 생성 간격
+            roadSpawnAhead: 600,             // 앞쪽 도로 미리 생성 거리
+            roadWidth: 10,                    // 도로 너비
+            roadThickness: 0.5,               // 도로 두께 (가시성 및 안정성 상향)
+            roadInitialStart: -100,          // 초기 도로 시작점
+            roadInitialEnd: 500,              // 초기 도로 끝점
+            // 도로 곡률 (회전/굴곡)
+            // 도로 곡률 설정 (확률 및 세그먼트 기반)
+            pathYRange: { min: -50, max: 50 }, // 상하 굴곡 범위
+            pathYProb: 0.2,                   // 상하 곡선 발생 확률 (0~1)
+            pathYFreq: 0.005,                 // 세그먼트 길이 역수 (곡선 유지 시간)
+            pathZRange: { min: -50, max: 50 }, // 좌우 회전 범위
+            pathZProb: 0.2,                   // 좌우 곡선 발생 확률 (0~1)
+            pathZFreq: 0.005,                 // 세그먼트 길이 역수
+            pathRollRange: { min: -5, max: 5 }, // 회전(뱅킹) 범위
+            pathRollProb: 0.1,                // 뱅킹 발생 확률 (0~1)
+            pathRollFreq: 0.005,               // 세그먼트 길이 역수
+            // 속도 및 가속도 설정
+            baseSpeed: 1.0,                   // 초기 이동 속도
+            timeAccel: 100,                    // 가속도 계수 (초 단위, 클수록 천천히 빨라짐)
+            // 장애물 생성 설정 (거리에 비례해 난이도 증가)
+            obstacleGapMax: 500,              // 초반 바리케이트 사이의 최대 거리(m)
+            obstacleGapMin: 200,              // 후반 바리케이트 사이의 최소 거리(m) (난이도 max 도달 시)
+            obstacleStartScore: 1000,         // 바리케이트가 나타나기 시작하는 점수(m)
+            obstacleMaxScore: 10000           // 난이도가 최고조(최소 간격)에 달하는 점수(m)
+        };
+
+        const BEAT_LEN = 60 / CONFIG.BPM;
+
+        /* --- 2. GLOBAL STATE --- */
+        let scene, camera, renderer, composer, bloomPass, player, playerContainer, worldGroup, backgroundGroup;
+        let items = [], particles = [], echoes = [], trail = [], backgroundBuildings = [];
+        let roadChunks = [], obstacles = [];
+        let score = 0, gameState = 'START', sector = 0;
+        let trackProgress = 0; // Current world-space X position
+        let worldX = 0; // Cumulative world distance traveled
+        let velocityY = 0, isGrounded = true, playerJumpY = 0.5;
+        let lateralOffset = 0, targetLateralOffset = 0, joystickValue = 0;
+        let playerWheels = [], playerNeonBody = null, playerJet = null;
+        let cameraShake = 0, time = 0, beatTimer = 0, beatPulse = 0;
+        let boostTimer = 0, boostMultiplier = 1.0, cameraFovOffset = 0;
+
+        /* --- 3. GEOMETRY TEMPLATES --- */
+        const itemGeo = new THREE.SphereGeometry(0.5, 16, 16);
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const octaGeo = new THREE.OctahedronGeometry(0.6);
+        const icosaGeo = new THREE.IcosahedronGeometry(0.6);
+        const tetraGeo = new THREE.TetrahedronGeometry(0.7);
+
+        /* --- 4. SHARED RESOURCES (OPTIMIZATION) --- */
+        const unitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const unitEdgesGeo = new THREE.EdgesGeometry(unitBoxGeo);
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x111122, metalness: 0.8, roughness: 0.2 });
+        const sharedMaterials = {};
+        const lineMaterials = {};
+        let lastBuildingXLeft = -100;
+        let lastBuildingXRight = -100;
+
+        /* --- 5. LOGIC HELPERS --- */
+        // Deterministic hash based on segment index
+        function LogicHash(i) {
+            const x = Math.sin(i) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function LogicGetSegmentValue(x, freq, range, prob, seedOffset = 0) {
+            const segment = Math.floor(x * freq);
+            const fract = (x * freq) - segment;
+
+            // Current segment random value
+            const h1 = LogicHash(segment + seedOffset);
+            const val1 = h1 < prob ? (LogicHash(segment + seedOffset + 11) * 2 - 1) : 0;
+
+            // Next segment random value
+            const h2 = LogicHash(segment + seedOffset + 1);
+            const val2 = h2 < prob ? (LogicHash(segment + seedOffset + 12) * 2 - 1) : 0;
+
+            // Smoothly interpolate between segments (S-curve)
+            const t = fract * fract * (3 - 2 * fract);
+            const rawVal = val1 + (val2 - val1) * t;
+
+            const r = range.max - range.min;
+            return range.min + (rawVal * 0.5 + 0.5) * r;
+        }
+
+        function LogicGetWorldTrackY(x) {
+            return LogicGetSegmentValue(x, CONFIG.pathYFreq, CONFIG.pathYRange, CONFIG.pathYProb, 100);
+        }
+
+        function LogicGetWorldTrackZ(x) {
+            return LogicGetSegmentValue(x, CONFIG.pathZFreq, CONFIG.pathZRange, CONFIG.pathZProb, 200);
+        }
+
+        function LogicGetWorldTrackRoll(x) {
+            return LogicGetSegmentValue(x, CONFIG.pathRollFreq, CONFIG.pathRollRange, CONFIG.pathRollProb, 300);
+        }
+
+        function LogicGetWorldTrackVector(x) {
+            const eps = 0.1;
+            const p0 = new THREE.Vector3(x, LogicGetWorldTrackY(x), LogicGetWorldTrackZ(x));
+            const p1 = new THREE.Vector3(x + eps, LogicGetWorldTrackY(x + eps), LogicGetWorldTrackZ(x + eps));
+            const tan = p1.clone().sub(p0).normalize();
+            const roll = LogicGetWorldTrackRoll(x);
+
+            // Generate stable right-handed basis (X=tan, Y=up, Z=side)
+            let upRef = new THREE.Vector3(0, 1, 0);
+            if (Math.abs(tan.dot(upRef)) > 0.95) upRef.set(0, 0, 1);
+
+            // Side = tan x upRef
+            const side = new THREE.Vector3().crossVectors(tan, upRef).normalize();
+            // Up = side x tan (Right-handed)
+            const up = new THREE.Vector3().crossVectors(side, tan).normalize();
+
+            // Apply roll to basis
+            const finalSide = side.clone().multiplyScalar(Math.cos(roll)).add(up.clone().multiplyScalar(Math.sin(roll)));
+            const finalUp = up.clone().multiplyScalar(Math.cos(roll)).sub(side.clone().multiplyScalar(Math.sin(roll)));
+
+            return {
+                pos: p0,
+                tan: tan,  // Forward (X)
+                side: finalSide, // Right (Z)
+                up: finalUp,   // Up (Y)
+                roll: roll
+            };
+        }
+
+        function LogicGetRoadOffset(relativeX) {
+            // OBSOLETE in True World Alignment - world positions are used directly
+            return 0;
+        }
+
+
+        function LogicGetSharedMaterial(color, opacity = 1, emissive = false, wireframe = false, emissiveIntensity = 1) {
+            const key = `${color}_${opacity}_${emissive}_${wireframe}_${emissiveIntensity}`;
+            if (!sharedMaterials[key]) {
+                const params = {
+                    color: color,
+                    transparent: opacity < 1,
+                    opacity: opacity,
+                    wireframe: wireframe
+                };
+                if (emissive) {
+                    params.emissive = color;
+                    params.emissiveIntensity = emissiveIntensity;
+                }
+                if (wireframe || emissive) {
+                    // Use Standard for emissive to allow intensity control for bloom "blur"
+                    params.metalness = 0;
+                    params.roughness = 1;
+                    sharedMaterials[key] = new THREE.MeshStandardMaterial(params);
+                } else {
+                    // Optimization: Matte finish (No reflections)
+                    params.metalness = 0.0;
+                    params.roughness = 1.0;
+                    // Safari/Apple Fix: Polygon offset to prevent Z-fighting on decorations
+                    params.polygonOffset = true;
+                    params.polygonOffsetFactor = 1;
+                    params.polygonOffsetUnits = 1;
+                    sharedMaterials[key] = new THREE.MeshStandardMaterial(params);
+                }
+            }
+            return sharedMaterials[key];
+        }
+
+        function LogicGetSharedLineMaterial(color, opacity = 1, intensity = 1) {
+            const key = `${color}_${opacity}_${intensity}`;
+            if (!lineMaterials[key]) {
+                const finalColor = new THREE.Color(color).multiplyScalar(intensity);
+                lineMaterials[key] = new THREE.LineBasicMaterial({
+                    color: finalColor,
+                    transparent: opacity < 1,
+                    opacity: opacity
+                });
+            }
+            return lineMaterials[key];
+        }
+
+        /**
+         * 12개의 얇은 박스를 사용하여 사선 없는 굵은 네온 프레임을 생성합니다.
+         */
+        function LogicCreateMeshFrame(w, h, d, thickness, material) {
+            const group = new THREE.Group();
+            const hw = w / 2, hh = h / 2, hd = d / 2;
+
+            // X-axis edges
+            const geomX = unitBoxGeo;
+            const meshX = new THREE.Mesh(geomX, material);
+            meshX.scale.set(w, thickness, thickness);
+            [
+                [0, hh, hd], [0, -hh, hd], [0, hh, -hd], [0, -hh, -hd]
+            ].forEach(p => { const e = meshX.clone(); e.position.set(...p); group.add(e); });
+
+            // Y-axis edges
+            const meshY = new THREE.Mesh(geomX, material);
+            meshY.scale.set(thickness, h, thickness);
+            [
+                [hw, 0, hd], [-hw, 0, hd], [hw, 0, -hd], [-hw, 0, -hd]
+            ].forEach(p => { const e = meshY.clone(); e.position.set(...p); group.add(e); });
+
+            // Z-axis edges
+            const meshZ = new THREE.Mesh(geomX, material);
+            meshZ.scale.set(thickness, thickness, d);
+            [
+                [hw, hh, 0], [-hw, hh, 0], [hw, -hh, 0], [-hw, -hh, 0]
+            ].forEach(p => { const e = meshZ.clone(); e.position.set(...p); group.add(e); });
+
+            return group;
+        }
+
+        function LogicCreateCyberCar() {
+            const group = new THREE.Group();
+            playerWheels = [];
+
+            // 1. Bottom Chassis (Carbon Fiber style)
+            const chassis = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x0a0a0f, 1, false));
+            chassis.scale.set(2.6, 0.15, 1.3);
+            chassis.position.y = 0.15;
+            group.add(chassis);
+
+            // 2. Main Body (Sleek Supercar Wedge)
+            const bodyCol = 0x00ffff;
+            const mainBodyGroup = new THREE.Group();
+            group.add(mainBodyGroup);
+
+            // Front Splitter / Nose
+            const front = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x050510, 1, false));
+            front.scale.set(0.8, 0.1, 1.2);
+            front.position.set(1.0, 0.15, 0);
+            mainBodyGroup.add(front);
+
+            // Cabin / Hood
+            const hood = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x111122, 1, false));
+            hood.scale.set(1.8, 0.4, 1.25);
+            hood.position.set(-0.2, 0.35, 0);
+            mainBodyGroup.add(hood);
+
+            const cockpit = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x222244, 0.8, false));
+            cockpit.scale.set(1.0, 0.35, 1.0);
+            cockpit.position.set(-0.3, 0.65, 0);
+            mainBodyGroup.add(cockpit);
+
+            // Rear Fin / Spoiler
+            const spoilerGeo = new THREE.BoxGeometry(0.8, 0.05, 1.4);
+            const spoiler = new THREE.Mesh(spoilerGeo, LogicGetSharedMaterial(0x00ffff, 1, true, false, 1.5));
+            spoiler.position.set(-1.1, 0.75, 0);
+            mainBodyGroup.add(spoiler);
+
+            const support1 = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x111122, 1, false));
+            support1.scale.set(0.1, 0.3, 0.1);
+            support1.position.set(-1.0, 0.55, 0.4);
+            mainBodyGroup.add(support1);
+
+            const support2 = support1.clone();
+            support2.position.z = -0.4;
+            mainBodyGroup.add(support2);
+
+            // 3. Neon Contours (Premium thick lines)
+            const neonMat = LogicGetSharedMaterial(bodyCol, 1, true, false, 2.5);
+            playerNeonBody = neonMat; // Save for pulsing
+
+            const edgeFrame = LogicCreateMeshFrame(1.8, 0.6, 1.25, 0.04, neonMat);
+            edgeFrame.position.set(-0.2, 0.35, 0);
+            group.add(edgeFrame);
+
+            // 4. Wheels (High-Detail Glowing Rims)
+            const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.2, 24);
+            const tireMat = LogicGetSharedMaterial(0x050505, 1, false);
+            const rimMat = LogicGetSharedMaterial(0xff00ff, 1, true, false, 3.0);
+
+            [
+                [0.9, 0.3, 0.7], [0.9, 0.3, -0.7], [-0.9, 0.3, 0.7], [-0.9, 0.3, -0.7]
+            ].forEach(p => {
+                const wGroup = new THREE.Group();
+                wGroup.position.set(...p);
+
+                const tire = new THREE.Mesh(wheelGeo, tireMat);
+                tire.rotation.x = Math.PI / 2;
+                wGroup.add(tire);
+
+                // Glowing rim cap
+                const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 16), rimMat);
+                rim.rotation.x = Math.PI / 2;
+                rim.position.z = p[2] > 0 ? 0.11 : -0.11;
+                wGroup.add(rim);
+
+                group.add(wGroup);
+                playerWheels.push(wGroup);
+            });
+
+            // 5. Underglow Effect
+            const underglowPlane = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.3), LogicGetSharedMaterial(0xff00ff, 0.6, true));
+            underglowPlane.rotation.x = -Math.PI / 2;
+            underglowPlane.position.y = 0.02;
+            group.add(underglowPlane);
+
+            // 6. Tail Jet (Sleek Plasma Teardrop)
+            // Use a sphere stretched intensely on the X-axis for a smooth teardrop/plasma blade look
+            const jetGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            // Bake the scale into the geometry so it's a long oval
+            jetGeo.scale(3.5, 1.0, 1.0);
+            // Shift the geometry so its anchor point (0,0) is at the tip (front), and it expands backwards (-X)
+            jetGeo.translate(-0.6, 0, 0);
+
+            playerJet = new THREE.Mesh(jetGeo, LogicGetSharedMaterial(0xff5522, 0.9, true, false, 4.0));
+            playerJet.position.set(-1.2, 0.3, 0); // Attach to vehicle rear, no rotation needed as we stretch on X
+
+            // Start invisible until a booster is picked up
+            playerJet.visible = false;
+
+            group.add(playerJet);
+
+            return group;
+        }
+
+        /* --- 5. INITIALIZATION & RESIZE --- */
+        function DrawInitializeScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(COLORS.bg);
+
+            const aspect = window.innerWidth / window.innerHeight;
+            // Safari/Apple Fix: Increase near plane to 1.0 for better depth precision
+            camera = new THREE.PerspectiveCamera(75, aspect, 1.0, 1000);
+            camera.position.set(CONFIG.cameraPos.x, CONFIG.cameraPos.y, CONFIG.cameraPos.z);
+            camera.lookAt(CONFIG.cameraLookAt.x, CONFIG.cameraLookAt.y, CONFIG.cameraLookAt.z);
+
+            // Safari/Apple Fix: Enable logarithmicDepthBuffer
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true,
+                logarithmicDepthBuffer: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            document.body.appendChild(renderer.domElement);
+
+            // 블룸 포스트프로세싱: 강도 상향 및 임계점 하향으로 "블러(Blur)" 효과 강화
+            const bloomResolution = 0.5;
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(new THREE.RenderPass(scene, camera));
+            bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth * bloomResolution, window.innerHeight * bloomResolution),
+                CONFIG.bloomStrength,
+                CONFIG.bloomRadius,
+                CONFIG.bloomThreshold
+            );
+            composer.addPass(bloomPass);
+
+            scene.fog = new THREE.FogExp2(COLORS.bg, CONFIG.fogDensity);
+
+            const ambient = new THREE.AmbientLight(0xffffff, CONFIG.ambientLightIntensity);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, CONFIG.dirLightIntensity);
+            dirLight.position.set(5, 10, 5);
+            scene.add(dirLight);
+
+            worldGroup = new THREE.Group();
+            scene.add(worldGroup);
+
+            backgroundGroup = new THREE.Group();
+            scene.add(backgroundGroup);
+
+            DrawInitFloor();
+            DrawInitCityBackground();
+
+            playerContainer = new THREE.Group();
+            playerContainer.position.set(-6, -1.5, 0);
+
+            player = LogicCreateCyberCar();
+            playerContainer.add(player);
+            scene.add(playerContainer);
+
+            window.addEventListener('resize', DrawResize);
+
+            DrawResize();
+            LogicMainLoop();
+        }
+
+        function DrawResize() {
+            const aspect = window.innerWidth / window.innerHeight;
+            if (camera) {
+                camera.aspect = aspect;
+                camera.updateProjectionMatrix();
+            }
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if (composer) {
+                composer.setSize(window.innerWidth, window.innerHeight);
+                composer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+                if (bloomPass) {
+                    const bloomResolution = 0.25;
+                    bloomPass.resolution.set(Math.max(1, Math.floor(window.innerWidth * bloomResolution)), Math.max(1, Math.floor(window.innerHeight * bloomResolution)));
+                }
+            }
+            playerContainer.position.set(-6, -1.5, 0);
+        }
+
+        /* --- 6. ENVIRONMENT GENERATION --- */
+        function LogicSpawnWorldChunk(wx) {
+            const step = CONFIG.roadSpawnStep;
+            const roadLen = step + 0.4;
+            const roadWidth = CONFIG.roadWidth;
+
+            const vec = LogicGetWorldTrackVector(wx);
+
+            const chunkGroup = new THREE.Group();
+            chunkGroup.position.copy(vec.pos);
+
+            // Align segment: Road local X is length (tan), Y is thickness (up), Z is width (side)
+            const mat = new THREE.Matrix4().makeBasis(vec.tan, vec.up, vec.side);
+            chunkGroup.quaternion.setFromRotationMatrix(mat);
+
+            // Apply road offset (relative to local road Up)
+            // Road surface exactly at vec.pos (y=0 in aligned space)
+            const yOffset = -(CONFIG.roadThickness / 2);
+            chunkGroup.position.add(vec.up.clone().multiplyScalar(yOffset));
+
+            // Road Surface
+            const road = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0x050515, 1, false));
+            road.scale.set(roadLen, CONFIG.roadThickness, roadWidth);
+            chunkGroup.add(road);
+
+            // Neon Rails (사이버 네온 강화)
+            const accentColor = COLORS.accents[sector % 4];
+            const railMat = LogicGetSharedMaterial(accentColor, 1, true, false, 2.0);
+            [-1, 1].forEach(side => {
+                const rail = new THREE.Mesh(unitBoxGeo, railMat);
+                rail.scale.set(roadLen, 0.3, 0.15);
+                rail.position.set(0, 0.1, side * (roadWidth / 2));
+                chunkGroup.add(rail);
+            });
+
+            // Center Dashes (Rhythmic)
+            if (Math.floor(wx / step) % 5 === 0) {
+                const dash = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(0xffffff, 1, true, false, 2.0));
+                dash.scale.set(roadLen * 0.8, 0.05, 0.1);
+                dash.position.set(0, 0.06, 0);
+                chunkGroup.add(dash);
+            }
+
+            worldGroup.add(chunkGroup);
+            roadChunks.push(chunkGroup);
+
+            // 3. Spawn Buildings near this road segment (사이버 도시 스타일)
+            if (Math.random() > CONFIG.buildingSpawnRate) { // Even more throttled spawn rate
+                const count = 1; // Single building per segment
+                for (let i = 0; i < count; i++) {
+                    // 사이버 도시 네온 팔레트 (시안, 마젠타, 전기파랑, 보라)
+                    const neonColors = [0x00f3ff, 0xff00ff, 0x0066ff, 0x9933ff];
+                    const w = CONFIG.buildingWidthRange[0] + Math.random() * (CONFIG.buildingWidthRange[1] - CONFIG.buildingWidthRange[0]);
+                    const h = CONFIG.buildingHeightRange[0] + Math.random() * (CONFIG.buildingHeightRange[1] - CONFIG.buildingHeightRange[0]);
+                    const d = CONFIG.buildingDepthRange[0] + Math.random() * (CONFIG.buildingDepthRange[1] - CONFIG.buildingDepthRange[0]);
+
+                    const buildingRoot = new THREE.Group();
+
+                    // 건물 본체: 일러스트 느낌의 짙은 보라/인디고
+                    const bodyCol = 0x2d1b4d;
+                    const mainBody = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(bodyCol, 1.0, false));
+                    mainBody.scale.set(w, h, d);
+                    buildingRoot.add(mainBody);
+
+                    // Building Outline (Mesh Wireframe for Bloom)
+                    // Building Outline (Thick Mesh Frame - No Diagonals)
+                    const neonColor = neonColors[Math.floor(Math.random() * neonColors.length)];
+                    const wireMat = LogicGetSharedMaterial(neonColor, 1.0, true, false, CONFIG.neonIntensity);
+                    const frame = LogicCreateMeshFrame(w, h, d, CONFIG.neonLineWidth, wireMat);
+                    buildingRoot.add(frame);
+
+                    // 실루엣 타입 (기존 + 일러스트 특화 타입)
+                    const buildingType = Math.random();
+                    if (buildingType < 0.2) {
+                        // 타입 A: 칼날형 (Blade/Foil) - 이미 w,d가 정해졌으므로 h를 강조하거나 w를 크게 조정
+                        // 특별히 할 것 없음, 기본 monolith가 Blade 느낌을 줄 수 있도록 w/d 비율 유도
+                    } else if (buildingType < 0.45) {
+                        // 타입 B: 옥상 한 단 줄어든 타워 (Setback)
+                        const topW = w * (0.5 + Math.random() * 0.2);
+                        const topH = h * (0.1 + Math.random() * 0.1);
+                        const topD = d * (0.5 + Math.random() * 0.2);
+                        const topBox = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(bodyCol, 1.0, false));
+                        topBox.scale.set(topW / w, topH / h, topD / d);
+                        topBox.position.set(0, 0.5 + (topH / h) / 2, 0);
+                        topBox.frustumCulled = false;
+                        mainBody.add(topBox);
+
+                        const frameParams = [topW, topH, topD, CONFIG.neonLineWidth, wireMat];
+                        const topFrame = LogicCreateMeshFrame(...frameParams);
+                        topFrame.position.set(0, (h / 2) + (topH / 2), 0);
+                        buildingRoot.add(topFrame);
+                    } else if (buildingType < 0.65) {
+                        // 타입 C: 상단 좁아진 계단식 (Taper)
+                        const taper = 0.7 + Math.random() * 0.2;
+                        const topBox = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(bodyCol, 1.0, false));
+                        topBox.scale.set(taper, 0.4, taper);
+                        topBox.position.set(0, 0.5 + 0.2, 0);
+                        topBox.frustumCulled = false;
+                        mainBody.add(topBox);
+
+                        const frameParams = [w * taper, h * 0.4, d * taper, CONFIG.neonLineWidth, wireMat];
+                        const topFrame = LogicCreateMeshFrame(...frameParams);
+                        topFrame.position.set(0, (h * 0.2) + (h / 2), 0);
+                        buildingRoot.add(topFrame);
+                    } else if (buildingType < 0.85) {
+                        // 타입 D: 쌍둥이 타워 (Twin Towers)
+                        const towerW = w * 0.35;
+                        const towerH = h * (0.2 + Math.random() * 0.2);
+                        const towerD = d * 0.7;
+                        [0.25, -0.25].forEach(xOff => {
+                            const tower = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(bodyCol, 1.0, false));
+                            tower.scale.set(towerW / w, towerH / h, towerD / d);
+                            tower.position.set(xOff, 0.5 + (towerH / h) / 2, 0);
+                            tower.frustumCulled = false;
+                            mainBody.add(tower);
+
+                            const tFrame = LogicCreateMeshFrame(towerW, towerH, towerD, CONFIG.neonLineWidth, wireMat);
+                            tFrame.position.set(xOff * w, (h / 2) + (towerH / 2), 0);
+                            buildingRoot.add(tFrame);
+                        });
+                    } else {
+                        // 타입 E: 경사 지붕 느낌 (Sloped Style - 3단 계단으로 시뮬레이션)
+                        for (let s = 1; s <= 3; s++) {
+                            const sTaper = 1.0 - (s * 0.25);
+                            const sH = h * 0.1;
+                            const step = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(bodyCol, 1.0, false));
+                            step.scale.set(sTaper, sH / h, sTaper);
+                            step.position.set(0, 0.5 + (s * sH / h) - (sH / h / 2), 0);
+                            step.frustumCulled = false;
+                            mainBody.add(step);
+
+                            const sFrame = LogicCreateMeshFrame(w * sTaper, sH, d * sTaper, CONFIG.neonLineWidth, wireMat);
+                            sFrame.position.set(0, (h / 2) + (s * sH) - (sH / 2), 0);
+                            buildingRoot.add(sFrame);
+                        }
+                    }
+
+                    // --- 일러스트 디테일 추가: 노란 창문과 네온 밴드 ---
+                    const winMat = LogicGetSharedMaterial(0xffcc00, 1, true, false, 2.0); // 따뜻한 빛
+                    const bandMat = LogicGetSharedMaterial(neonColor, 1, true, false, 1.5);
+                    bandMat.polygonOffset = true;
+                    bandMat.polygonOffsetFactor = -2;
+                    bandMat.polygonOffsetUnits = -2;
+
+                    // 1. 노란 창문들 (랜덤 그룹)
+                    const winGroupCount = 2 + Math.floor(Math.random() * 3);
+                    for (let g = 0; g < winGroupCount; g++) {
+                        const yBase = -0.4 + Math.random() * 0.8;
+                        const xOffset = (Math.random() - 0.5) * 0.4;
+                        const winRows = 2 + Math.floor(Math.random() * 2);
+                        const winCols = 1 + Math.floor(Math.random() * 2);
+
+                        for (let r = 0; r < winRows; r++) {
+                            for (let c = 0; c < winCols; c++) {
+                                [-0.505, 0.505].forEach(zSide => {
+                                    const windowMesh = new THREE.Mesh(unitBoxGeo, winMat);
+                                    windowMesh.scale.set(0.08, 0.05, 0.01);
+                                    windowMesh.position.set(xOffset + c * 0.12, yBase + r * 0.08, zSide);
+                                    windowMesh.frustumCulled = false;
+                                    mainBody.add(windowMesh);
+                                });
+                            }
+                        }
+                    }
+
+                    // 2. 가로 네온 밴드
+                    const bandCount = 1 + Math.floor(Math.random() * 2);
+                    for (let b = 0; b < bandCount; b++) {
+                        const bandY = -0.3 + Math.random() * 0.6;
+                        [-0.502, 0.502].forEach(zSide => {
+                            const band = new THREE.Mesh(unitBoxGeo, bandMat);
+                            band.scale.set(0.98, 0.015, 1.0);
+                            band.position.set(0, bandY, zSide);
+                            band.frustumCulled = false;
+                            mainBody.add(band);
+                        });
+                    }
+
+                    // 옥상: 안테나 1~2개
+                    const antCount = 1 + Math.floor(Math.random() * 2);
+                    for (let a = 0; a < antCount; a++) {
+                        const antH = 8 + Math.random() * 12;
+                        const antScaleX = (0.055 + Math.random() * 0.025); // 더 두껍게 (컬링 방지)
+                        const antScaleZ = (0.055 + Math.random() * 0.025);
+                        const ant = new THREE.Mesh(unitBoxGeo, LogicGetSharedMaterial(neonColor, 1, true, false, 2.5));
+                        ant.scale.set(antScaleX, antH / h, antScaleZ);
+                        ant.position.set((Math.random() - 0.5) * 0.6, 0.5 + (antH / h) / 2, (Math.random() - 0.5) * 0.6);
+                        ant.frustumCulled = false;
+                        mainBody.add(ant);
+                    }
+
+                    // 옥상 모서리 네온 라이트 (2개만: 대각 한 쌍)
+                    const lightMat = LogicGetSharedMaterial(neonColor, 1, true, false, 2.8);
+                    [[-0.45, 0.48, -0.45], [0.45, 0.48, 0.45]].forEach(([ox, oy, oz]) => {
+                        const light = new THREE.Mesh(unitBoxGeo, lightMat);
+                        light.scale.set(0.08, 0.055, 0.08); // 더 두껍게 (컬링 방지)
+                        light.position.set(ox, oy, oz);
+                        light.frustumCulled = false;
+                        mainBody.add(light);
+                    });
+
+                    const side = Math.random() > 0.5 ? 1 : -1;
+                    const minGap = 5; // Minimum buffer between buildings
+                    const lastX = (side === 1) ? lastBuildingXRight : lastBuildingXLeft;
+
+                    // Ensure we don't overlap with the previous building on this side
+                    if (wx < lastX + w + minGap) {
+                        return; // Skip spawning this segment to avoid overlap
+                    }
+
+                    // Update tracker for the chosen side
+                    if (side === 1) lastBuildingXRight = wx;
+                    else lastBuildingXLeft = wx;
+
+                    const distZ = side * (25 + Math.random() * 55); // 더 가까이 배치 (35~100 -> 25~80)
+                    const wy = LogicGetWorldTrackY(wx) - (h / 2) + 20 + Math.random() * 40; // 높이 다양성 조정
+                    const wz = LogicGetWorldTrackZ(wx) + distZ;
+
+                    buildingRoot.position.set(wx, wy, wz);
+                    buildingRoot.frustumCulled = false; // 프러스텀 경계에서 깜빡임 방지
+                    backgroundGroup.add(buildingRoot);
+                    backgroundBuildings.push(buildingRoot);
+                }
+            }
+        }
+
+        function DrawInitFloor() {
+            // Initial burst of chunks
+            for (let x = CONFIG.roadInitialStart; x < CONFIG.roadInitialEnd; x += CONFIG.roadSpawnStep) {
+                LogicSpawnWorldChunk(x);
+            }
+        }
+
+        function DrawInitCityBackground() {
+            // NO-OP: Handled by LogicSpawnWorldChunk
+        }
+
+        let lastSpawnX = CONFIG.roadInitialEnd;
+        function LogicUpdateWorld(worldX) {
+            // Spawn new chunks ahead in discrete steps
+            const step = CONFIG.roadSpawnStep;
+            while (lastSpawnX < worldX + CONFIG.roadSpawnAhead) {
+                LogicSpawnWorldChunk(lastSpawnX);
+                lastSpawnX += step;
+            }
+
+            // Cleanup old buildings far behind
+            for (let i = backgroundBuildings.length - 1; i >= 0; i--) {
+                const b = backgroundBuildings[i];
+                const dx = b.position.x - worldX;
+                // Configurable building visibility
+                b.visible = (dx > -100 && dx < CONFIG.visibilityBuildings);
+                // Configurable cleanup
+                if (dx < -CONFIG.cleanupDistance) {
+                    scene.remove(b);
+                    backgroundBuildings.splice(i, 1);
+                }
+            }
+            // Cleanup old road chunks
+            for (let i = roadChunks.length - 1; i >= 0; i--) {
+                const c = roadChunks[i];
+                const dx = c.position.x - worldX;
+                // Configurable road visibility
+                c.visible = (dx > -100 && dx < CONFIG.visibilityRoad);
+                // Configurable cleanup
+                if (dx < -CONFIG.cleanupDistance) {
+                    worldGroup.remove(c);
+                    roadChunks.splice(i, 1);
+                }
+            }
+            // Cleanup old obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const o = obstacles[i];
+                const dx = o.position.x - worldX;
+                o.visible = (dx > -100 && dx < CONFIG.visibilityRoad);
+                if (dx < -CONFIG.cleanupDistance) {
+                    worldGroup.remove(o);
+                    obstacles.splice(i, 1);
+                }
+            }
+        }
+
+        function LogicSpawnParticles(x, y, count, color, isExplosion = false) {
+            const mat = LogicGetSharedMaterial(color, 0.8);
+            for (let i = 0; i < count; i++) {
+                const p = new THREE.Mesh(boxGeo, mat);
+                p.scale.setScalar(0.15);
+                p.position.set(x, y, (Math.random() - 0.5) * 1);
+                const v = isExplosion ?
+                    new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4) :
+                    new THREE.Vector3((Math.random() - 0.8) * 0.2, Math.random() * 0.2, 0);
+                p.userData = { vel: v, life: 1.0 };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function LogicUpdateTrail(dt) {
+            if (gameState !== 'PLAYING') return;
+            time += dt;
+            if (Math.floor(time * 60) % 3 === 0) {
+                const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
+                const color = colors[Math.floor(time * 10) % colors.length];
+                const p = new THREE.Mesh(boxGeo, LogicGetSharedMaterial(color, 0.6));
+                p.scale.setScalar(0.3);
+                p.position.set(playerContainer.position.x - 0.5, playerContainer.position.y, 0);
+                p.userData = { life: 1.0, vel: new THREE.Vector3(-0.05, (Math.random() - 0.5) * 0.02, 0) };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function LogicSpawnEcho() {
+            const e = player.clone();
+            e.position.copy(playerContainer.position);
+            e.rotation.copy(player.rotation);
+            const mat = LogicGetSharedMaterial(COLORS.accents[sector % 4], 0.3, true);
+            e.traverse(node => { if (node.isMesh) node.material = mat; });
+            e.userData = { life: 1.0 };
+            scene.add(e);
+            echoes.push(e);
+        }
+
+        function LogicSpawnItem(x) {
+            const m = new THREE.Group();
+
+            // Speed Booster Visual: Rocket Engine / Turbine
+
+            // 1. Engine Casing (Dark metallic cylinder)
+            const casingMat = LogicGetSharedMaterial(0x222233, 1.0, false);
+            const casingGeo = new THREE.CylinderGeometry(0.6, 0.4, 1.5, 12);
+            const casing = new THREE.Mesh(casingGeo, casingMat);
+            casing.rotation.x = Math.PI / 2; // Point forward
+            m.add(casing);
+
+            // 2. Glowing Core / Turbine center (Red/Orange)
+            const coreMat = LogicGetSharedMaterial(0xff3300, 1.0, true, false, 4.0);
+            const coreGeo = new THREE.CylinderGeometry(0.3, 0.1, 1.6, 8);
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            core.rotation.x = Math.PI / 2;
+            m.add(core);
+
+            // 3. Engine Exhaust / Flame (Glowing transparent cone)
+            const flameMat = LogicGetSharedMaterial(0xffaa00, 0.7, true, false, 3.0);
+            const flameGeo = new THREE.ConeGeometry(0.5, 2.0, 8);
+            const flame = new THREE.Mesh(flameGeo, flameMat);
+            flame.rotation.x = -Math.PI / 2; // Point backward
+            flame.position.z = -1.5; // Offset to the back of the engine
+            m.add(flame);
+
+            const wx = x;
+            const vec = LogicGetWorldTrackVector(wx);
+
+            // Random lateral position across the road width
+            const lateralMax = (CONFIG.roadWidth / 2) - 1.5; // leaving a little margin from the edge
+            const randomOffset = (Math.random() * 2 - 1) * lateralMax;
+
+            // Float higher above road and offset to the side
+            m.position.copy(vec.pos)
+                .add(vec.up.clone().multiplyScalar(1.2))
+                .add(vec.side.clone().multiplyScalar(randomOffset));
+
+            const target = vec.pos.clone().add(vec.tan);
+            m.lookAt(target);
+
+            // Scale down the entire engine assembly so it's a smaller item to pick up
+            m.scale.set(0.6, 0.6, 0.6);
+
+            worldGroup.add(m);
+            m.renderOrder = 10;
+            items.push(m);
+        }
+
+        function LogicSpawnObstacle(x) {
+            const m = new THREE.Group();
+
+            // Barricade visual (blocks half the road)
+            const barricadeWidth = (CONFIG.roadWidth / 2) - 0.5; // Slightly narrower than half
+            const r = Math.random();
+            const sideOffset = r < 0.33 ? (-barricadeWidth / 2 - 0.5) : (r < 0.66 ? 0 : barricadeWidth / 2 + 0.5);
+
+            // 1. Collision Box (MUST BE child[0] based on LogicMainLoop)
+            // Using a basic material but making it invisible
+            const hitBox = new THREE.Mesh(unitBoxGeo, new THREE.MeshBasicMaterial({ visible: false }));
+            hitBox.position.set(0, 1.0, sideOffset);
+            m.add(hitBox);
+
+            // Base stands (solid grey, no emissive)
+            const standMat = LogicGetSharedMaterial(0x444444, 1.0, false);
+
+            const stand1 = new THREE.Mesh(unitBoxGeo, standMat);
+            stand1.scale.set(0.6, 1.8, 0.6);
+            stand1.position.set(0, 0.9, sideOffset - barricadeWidth / 2 + 0.3);
+            m.add(stand1);
+
+            const stand2 = new THREE.Mesh(unitBoxGeo, standMat);
+            stand2.scale.set(0.6, 1.8, 0.6);
+            stand2.position.set(0, 0.9, sideOffset + barricadeWidth / 2 - 0.3);
+            m.add(stand2);
+
+            // Crossbars (Yellow/Black hazard pattern, solid, no glow)
+            const matYellow = LogicGetSharedMaterial(0xffcc00, 1.0, false);
+            const matBlack = LogicGetSharedMaterial(0x111111, 1.0, false);
+
+            const segments = 8;
+            const segWidth = barricadeWidth / segments;
+            for (let i = 0; i < segments; i++) {
+                const segMat = (i % 2 === 0) ? matYellow : matBlack;
+
+                // Top bar
+                const tBar = new THREE.Mesh(unitBoxGeo, segMat);
+                tBar.scale.set(0.7, 0.4, segWidth);
+                tBar.position.set(0, 1.4, sideOffset - barricadeWidth / 2 + segWidth / 2 + i * segWidth);
+                m.add(tBar);
+
+                // Bottom bar
+                const bBar = new THREE.Mesh(unitBoxGeo, segMat);
+                bBar.scale.set(0.7, 0.4, segWidth);
+                bBar.position.set(0, 0.6, sideOffset - barricadeWidth / 2 + segWidth / 2 + i * segWidth);
+                m.add(bBar);
+            }
+
+            const wx = x;
+            const vec = LogicGetWorldTrackVector(wx);
+
+            m.position.copy(vec.pos).add(vec.up.clone().multiplyScalar(0.0));
+            // Rotate to align with road
+            const alignMat = new THREE.Matrix4().makeBasis(vec.tan, vec.up, vec.side);
+            m.quaternion.setFromRotationMatrix(alignMat);
+
+            worldGroup.add(m);
+            obstacles.push(m);
+        }
+
+        /* --- 7. GAMEPLAY MECHANICS --- */
+
+        function LogicGameOver() {
+            if (gameState === 'OVER') return;
+            gameState = 'OVER';
+            cameraShake = 0.6;
+            player.visible = false;
+            document.getElementById('joystick-area').style.display = 'none';
+            LogicSpawnParticles(playerContainer.position.x, playerContainer.position.y, 30, COLORS.spike, true);
+
+            // Show UI via SDK
+            WCGames.Audio.play([400, 40], 'square', 0.5, 0.3);
+            WCGames.gameOver(Math.floor(score));
+        }
+
+        /* --- 8. MAIN ENGINE LOOP --- */
+        function LogicMainLoop() {
+            requestAnimationFrame(LogicMainLoop);
+            const dt = WCGames.updateDelta();
+            const frameFactor = dt / (1 / 60);
+
+            // BPM Engine
+            beatTimer += dt;
+            if (beatTimer >= BEAT_LEN) {
+                beatTimer = 0;
+                beatPulse = 1.0;
+                if (gameState === 'PLAYING') {
+                    // LogicSpawnEcho(); // Removed player echo effect
+                    WCGames.Audio.play(sector % 2 === 0 ? 100 : 200, 'sine', 0.1, 0.1);
+                }
+            }
+            beatPulse *= Math.pow(0.92, frameFactor);
+
+            // Boost Logic Updates
+            if (boostTimer > 0) {
+                boostTimer -= dt;
+                boostMultiplier += (2.0 - boostMultiplier) * 10 * dt; // Ease to 2.0x speed
+                cameraFovOffset += (30 - cameraFovOffset) * 5 * dt;   // Ease FOV to +30 (warp effect)
+
+                // Tail jet flame stretches backward (X-axis) and gets brighter during boost
+                if (playerJet) {
+                    playerJet.visible = true;
+                    // X-axis is length, Y/Z is thickness. It grows smoothly backwards because of the translated geometry.
+                    playerJet.scale.set(1.5 + Math.random() * 0.5, 1.3, 1.3);
+                    playerJet.material.emissiveIntensity = 8.0;
+                    playerJet.material.color.setHex(0x00ddee); // Sleek Cyan/Blue plasma boost!
+                    playerJet.material.emissive.setHex(0x00ffff);
+                }
+            } else {
+                boostTimer = 0;
+                boostMultiplier -= 2.0 * dt; // Linear decay back to normal speed
+                if (boostMultiplier < 1.0) boostMultiplier = 1.0;
+
+                cameraFovOffset -= 15 * dt; // Linear decay FOV back to normal
+                if (cameraFovOffset < 0) cameraFovOffset = 0;
+
+                if (playerJet) {
+                    playerJet.visible = false;
+                }
+            }
+
+            // Apply FOV warp effect smoothly
+            if (Math.abs(camera.fov - (75 + cameraFovOffset)) > 0.1) {
+                camera.fov = 75 + cameraFovOffset;
+                camera.updateProjectionMatrix();
+            }
+
+            // Acceleration based on distance (worldX) instead of time
+            const baseSpeed = (CONFIG.baseSpeed + (worldX / (CONFIG.timeAccel * 60))) * boostMultiplier;
+            const speed = baseSpeed * frameFactor;
+            if (gameState === 'PLAYING') {
+                // Grounding and falling logic is evaluated after lateral movement computation
+
+                // AAA Car Animations: Wheel Rotation & Underglow Pulse
+                const wheelSpeed = -speed * 4;
+                playerWheels.forEach(w => w.rotation.z += wheelSpeed);
+                if (playerNeonBody) {
+                    playerNeonBody.emissiveIntensity = 2.0 + Math.sin(time * 10) * 0.5;
+                }
+
+                // Score based directly on distance traveled (worldX)
+                score = worldX;
+                document.getElementById('score').textContent = Math.floor(score) + "m";
+                document.getElementById('score').style.transform = `scale(${1 + beatPulse * 0.2})`;
+
+                const newSector = Math.floor(score / 5000);
+                if (newSector !== sector) {
+                    sector = newSector;
+                    const c = COLORS.accents[sector % 4];
+                    document.documentElement.style.setProperty('--accent', '#' + c.toString(16).padStart(6, '0'));
+                }
+            }
+
+            // World Movement (Always run in PLAYING or START)
+            worldX += speed;
+            const playerX = worldX - 6; // Player is conceptually at -6 from the camera focal point
+            const vecPlayer = LogicGetWorldTrackVector(playerX);
+            const vecWorld = LogicGetWorldTrackVector(worldX);
+
+            // 1. World Group Alignment (Camera focus point)
+            const matWorld = new THREE.Matrix4().makeBasis(vecWorld.tan, vecWorld.up, vecWorld.side);
+            const worldQuat = new THREE.Quaternion().setFromRotationMatrix(matWorld).invert();
+            worldGroup.quaternion.copy(worldQuat);
+            const worldOffset = vecWorld.pos.clone().applyQuaternion(worldGroup.quaternion).negate();
+            worldGroup.position.copy(worldOffset);
+
+            backgroundGroup.rotation.copy(worldGroup.rotation);
+            backgroundGroup.position.copy(worldGroup.position);
+
+            // 2. Player Alignment (Relative to World Group)
+            const localPlayerPos = vecPlayer.pos.clone().applyQuaternion(worldQuat).add(worldGroup.position);
+            const sceneRoadUp = vecPlayer.up.clone().applyQuaternion(worldQuat);
+            const sceneRoadSide = vecPlayer.side.clone().applyQuaternion(worldQuat);
+
+            // Update lateral position based on joystick
+            // Allow the car to steer significantly outside the physical road (which is ~10 width on each side)
+            const maxLateral = (CONFIG.roadWidth / 2) + 10.0; // 10 + 10 = 20 max offset (way off the road)
+            targetLateralOffset = -joystickValue * maxLateral;
+
+            // Sluggish steering if airborne, tight steering on ground
+            if (isGrounded) {
+                lateralOffset += (targetLateralOffset - lateralOffset) * 10 * dt;
+            } else {
+                lateralOffset += (targetLateralOffset - lateralOffset) * 3 * dt;
+            }
+
+            if (gameState === 'PLAYING') {
+                const maxSafeLateral = (CONFIG.roadWidth / 2) + 0.5; // Slight grace margin
+                if (Math.abs(lateralOffset) > maxSafeLateral) {
+                    isGrounded = false;
+                } else if (playerJumpY > -1.5) {
+                    isGrounded = true; // Safe recovery if steering back quickly
+                }
+
+                if (isGrounded) {
+                    playerJumpY = 0.5;
+                    velocityY = 0;
+                } else {
+                    velocityY -= 50.0 * dt; // Strong gravity
+                    playerJumpY += velocityY * dt;
+                    if (playerJumpY < -15) {
+                        LogicGameOver();
+                    }
+                }
+            }
+
+            // Base position on road surface, offset by jump height and lateral position
+            // playerJumpY is height relative to road surface (base 0.5 = sitting on top)
+            playerContainer.position.copy(localPlayerPos)
+                .add(sceneRoadUp.multiplyScalar(playerJumpY))
+                // Apply lateral offset along the side vector (inverted for correct left/right mapping)
+                .add(sceneRoadSide.multiplyScalar(-lateralOffset));
+
+            // Player Rotation Alignment (Right-handed X-Forward)
+            const matPlayer = new THREE.Matrix4().makeBasis(vecPlayer.tan, vecPlayer.up, vecPlayer.side);
+            const playerQuat = new THREE.Quaternion().setFromRotationMatrix(matPlayer);
+            playerContainer.quaternion.copy(worldQuat).multiply(playerQuat);
+
+            if (gameState === 'PLAYING') {
+                const playerPos = playerContainer.position;
+                const tempVec = new THREE.Vector3();
+
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const o = items[i];
+                    // Removed spinning animation as requested
+
+                    if (o.position.x < worldX - 20) {
+                        worldGroup.remove(o); items.splice(i, 1);
+                        continue;
+                    }
+
+                    // Strict Bounding Box Collision for Booster (Separating Forward Speed from Lateral Width)
+                    const localP = o.worldToLocal(playerPos.clone());
+
+                    // Fixed lateral collision width (Item radius 0.8 + Car margin 0.4)
+                    const hitX = Math.abs(localP.x) < 1.2;
+                    // Speed stretch ONLY applied to forward/backward (Z) to prevent skipping past it at high speeds
+                    const hitZ = Math.abs(localP.z) < 1.5 + (speed * 1.5);
+                    // Vertical tolerance
+                    const hitY = Math.abs(localP.y) < 1.5;
+
+                    if (hitX && hitZ && hitY) {
+                        // Activate Speed Boost!
+                        boostTimer = 2.0; // 2 seconds of boost
+                        // Audio cue for boost: Explosive rev up
+                        // We use a sawtooth for a harsher "engine" sound, sweep from mid to high frequency quickly
+                        WCGames.Audio.play([150, 1500], 'sawtooth', 0.5, 0.6);
+                        WCGames.Audio.play([100, 800], 'square', 0.6, 0.4); // Add low end rumble
+                        worldGroup.remove(o);
+                        items.splice(i, 1);
+                    }
+                }
+
+                // Obstacle Collision
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    const obs = obstacles[i];
+                    if (obs.position.x < worldX - 20) {
+                        worldGroup.remove(obs); obstacles.splice(i, 1);
+                        continue;
+                    }
+
+                    if (obs.children.length > 0) {
+                        const localP = obs.worldToLocal(playerPos.clone());
+                        const boxZ = obs.children[0].position.z; // sideOffset
+                        const barricadeWidth = (CONFIG.roadWidth / 2) - 0.5;
+
+                        // Check X (forward overlap + speed stretch to prevent skipping)
+                        const hitX = Math.abs(localP.x) < (1.5 / 2) + (speed * 1.5);
+                        // Check Z (lateral overlap + car radius margin)
+                        const hitZ = Math.abs(localP.z - boxZ) < (barricadeWidth / 2) + 0.4;
+                        // Check Y (height overlap)
+                        const hitY = localP.y < 2.0 + 0.5;
+
+                        if (hitX && hitZ && hitY) {
+                            LogicGameOver();
+                            break;
+                        }
+                    }
+                }
+
+                // Spawn Logic (maintain objects up to 300m ahead)
+                let lastObjX = Math.max(worldX + 100, window.lastTrackedSpawnX || 0); // Track empty space
+                if (items.length > 0) lastObjX = Math.max(lastObjX, items[items.length - 1].position.x);
+                if (obstacles.length > 0) lastObjX = Math.max(lastObjX, obstacles[obstacles.length - 1].position.x);
+
+                if (lastObjX < worldX + 300) {
+                    const nextSpawnX = lastObjX + 40 + Math.random() * 40;
+                    window.lastTrackedSpawnX = nextSpawnX; // Advance the spawn frontier even if we spawn nothing
+
+                    let canSpawnObstacle = true;
+                    if (obstacles.length > 0) {
+                        const lastObs = obstacles[obstacles.length - 1];
+
+                        // Calculate dynamic gap based on how far we've traveled (score/worldX)
+                        let progress = (score - CONFIG.obstacleStartScore) / (CONFIG.obstacleMaxScore - CONFIG.obstacleStartScore);
+                        progress = Math.max(0, Math.min(1, progress)); // clamp 0 to 1
+                        const currentMinGap = CONFIG.obstacleGapMax - (progress * (CONFIG.obstacleGapMax - CONFIG.obstacleGapMin));
+
+                        if (nextSpawnX - lastObs.position.x < currentMinGap) {
+                            canSpawnObstacle = false;
+                        }
+                    }
+
+                    // Also scale the probability of choosing an obstacle vs an empty space based on progress
+                    let progressProb = (score - CONFIG.obstacleStartScore) / (CONFIG.obstacleMaxScore - CONFIG.obstacleStartScore);
+                    progressProb = Math.max(0, Math.min(1, progressProb));
+                    // Start at 40% probability to spawn an obstacle (vs an empty space), scale up to 80%
+                    const obsProbThreshold = 0.6 - (progressProb * 0.4);
+
+                    if (canSpawnObstacle && Math.random() > obsProbThreshold && score > CONFIG.obstacleStartScore) {
+                        LogicSpawnObstacle(nextSpawnX);
+                    } else {
+                        // Speed boosters are rare power-ups (e.g. 10% chance to spawn when there is no obstacle)
+                        if (Math.random() > 0.90) {
+                            LogicSpawnItem(nextSpawnX);
+                        }
+                    }
+                }
+            }
+
+            LogicUpdateWorld(worldX);
+
+            // FX Updates
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.position.add(p.userData.vel);
+                p.userData.life -= 0.02;
+                p.scale.setScalar(p.userData.life * 0.15);
+                if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
+            }
+            for (let i = echoes.length - 1; i >= 0; i--) {
+                const e = echoes[i];
+                e.userData.life -= 0.02;
+                e.scale.multiplyScalar(1.02);
+                if (e.userData.life <= 0) { scene.remove(e); echoes.splice(i, 1); }
+            }
+
+            DrawMainRender();
+        }
+
+        function DrawMainRender() {
+            const shakeOffset = (Math.random() - 0.5) * cameraShake;
+            camera.position.set(
+                CONFIG.cameraPos.x + shakeOffset,
+                CONFIG.cameraPos.y + shakeOffset,
+                CONFIG.cameraPos.z + shakeOffset
+            );
+            camera.lookAt(CONFIG.cameraLookAt.x, CONFIG.cameraLookAt.y, CONFIG.cameraLookAt.z);
+            cameraShake *= 0.9;
+            composer.render(); // 블룸 적용 (반해상도·파라미터 조정으로 깜빡임 완화)
+        }
+
+        /* --- 9. SYSTEM INTEGRATION --- */
+        WCGames.init({
+            id: 'speedrush',
+            onStart: () => {
+                WCGames.Audio.init();
+                gameState = 'PLAYING'; player.visible = true; playerJumpY = 0.5;
+                document.getElementById('start-screen').classList.remove('visible');
+                // document.getElementById('joystick-area').style.display = 'block';
+            },
+            onRestart: () => {
+                // Safe clear worldGroup and backgroundGroup
+                while (worldGroup.children.length > 0) {
+                    const child = worldGroup.children[0];
+                    if (child.geometry && child.geometry !== unitBoxGeo) child.geometry.dispose();
+                    worldGroup.remove(child);
+                }
+                while (backgroundGroup.children.length > 0) {
+                    const child = backgroundGroup.children[0];
+                    if (child.geometry && child.geometry !== unitBoxGeo) child.geometry.dispose();
+                    backgroundGroup.remove(child);
+                }
+
+                // Clear UI FX in scene
+                particles.forEach(p => { if (p && p.geometry && p.geometry !== unitBoxGeo) p.geometry.dispose(); scene.remove(p); });
+                echoes.forEach(e => { if (e && e.geometry && e.geometry !== unitBoxGeo) e.geometry.dispose(); scene.remove(e); });
+
+                items = []; particles = []; echoes = []; backgroundBuildings = []; roadChunks = []; obstacles = [];
+                score = 0; sector = 0; gameState = 'PLAYING';
+                worldX = 0; lastSpawnX = CONFIG.roadInitialEnd;
+                window.lastTrackedSpawnX = 0; // Clear item/obstacle spawn frontier tracking
+                lastBuildingXLeft = -100; lastBuildingXRight = -100;
+                boostTimer = 0; boostMultiplier = 1.0; cameraFovOffset = 0;
+                if (playerJet) playerJet.scale.set(1, 1, 1);
+                camera.fov = 75; camera.updateProjectionMatrix();
+                time = 0; beatTimer = 0; beatPulse = 0;
+
+                playerJumpY = 0.5; player.visible = true; velocityY = 0; isGrounded = true;
+                player.rotation.set(0, 0, 0);
+                joystickValue = 0; lateralOffset = 0; targetLateralOffset = 0;
+
+                DrawInitFloor();
+                document.getElementById('game-over').classList.remove('visible');
+                // document.getElementById('joystick-area').style.display = 'block';
+            }
+        });
+
+        DrawInitializeScene();
+
+        // Full-Screen Drag Input Listeners
+        let isDraggingJoystick = false;
+        let dragStartX = 0;
+        let lastJoystickValue = 0;
+
+        function startDrag(clientX) {
+            if (gameState !== 'PLAYING') return;
+            isDraggingJoystick = true;
+            dragStartX = clientX;
+            // When starting a new drag, we "capture" the current lateral offset intent
+            // so jumping around the screen doesn't instantly snap the car back to center.
+            // But for a simple absolute mapping, we can just center around the touch point.
+        }
+
+        function updateDrag(clientX) {
+            if (!isDraggingJoystick) return;
+            const maxTravel = window.innerWidth / 3; // Use 1/3 of screen width as the full range
+            let diffX = clientX - dragStartX;
+
+            // Limit travel
+            if (diffX > maxTravel) diffX = maxTravel;
+            if (diffX < -maxTravel) diffX = -maxTravel;
+
+            joystickValue = diffX / maxTravel; // -1 to 1
+        }
+
+        function endDrag() {
+            isDraggingJoystick = false;
+            joystickValue = 0; // Return to center when released
+        }
+
+        // Apply events to the entire window/document for full-screen control
+        window.addEventListener('mousedown', (e) => {
+            // Ignore UI clicks
+            if (e.target.tagName === 'BUTTON') return;
+            startDrag(e.clientX);
+        });
+        window.addEventListener('mousemove', (e) => {
+            updateDrag(e.clientX);
+        });
+        window.addEventListener('mouseup', endDrag);
+
+        window.addEventListener('touchstart', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            startDrag(e.touches[0].clientX);
+        }, { passive: true });
+        window.addEventListener('touchmove', (e) => {
+            updateDrag(e.touches[0].clientX);
+        }, { passive: true });
+        window.addEventListener('touchend', endDrag);
+
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
+    </script>
+    <script src="/shared/i18n.js"></script>
+</body>
+
+</html>

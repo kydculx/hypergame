@@ -75,9 +75,9 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/helix/index.html',
         },
         {
-          id: 'geometry',
-          thumbnailUrl: 'games/geometry/thumb.png',
-          gameUrl: 'games/geometry/index.html',
+          id: 'speedrush',
+          thumbnailUrl: 'games/speedrush/thumb.png',
+          gameUrl: 'games/speedrush/index.html',
         },
         {
           id: 'domino',
