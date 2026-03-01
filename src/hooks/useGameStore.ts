@@ -94,11 +94,7 @@ export const useGameStore = create<GameState>()(
           thumbnailUrl: 'games/bulletdodge/thumb.png',
           gameUrl: 'games/bulletdodge/index.html',
         },
-        {
-          id: 'pinball',
-          thumbnailUrl: 'games/pinball/thumb.svg',
-          gameUrl: 'games/pinball/index.html',
-        },
+
       ],
 
       currentGame: null,

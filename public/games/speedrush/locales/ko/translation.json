@@ -1,9 +1,9 @@
 {
   "title": "스피드 러시",
-  "instruction": "화면을 스와이프해 바리케이드를 피하고\\n스피드 부스터를 획득하세요.",
-  "play": "게임 시작",
-  "game_over": "시스템 중단",
-  "final_score": "데이터 기록: ",
-  "play_again": "재부팅",
+  "instruction": "화려한 도심 속 장애물을 피해 질주해보세요! 부스터를 획득하면 더 멀리 갈 수 있습니다.",
+  "play": "게임시작",
+  "game_over": "게임오버",
+  "final_score": "최종 기록: ",
+  "play_again": "재시도",
   "category": "액션"
 }

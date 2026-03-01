@@ -1,9 +1,9 @@
 {
   "title": "Speed Rush",
-  "instruction": "Steer left/right to dodge\\nBarricades and collect Boosters.",
-  "play": "INITIATE",
-  "game_over": "SYSTEM HALT",
-  "final_score": "DATA LOG: ",
-  "play_again": "REBOOT",
+  "instruction": "Sprint through the flashy city dodging obstacles! Grab boosters to go even further.",
+  "play": "START",
+  "game_over": "GAME OVER",
+  "final_score": "FINAL SCORE: ",
+  "play_again": "RETRY",
   "category": "ACTION"
 }

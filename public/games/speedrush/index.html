@@ -283,17 +283,22 @@
             pathZRange: { min: -50, max: 50 }, // 좌우 회전 범위
             pathZProb: 0.2,                   // 좌우 곡선 발생 확률 (0~1)
             pathZFreq: 0.005,                 // 세그먼트 길이 역수
-            pathRollRange: { min: -5, max: 5 }, // 회전(뱅킹) 범위
+            pathRollRange: { min: -3, max: 3 }, // 회전(뱅킹) 범위
             pathRollProb: 0.1,                // 뱅킹 발생 확률 (0~1)
             pathRollFreq: 0.005,               // 세그먼트 길이 역수
             // 속도 및 가속도 설정
-            baseSpeed: 1.0,                   // 초기 이동 속도
-            timeAccel: 100,                    // 가속도 계수 (초 단위, 클수록 천천히 빨라짐)
+            baseSpeed: 2.0,                   // 초기 이동 속도
+            timeAccel: 40,                    // 가속도 계수 (초 단위, 클수록 천천히 빨라짐)
             // 장애물 생성 설정 (거리에 비례해 난이도 증가)
             obstacleGapMax: 500,              // 초반 바리케이트 사이의 최대 거리(m)
             obstacleGapMin: 200,              // 후반 바리케이트 사이의 최소 거리(m) (난이도 max 도달 시)
             obstacleStartScore: 1000,         // 바리케이트가 나타나기 시작하는 점수(m)
-            obstacleMaxScore: 10000           // 난이도가 최고조(최소 간격)에 달하는 점수(m)
+            obstacleMaxScore: 10000,          // 난이도가 최고조(최소 간격)에 달하는 점수(m)
+            // 추락 애니메이션 (회전 속도 조절)
+            fallRotationAccel: 2.0,           // 추락 시 회전 가속도 (초당 증가 폭)
+            fallRotationMax: 8.0,             // 추락 시 최대 회전 속도 제한 (너무 빨리 도는 것 방지)
+            fallPitchMulti: 1.5,              // 앞으로 고꾸라지는(Pitch) 속도 배수
+            fallRollMulti: 2.5                // 옆으로 구르는(Roll) 속도 배수
         };
 
         const BEAT_LEN = 60 / CONFIG.BPM;
@@ -305,11 +310,13 @@
         let score = 0, gameState = 'START', sector = 0;
         let trackProgress = 0; // Current world-space X position
         let worldX = 0; // Cumulative world distance traveled
+        let startWorldX = 0; // Offset for distance traveled during START menu
         let velocityY = 0, isGrounded = true, playerJumpY = 0.5;
         let lateralOffset = 0, targetLateralOffset = 0, joystickValue = 0;
         let fallForwardSpeed = 0;
         let fallLateralSpeed = 0;
         let fallRotationSpeed = 0;
+        let gameOverSpeed = 0; // Tracks deceleration speed when game is over
         let playerWheels = [], playerNeonBody = null, playerJet = null;
         let cameraShake = 0, time = 0, beatTimer = 0, beatPulse = 0;
         let boostTimer = 0, boostMultiplier = 1.0, cameraFovOffset = 0;
@@ -490,6 +497,14 @@
             chassis.scale.set(2.6, 0.15, 1.3);
             chassis.position.y = 0.15;
             group.add(chassis);
+
+            // DEBUG HITBOX (Car) - Red Wireframe (Hidden)
+            // Width(Z) = 1.3, Length(X) = 2.6, Height(Y) = ~1.0
+            const carHitboxMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true, transparent: true, opacity: 0.8, visible: false });
+            const carHitbox = new THREE.Mesh(unitBoxGeo, carHitboxMat);
+            carHitbox.scale.set(2.6, 1.0, 1.3);
+            carHitbox.position.y = 0.5; // Roughly centered vertically
+            group.add(carHitbox);
 
             // 2. Main Body (Sleek Supercar Wedge)
             const bodyCol = 0x00ffff;
@@ -1016,12 +1031,40 @@
             return sharedBoosterTexture;
         }
 
+        let sharedJumpTexture = null;
+        function getJumpTexture() {
+            if (sharedJumpTexture) return sharedJumpTexture;
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '900 180px "Orbitron", sans-serif';
+
+            // Lime Green Glow for Jump
+            ctx.shadowColor = '#00ff33';
+            ctx.shadowBlur = 30;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('J', 128, 128);
+
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = '#00ff33';
+            ctx.strokeText('J', 128, 128);
+
+            sharedJumpTexture = new THREE.CanvasTexture(canvas);
+            return sharedJumpTexture;
+        }
+
         function LogicSpawnItem(x) {
             const m = new THREE.Group();
 
-            // Speed Booster Visual: Floating Glowing 'B' Sprite
+            const type = Math.random() > 0.5 ? 'BOOST' : 'JUMP';
+            m.userData = { type: type };
+
             const spriteMaterial = new THREE.SpriteMaterial({
-                map: getBoosterTexture(),
+                map: type === 'BOOST' ? getBoosterTexture() : getJumpTexture(),
                 color: 0xffffff,
                 transparent: true,
                 blending: THREE.AdditiveBlending
@@ -1029,6 +1072,15 @@
             const sprite = new THREE.Sprite(spriteMaterial);
             sprite.position.y = 0.5; // Offset slightly up from the ground
             m.add(sprite);
+
+            // DEBUG HITBOX (Item) - Green Wireframe (Hidden)
+            // The item logic checks: Width(X) = 1.2, Length(Z) = 1.2, Height(Y) = 1.2
+            const itemHitboxMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true, transparent: true, opacity: 0.8, visible: false });
+            const itemHitbox = new THREE.Mesh(unitBoxGeo, itemHitboxMat);
+            // Changed from a flat plane to a perfect square/cube
+            itemHitbox.scale.set(1.2, 1.2, 1.2);
+            itemHitbox.position.y = 0.5; // Center Y is 0.5
+            m.add(itemHitbox);
 
             const wx = x;
             const vec = LogicGetWorldTrackVector(wx);
@@ -1056,15 +1108,26 @@
         function LogicSpawnObstacle(x) {
             const m = new THREE.Group();
 
-            // Barricade visual (blocks half the road)
-            const barricadeWidth = (CONFIG.roadWidth / 2) - 0.5; // Slightly narrower than half
-            const r = Math.random();
-            const sideOffset = r < 0.33 ? (-barricadeWidth / 2 - 0.5) : (r < 0.66 ? 0 : barricadeWidth / 2 + 0.5);
+            // Barricade visual (blocks 1/3 or 2/3 of the road)
+            // Determine size: 1 to 2 thirds
+            const thirds = Math.floor(Math.random() * 2) + 1;
+            const barricadeWidth = thirds * (CONFIG.roadWidth / 3);
+
+            // Attach to either left or right edge of the road
+            const isLeft = Math.random() < 0.5;
+
+            // Road edges are at -CONFIG.roadWidth/2 and +CONFIG.roadWidth/2
+            const sideOffset = isLeft
+                ? (-CONFIG.roadWidth / 2 + barricadeWidth / 2)
+                : (CONFIG.roadWidth / 2 - barricadeWidth / 2);
 
             // 1. Collision Box (MUST BE child[0] based on LogicMainLoop)
-            // Using a basic material but making it invisible
-            const hitBox = new THREE.Mesh(unitBoxGeo, new THREE.MeshBasicMaterial({ visible: false }));
-            hitBox.position.set(0, 1.0, sideOffset);
+            // DEBUG HITBOX (Barricade) - Yellow Wireframe (Hidden)
+            // Logic checks: Length(X) = 0.7, Width(Z) = barricadeWidth, Height(Y) = 2.3
+            const obsHitboxMat = new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true, transparent: true, opacity: 0.8, visible: false });
+            const hitBox = new THREE.Mesh(unitBoxGeo, obsHitboxMat);
+            hitBox.scale.set(0.7, 2.3, barricadeWidth);
+            hitBox.position.set(0, 1.15, sideOffset); // Y center is roughly half height
             m.add(hitBox);
 
             // Base stands (solid grey, no emissive)
@@ -1116,16 +1179,68 @@
 
         /* --- 7. GAMEPLAY MECHANICS --- */
 
-        function LogicGameOver() {
+        const CyberAudio = {
+            engineOsc: null,
+            engineGain: null,
+            init() {
+                if (!WCGames.Audio.ctx) return;
+                try {
+                    const ctx = WCGames.Audio.ctx;
+                    if (this.engineOsc) return;
+                    this.engineOsc = ctx.createOscillator();
+                    this.engineOsc.type = 'sawtooth';
+                    this.engineGain = ctx.createGain();
+                    this.engineGain.gain.value = 0;
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 600;
+                    this.engineOsc.connect(filter);
+                    filter.connect(this.engineGain);
+                    this.engineGain.connect(ctx.destination);
+                    this.engineOsc.start();
+                } catch (e) { }
+            },
+            update(speed, gameState) {
+                if (!this.engineOsc || !WCGames.Audio.ctx) return;
+                const ctx = WCGames.Audio.ctx;
+                if (gameState === 'PLAYING') {
+                    this.engineOsc.frequency.setTargetAtTime(50 + speed * 15, ctx.currentTime, 0.1);
+                    this.engineGain.gain.setTargetAtTime(0.12, ctx.currentTime, 0.1);
+                } else {
+                    this.engineGain.gain.setTargetAtTime(0, ctx.currentTime, 0.2);
+                }
+            },
+            playBeat() {
+                // Background beat sound removed per user request
+            },
+            playBoost() {
+                WCGames.Audio.play([200, 2400], 'sawtooth', 0.7, 0.2);
+                WCGames.Audio.play([400, 3200], 'square', 0.5, 0.15);
+            },
+            playJump() {
+                WCGames.Audio.play([300, 1200], 'sine', 0.4, 0.2);
+                WCGames.Audio.play([200, 800], 'triangle', 0.5, 0.1);
+            },
+            playCrash() {
+                WCGames.Audio.play([150, 40], 'sawtooth', 0.8, 0.4);
+                WCGames.Audio.play([250, 50], 'square', 0.6, 0.3);
+            }
+        };
+
+        function LogicGameOver(currentSpeed = 1.0) {
             if (gameState === 'OVER') return;
             gameState = 'OVER';
             cameraShake = 0.6;
-            player.visible = false;
+            // player.visible = false; // Don't hide the player instantly so we can see them slide to a stop!
             document.getElementById('joystick-area').style.display = 'none';
+
+            // Capture the speed at the exact moment of game over
+            gameOverSpeed = currentSpeed;
+
             LogicSpawnParticles(playerContainer.position.x, playerContainer.position.y, 30, COLORS.spike, true);
 
             // Show UI via SDK
-            WCGames.Audio.play([400, 40], 'square', 0.5, 0.3);
+            CyberAudio.playCrash();
             WCGames.gameOver(Math.floor(score));
         }
 
@@ -1142,7 +1257,7 @@
                 beatPulse = 1.0;
                 if (gameState === 'PLAYING') {
                     // LogicSpawnEcho(); // Removed player echo effect
-                    WCGames.Audio.play(sector % 2 === 0 ? 100 : 200, 'sine', 0.1, 0.1);
+                    CyberAudio.playBeat();
                 }
             }
             beatPulse *= Math.pow(0.92, frameFactor);
@@ -1181,9 +1296,19 @@
                 camera.updateProjectionMatrix();
             }
 
-            // Acceleration based on distance (worldX) instead of time
-            const baseSpeed = (CONFIG.baseSpeed + (worldX / (CONFIG.timeAccel * 60))) * boostMultiplier;
-            const speed = baseSpeed * frameFactor;
+            // Acceleration based on actual gameplay distance (ignoring START screen rolling)
+            const effectiveDistance = gameState !== 'START' ? (worldX - startWorldX) : 0;
+            const baseSpeed = (CONFIG.baseSpeed + (effectiveDistance / (CONFIG.timeAccel * 60))) * boostMultiplier;
+            let speed = baseSpeed * frameFactor;
+
+            // Decelerate if game is over
+            if (gameState === 'OVER') {
+                gameOverSpeed *= 0.95; // Friction multiplier
+                speed = gameOverSpeed;
+            }
+
+            CyberAudio.update(speed, gameState);
+
             if (gameState === 'PLAYING') {
                 // Grounding and falling logic is evaluated after lateral movement computation
 
@@ -1194,8 +1319,8 @@
                     playerNeonBody.emissiveIntensity = 2.0 + Math.sin(time * 10) * 0.5;
                 }
 
-                // Score based directly on distance traveled (worldX)
-                score = worldX;
+                // Score based directly on distance traveled since PLAYING started
+                score = effectiveDistance;
                 document.getElementById('score').textContent = Math.floor(score) + "m";
                 document.getElementById('score').style.transform = `scale(${1 + beatPulse * 0.2})`;
 
@@ -1210,10 +1335,13 @@
             // World Movement (Always run in PLAYING or START)
             if (isGrounded || gameState === 'START') {
                 worldX += speed;
-            } else {
-                // When falling, forward speed is preserved as a physics variable, but decelerates slightly due to air resistance
+            } else if (gameState === 'PLAYING') {
+                // When falling (but still PLAYING and alive), use physics speed
                 fallForwardSpeed = fallForwardSpeed * 0.99;
                 worldX += fallForwardSpeed;
+            } else if (gameState === 'OVER') {
+                // When game over (due to crash or fall depth reached), slide to a stop
+                worldX += speed;
             }
             const playerX = worldX - 6; // Player is conceptually at -6 from the camera focal point
             const vecPlayer = LogicGetWorldTrackVector(playerX);
@@ -1248,33 +1376,61 @@
             } else {
                 // When falling, maintain lateral momentum and IGNORE joystick
                 lateralOffset += fallLateralSpeed * dt;
+
+                // Cap the lateral offset so the car drops naturally outside the road, 
+                // but not infinitely far. (User requested: 2x the car width distance from edge)
+                const carWidth = 1.3;
+                const absoluteMaxLateral = (CONFIG.roadWidth / 2) + (carWidth * 2.0);
+                if (lateralOffset > absoluteMaxLateral) lateralOffset = absoluteMaxLateral;
+                if (lateralOffset < -absoluteMaxLateral) lateralOffset = -absoluteMaxLateral;
             }
 
             if (gameState === 'PLAYING') {
-                // The road is CONFIG.roadWidth wide (center is 0, edges are -roadWidth/2 and +roadWidth/2)
-                // The car's width is ~1.3 (half width is 0.65)
-                // Fall if the car's center goes beyond the edge of the road (more than half the car is dangling in the air)
-                const maxSafeLateral = (CONFIG.roadWidth / 2) - 0.2; // -0.2 to make the fall margin feel slightly less forgiving
+                // The road width is CONFIG.roadWidth (10). Edges are -5 and +5.
+                // The car's visual outer wheel edge is at Z = 0.7 (position) + 0.35 (radius) = 1.05
+                // The car's visual total width is 2.1
+                // We want to fall if 1/4 of the total width (2.1 * 0.25 = 0.525) is hanging off the edge.
+                // So the center of the car can be at most: (roadWidth / 2) - 0.525
+                const maxSafeLateral = (CONFIG.roadWidth / 2) - 0.8;
                 if (Math.abs(lateralOffset) > maxSafeLateral) {
-                    isGrounded = false;
-                } else if (playerJumpY > -1.5) {
-                    isGrounded = true; // Safe recovery if steering back quickly
+                    if (isGrounded) {
+                        isGrounded = false;
+                        // Give it just enough outward push to visually clear the road edge cleanly
+                        fallLateralSpeed = Math.sign(lateralOffset) * 10;
+                        velocityY = -2; // Start the drop immediately
+                    }
+                } else {
+                    // Safe over the road
+                    if (!isGrounded && velocityY <= 0 && playerJumpY <= 0.5 && playerJumpY > -1.5) {
+                        isGrounded = true; // Safe landing
+                        playerContainer.rotation.set(0, 0, 0); // Flat on land
+                        fallRotationSpeed = 0;
+                    }
                 }
 
                 if (isGrounded) {
                     playerJumpY = 0.5;
                     velocityY = 0;
                 } else {
-                    velocityY -= 40.0 * dt; // Gravity
+                    velocityY -= 60.0 * dt; // Stronger Gravity for a heavier, scarier drop
                     playerJumpY += velocityY * dt;
 
-                    // Tumbling rotation
-                    fallRotationSpeed += 5 * dt;
-                    playerContainer.rotateX(fallRotationSpeed * dt);
-                    playerContainer.rotateZ((fallLateralSpeed > 0 ? -1 : 1) * fallRotationSpeed * 0.5 * dt);
+                    if (Math.abs(lateralOffset) > maxSafeLateral) {
+                        // Natural Tumbling rotation when falling off the track
+                        const fallSide = Math.sign(lateralOffset);
+                        fallRotationSpeed += CONFIG.fallRotationAccel * dt;
+                        if (fallRotationSpeed > CONFIG.fallRotationMax) {
+                            fallRotationSpeed = CONFIG.fallRotationMax;
+                        }
+                        playerContainer.rotateX(fallRotationSpeed * CONFIG.fallPitchMulti * dt);
+                        playerContainer.rotateZ(-fallSide * fallRotationSpeed * CONFIG.fallRollMulti * dt);
+                    } else {
+                        // Airborne jump rotation (pitch nose up slightly, then down)
+                        playerContainer.rotation.set(-velocityY * 0.02, 0, 0);
+                    }
 
                     if (playerJumpY < -20) {
-                        LogicGameOver();
+                        LogicGameOver(speed);
                     }
                 }
             }
@@ -1307,9 +1463,10 @@
                     }
 
                     // 1. Car Dimensions: Length(Z-ish) = 2.6 (half = 1.3), Width(X-ish) = 1.3 (half = 0.65)
-                    // 2. Item ("B" Sprite) Dimensions: Scaled to 2.5. Width/Height = 2.5 (half = 1.25). Depth = 0.
+                    // 2. Item ("B" Sprite) Dimensions: Visual scale is 2.5, but Hitbox is a 1.2 cube. Width/Height/Length = 1.2 (half = 0.6).
                     // Note: lookAt makes item's local -Z forward and local X right.
-                    const itemHalfWidth = 1.25;
+                    const itemHalfWidth = 0.6;
+                    const itemHalfLength = 0.6;
                     const carHalfWidth = 0.65;
                     const carHalfLength = 1.3;
 
@@ -1317,18 +1474,23 @@
 
                     // Lateral overlap
                     const hitX = Math.abs(localP.x) < (itemHalfWidth + carHalfWidth);
-                    // Longitudinal overlap + Speed stretch to prevent skipping frames
-                    const hitZ = Math.abs(localP.z) < (carHalfLength + (speed * 1.5));
-                    // Vertical overlap (Item Center: +0.5, Height: 2.5 -> 0.5 +/- 1.25) vs (Car Height: 0.15 ... up to ~1.0)
-                    const hitY = localP.y > -0.75 && localP.y < 1.75;
+                    // Longitudinal overlap + Speed stretch to prevent skipping frames (now accounting for item depth)
+                    const hitZ = Math.abs(localP.z) < (itemHalfLength + carHalfLength + (speed * 1.5));
+                    // Vertical overlap (Item Center: +0.5, Height: 1.2 -> 0.5 +/- 0.6) vs (Car Height: 0.15 ... up to ~1.0)
+                    const hitY = localP.y > -0.1 && localP.y < 1.1;
 
                     if (hitX && hitZ && hitY) {
-                        // Activate Speed Boost!
-                        boostTimer = 2.0; // 2 seconds of boost
-                        // Audio cue for boost: Explosive rev up
-                        // We use a sawtooth for a harsher "engine" sound, sweep from mid to high frequency quickly
-                        WCGames.Audio.play([150, 1500], 'sawtooth', 0.5, 0.6);
-                        WCGames.Audio.play([100, 800], 'square', 0.6, 0.4); // Add low end rumble
+                        if (o.userData.type === 'BOOST') {
+                            boostTimer = 2.0; // 2 seconds of boost
+                            CyberAudio.playBoost();
+                        } else if (o.userData.type === 'JUMP') {
+                            if (isGrounded) {
+                                isGrounded = false;
+                                velocityY = 25; // Leap into the air
+                                playerJumpY = 0.51; // Prevent instant landing flag
+                                CyberAudio.playJump();
+                            }
+                        }
                         worldGroup.remove(o);
                         items.splice(i, 1);
                     }
@@ -1345,7 +1507,8 @@
                     if (obs.children.length > 0) {
                         const localP = obs.worldToLocal(playerPos.clone());
                         const boxZ = obs.children[0].position.z; // sideOffset
-                        const barricadeWidth = (CONFIG.roadWidth / 2) - 0.5;
+                        // Retrieve the dynamic width of this specific barricade from its hitbox scale
+                        const barricadeWidth = obs.children[0].scale.z;
 
                         // 1. Car Dimensions: Length(X) = 2.6 (half = 1.3), Width(Z) = 1.3 (half = 0.65)
                         // 2. Barricade Dimensions: Length(X) = ~0.7 (crossbars) (half = 0.35). Width(Z) = barricadeWidth (half = barricadeWidth/2)
@@ -1362,7 +1525,7 @@
                         const hitY = localP.y < 1.8 + 0.5;
 
                         if (hitX && hitZ && hitY) {
-                            LogicGameOver();
+                            LogicGameOver(speed);
                             break;
                         }
                     }
@@ -1445,7 +1608,10 @@
             id: 'speedrush',
             onStart: () => {
                 WCGames.Audio.init();
+                CyberAudio.init();
                 gameState = 'PLAYING'; player.visible = true; playerJumpY = 0.5;
+                startWorldX = worldX; // Record where the player started to ignore START screen distance
+                score = 0;
                 document.getElementById('start-screen').classList.remove('visible');
                 // document.getElementById('joystick-area').style.display = 'block';
             },
@@ -1468,7 +1634,7 @@
 
                 items = []; particles = []; echoes = []; backgroundBuildings = []; roadChunks = []; obstacles = [];
                 score = 0; sector = 0; gameState = 'PLAYING';
-                worldX = 0; lastSpawnX = CONFIG.roadInitialEnd;
+                worldX = 0; startWorldX = 0; lastSpawnX = CONFIG.roadInitialEnd;
                 window.lastTrackedSpawnX = 0; // Clear item/obstacle spawn frontier tracking
                 lastBuildingXLeft = -100; lastBuildingXRight = -100;
                 boostTimer = 0; boostMultiplier = 1.0; cameraFovOffset = 0;
@@ -1479,6 +1645,7 @@
                 playerJumpY = 0.5; player.visible = true; velocityY = 0; isGrounded = true;
                 player.rotation.set(0, 0, 0);
                 joystickValue = 0; lateralOffset = 0; targetLateralOffset = 0;
+                fallForwardSpeed = 0; fallLateralSpeed = 0; fallRotationSpeed = 0;
 
                 DrawInitFloor();
                 document.getElementById('game-over').classList.remove('visible');
