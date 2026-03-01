@@ -111,76 +111,185 @@
         }
 
         .wcg-popup {
-            background: rgba(10, 10, 30, 0.4);
-            border: 1px solid rgba(0, 243, 255, 0.3);
-            box-shadow: 0 0 40px rgba(0, 243, 255, 0.1), inset 0 0 20px rgba(0, 243, 255, 0.05);
-            padding: 50px;
-            border-radius: 4px;
+            background: rgba(10, 5, 25, 0.85);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow:
+                0 0 30px rgba(255, 170, 0, 0.1),
+                inset 0 0 20px rgba(0, 243, 255, 0.05),
+                0 0 100px rgba(0, 0, 0, 0.8);
+            padding: 70px 90px;
             position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(20px);
+            clip-path: polygon(0 30px, 30px 0, 100% 0, 100% calc(100% - 30px), calc(100% - 30px) 100%, 0 100%);
+            animation: popupAppear 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            border-top: 3px solid #ffaa00;
+            border-bottom: 3px solid #00f3ff;
+            transform-style: preserve-3d;
         }
 
+        @keyframes popupAppear {
+            0% {
+                transform: scale(0.8) translateY(50px);
+                opacity: 0;
+                filter: blur(10px);
+            }
+
+            100% {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+                filter: blur(0);
+            }
+        }
+
+        /* Elaborate corner brackets */
         .wcg-popup::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #00f3ff, transparent);
-            animation: scan 3s infinite;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 48%, rgba(0, 243, 255, 0.1) 49%, rgba(0, 243, 255, 0.1) 51%, transparent 52%);
+            background-size: 10px 10px;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.3;
         }
 
-        @keyframes scan {
+        .wcg-popup::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 20px #00f3ff, 0 0 40px #ffaa00;
+            animation: scanline 3s linear infinite;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        @keyframes scanline {
             0% {
-                transform: translateX(-100%);
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
             }
 
             100% {
-                transform: translateX(100%);
+                transform: translateY(300px);
+                opacity: 0;
             }
         }
 
+        /* Title with chromatic aberration */
         .wcg-popup h1 {
-            font-size: 42px;
+            font-size: 56px;
             margin-bottom: 25px;
-            background: linear-gradient(135deg, #00f3ff, #ff00ff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: 4px;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 8px;
             font-weight: 900;
+            position: relative;
+            text-shadow:
+                0 0 10px rgba(255, 170, 0, 0.8),
+                3px 0px 0px rgba(255, 170, 0, 0.8),
+                -3px 0px 0px rgba(0, 243, 255, 0.8);
+            animation: glitch 5s infinite;
+        }
+
+        @keyframes glitch {
+
+            0%,
+            96%,
+            100% {
+                transform: translate(0, 0);
+                opacity: 1;
+            }
+
+            97% {
+                transform: translate(-5px, 2px);
+                opacity: 0.8;
+                text-shadow: -3px 0px 0px rgba(255, 170, 0, 0.8), 3px 0px 0px rgba(0, 243, 255, 0.8);
+            }
+
+            98% {
+                transform: translate(5px, -2px);
+                opacity: 0.9;
+            }
+
+            99% {
+                transform: translate(-2px, 2px);
+                opacity: 0.8;
+                text-shadow: 3px 0px 0px rgba(255, 170, 0, 0.8), -3px 0px 0px rgba(0, 243, 255, 0.8);
+            }
         }
 
         .wcg-popup p {
-            font-size: 16px;
-            line-height: 1.8;
-            margin-bottom: 35px;
-            color: rgba(255, 255, 255, 0.8);
-            letter-spacing: 1px;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            color: rgba(255, 255, 255, 0.9);
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+            text-transform: uppercase;
         }
 
         .wcg-popup button {
-            background: transparent;
-            border: 1px solid #00f3ff;
-            color: #00f3ff;
-            padding: 15px 50px;
+            background: linear-gradient(90deg, rgba(255, 170, 0, 0.1), rgba(0, 243, 255, 0.1));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-left: 5px solid #ffaa00;
+            border-right: 5px solid #00f3ff;
+            color: #fff;
+            padding: 18px 70px;
             font-family: 'Orbitron', sans-serif;
-            font-weight: 700;
-            font-size: 18px;
-            letter-spacing: 3px;
+            font-weight: 900;
+            font-size: 22px;
+            letter-spacing: 4px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             position: relative;
             z-index: 1;
+            clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+            text-transform: uppercase;
+            overflow: hidden;
+        }
+
+        .wcg-popup button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transform: skewX(-25deg);
+            transition: left 0.5s ease;
+        }
+
+        .wcg-popup button:hover::before {
+            left: 200%;
+            transition: left 0.5s ease;
         }
 
         .wcg-popup button:hover {
-            background: #00f3ff;
-            color: #000;
-            box-shadow: 0 0 30px rgba(0, 243, 255, 0.6);
-            transform: translateY(-3px);
+            background: linear-gradient(90deg, rgba(255, 170, 0, 0.3), rgba(0, 243, 255, 0.3));
+            color: #ffffff;
+            box-shadow:
+                0 0 20px rgba(255, 170, 0, 0.5),
+                inset 0 0 10px rgba(0, 243, 255, 0.5);
+            transform: scale(1.05) translateY(-2px);
+            text-shadow: 0 0 10px #fff, 0 0 20px #00f3ff;
+            border-left-color: #fff;
+            border-right-color: #fff;
         }
     </style>
     <script src="/shared/wcgames-core.js"></script>
@@ -192,6 +301,15 @@
     <!-- HUD -->
     <div id="ui">
         <div id="score">0</div>
+        <!-- Shield Stack HUD -->
+        <div id="shield-ui"
+            style="display:inline-flex; align-items:center; justify-content:center; gap: 10px; color:#00ffff; font-family:'Orbitron', sans-serif; font-size:24px; font-weight:900; letter-spacing:2px; text-shadow: 0 0 10px #00ffff; margin-top: 10px;">
+            <svg viewBox="0 0 100 120"
+                style="width:24px; height:24px; fill:rgba(0, 255, 255, 0.4); stroke:#00ffff; stroke-width:8; filter: drop-shadow(0 0 5px #00ffff);">
+                <path d="M50 5 L95 25 L85 85 L50 115 L15 85 L5 25 Z" />
+            </svg>
+            <span>x <span id="shield-count">0</span></span>
+        </div>
     </div>
 
     <!-- VIRTUAL JOYSTICK -->
@@ -204,7 +322,7 @@
     <div id="start-screen" class="wcg-overlay">
         <div class="wcg-popup">
             <h1 data-i18n="title">SPEED RUSH</h1>
-            <p data-i18n="instruction">Steer left/right to dodge<br>Barricades and collect Boosters.</p>
+            <p data-i18n="instruction">Steer left/right to dodge<br>Barricades and collect Shields.</p>
             <button onclick="WCGames.start()" data-i18n="play">INITIATE</button>
         </div>
     </div>
@@ -258,7 +376,7 @@
             ambientLightIntensity: 1.5, // 주변광 밝기 상향 (색감 강조)
             dirLightIntensity: 1.0,   // 직사광 밝기
             // 건물 생성 규칙
-            buildingWidthRange: [5, 20],     // 건물 너비 범위 [최소, 최대]
+            buildingWidthRange: [10, 40],     // 건물 너비 범위 [최소, 최대]
             buildingHeightRange: [200, 300], // 건물 높이 범위 [최소, 최대]
             buildingDepthRange: [1, 10],     // 건물 깊이 범위 [최소, 최대]
             buildingSpawnRate: 0.2,          // 건물 생성 빈도 상향 (0.5 -> 0.2, 낮을수록 더 많이 생성)
@@ -283,7 +401,7 @@
             pathZRange: { min: -50, max: 50 }, // 좌우 회전 범위
             pathZProb: 0.2,                   // 좌우 곡선 발생 확률 (0~1)
             pathZFreq: 0.005,                 // 세그먼트 길이 역수
-            pathRollRange: { min: -3, max: 3 }, // 회전(뱅킹) 범위
+            pathRollRange: { min: -1, max: 1 }, // 회전(뱅킹) 범위
             pathRollProb: 0.1,                // 뱅킹 발생 확률 (0~1)
             pathRollFreq: 0.005,               // 세그먼트 길이 역수
             // 속도 및 가속도 설정
@@ -305,9 +423,10 @@
 
         /* --- 2. GLOBAL STATE --- */
         let scene, camera, renderer, composer, bloomPass, player, playerContainer, worldGroup, backgroundGroup;
-        let items = [], particles = [], echoes = [], trail = [], backgroundBuildings = [];
+        let items = [], particles = [], backgroundBuildings = [];
         let roadChunks = [], obstacles = [];
         let score = 0, gameState = 'START', sector = 0;
+        let currentSafeSide = 1; // 1 for Right, -1 for Left
         let trackProgress = 0; // Current world-space X position
         let worldX = 0; // Cumulative world distance traveled
         let startWorldX = 0; // Offset for distance traveled during START menu
@@ -317,11 +436,11 @@
         let fallLateralSpeed = 0;
         let fallRotationSpeed = 0;
         let gameOverSpeed = 0; // Tracks deceleration speed when game is over
-        let playerWheels = [], playerNeonBody = null, playerJet = null;
-        let cameraShake = 0, time = 0, beatTimer = 0, beatPulse = 0;
-        let boostTimer = 0, boostMultiplier = 1.0, cameraFovOffset = 0;
+        let playerWheels = [], playerNeonBody = null, playerShield = null;
+        let time = 0, beatTimer = 0, beatPulse = 0, cameraShake = 0;
+        let shieldCount = 0, cameraFovOffset = 0;
 
-        /* --- 3. GEOMETRY TEMPLATES --- */
+        /* --- 3. GEOMETRY TEMPLATES & SHARED RESOURCES --- */
         const itemGeo = new THREE.SphereGeometry(0.5, 16, 16);
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
         const octaGeo = new THREE.OctahedronGeometry(0.6);
@@ -337,7 +456,7 @@
         let lastBuildingXLeft = -100;
         let lastBuildingXRight = -100;
 
-        /* --- 5. LOGIC HELPERS --- */
+        /* --- 4. MATH & LOGIC HELPERS --- */
         // Deterministic hash based on segment index
         function LogicHash(i) {
             const x = Math.sin(i) * 10000;
@@ -405,12 +524,6 @@
             };
         }
 
-        function LogicGetRoadOffset(relativeX) {
-            // OBSOLETE in True World Alignment - world positions are used directly
-            return 0;
-        }
-
-
         function LogicGetSharedMaterial(color, opacity = 1, emissive = false, wireframe = false, emissiveIntensity = 1) {
             const key = `${color}_${opacity}_${emissive}_${wireframe}_${emissiveIntensity}`;
             if (!sharedMaterials[key]) {
@@ -457,6 +570,7 @@
         }
 
         /**
+         * --- 5. MESH BUILDERS ---
          * 12개의 얇은 박스를 사용하여 사선 없는 굵은 네온 프레임을 생성합니다.
          */
         function LogicCreateMeshFrame(w, h, d, thickness, material) {
@@ -582,26 +696,16 @@
             underglowPlane.position.y = 0.02;
             group.add(underglowPlane);
 
-            // 6. Tail Jet (Sleek Plasma Teardrop)
-            // Use a sphere stretched intensely on the X-axis for a smooth teardrop/plasma blade look
-            const jetGeo = new THREE.SphereGeometry(0.2, 16, 16);
-            // Bake the scale into the geometry so it's a long oval
-            jetGeo.scale(3.5, 1.0, 1.0);
-            // Shift the geometry so its anchor point (0,0) is at the tip (front), and it expands backwards (-X)
-            jetGeo.translate(-0.6, 0, 0);
-
-            playerJet = new THREE.Mesh(jetGeo, LogicGetSharedMaterial(0xff5522, 0.9, true, false, 4.0));
-            playerJet.position.set(-1.2, 0.3, 0); // Attach to vehicle rear, no rotation needed as we stretch on X
-
-            // Start invisible until a booster is picked up
-            playerJet.visible = false;
-
-            group.add(playerJet);
+            // 6. Hexagonal Energy Shield (Invisible by default)
+            const shieldGeo = new THREE.IcosahedronGeometry(1.8, 1);
+            playerShield = new THREE.Mesh(shieldGeo, LogicGetSharedMaterial(0x00ffff, 0.4, true, true, 2.0));
+            playerShield.visible = false;
+            group.add(playerShield);
 
             return group;
         }
 
-        /* --- 5. INITIALIZATION & RESIZE --- */
+        /* --- 6. INITIALIZATION & RESIZE --- */
         function DrawInitializeScene() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(COLORS.bg);
@@ -682,7 +786,7 @@
             playerContainer.position.set(-6, -1.5, 0);
         }
 
-        /* --- 6. ENVIRONMENT GENERATION --- */
+        /* --- 7. ENVIRONMENT GENERATION --- */
         function LogicSpawnWorldChunk(wx) {
             const step = CONFIG.roadSpawnStep;
             const roadLen = step + 0.4;
@@ -979,35 +1083,9 @@
             }
         }
 
-        function LogicUpdateTrail(dt) {
-            if (gameState !== 'PLAYING') return;
-            time += dt;
-            if (Math.floor(time * 60) % 3 === 0) {
-                const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
-                const color = colors[Math.floor(time * 10) % colors.length];
-                const p = new THREE.Mesh(boxGeo, LogicGetSharedMaterial(color, 0.6));
-                p.scale.setScalar(0.3);
-                p.position.set(playerContainer.position.x - 0.5, playerContainer.position.y, 0);
-                p.userData = { life: 1.0, vel: new THREE.Vector3(-0.05, (Math.random() - 0.5) * 0.02, 0) };
-                scene.add(p);
-                particles.push(p);
-            }
-        }
-
-        function LogicSpawnEcho() {
-            const e = player.clone();
-            e.position.copy(playerContainer.position);
-            e.rotation.copy(player.rotation);
-            const mat = LogicGetSharedMaterial(COLORS.accents[sector % 4], 0.3, true);
-            e.traverse(node => { if (node.isMesh) node.material = mat; });
-            e.userData = { life: 1.0 };
-            scene.add(e);
-            echoes.push(e);
-        }
-
-        let sharedBoosterTexture = null;
-        function getBoosterTexture() {
-            if (sharedBoosterTexture) return sharedBoosterTexture;
+        let sharedShieldTexture = null;
+        function getShieldTexture() {
+            if (sharedShieldTexture) return sharedShieldTexture;
             const canvas = document.createElement('canvas');
             canvas.width = 256;
             canvas.height = 256;
@@ -1017,54 +1095,51 @@
             ctx.textBaseline = 'middle';
             ctx.font = '900 180px "Orbitron", sans-serif';
 
-            // Epic Cyan Glow
-            ctx.shadowColor = '#00f3ff';
-            ctx.shadowBlur = 30;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText('B', 128, 128);
+            // Cyberpunk Shield Polygon
+            // ctx.shadowColor = '#00ffff';
+            // ctx.shadowBlur = 20; // Removed blur as requested
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 12;
 
-            ctx.lineWidth = 10;
-            ctx.strokeStyle = '#00f3ff';
-            ctx.strokeText('B', 128, 128);
+            ctx.beginPath();
+            ctx.moveTo(128, 40);
+            ctx.lineTo(210, 60);
+            ctx.lineTo(190, 160);
+            ctx.lineTo(128, 220);
+            ctx.lineTo(66, 160);
+            ctx.lineTo(46, 60);
+            ctx.closePath();
 
-            sharedBoosterTexture = new THREE.CanvasTexture(canvas);
-            return sharedBoosterTexture;
+            ctx.fill();
+            ctx.stroke();
+
+            // Inner details
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(128, 60);
+            ctx.lineTo(128, 200);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(80, 100);
+            ctx.lineTo(176, 100);
+            ctx.stroke();
+
+            sharedShieldTexture = new THREE.CanvasTexture(canvas);
+            return sharedShieldTexture;
         }
 
-        let sharedJumpTexture = null;
-        function getJumpTexture() {
-            if (sharedJumpTexture) return sharedJumpTexture;
-            const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.font = '900 180px "Orbitron", sans-serif';
-
-            // Lime Green Glow for Jump
-            ctx.shadowColor = '#00ff33';
-            ctx.shadowBlur = 30;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText('J', 128, 128);
-
-            ctx.lineWidth = 10;
-            ctx.strokeStyle = '#00ff33';
-            ctx.strokeText('J', 128, 128);
-
-            sharedJumpTexture = new THREE.CanvasTexture(canvas);
-            return sharedJumpTexture;
-        }
+        // Reserved for future item textures
 
         function LogicSpawnItem(x) {
             const m = new THREE.Group();
 
-            const type = Math.random() > 0.5 ? 'BOOST' : 'JUMP';
+            const type = 'SHIELD';
             m.userData = { type: type };
 
             const spriteMaterial = new THREE.SpriteMaterial({
-                map: type === 'BOOST' ? getBoosterTexture() : getJumpTexture(),
+                map: getShieldTexture(),
                 color: 0xffffff,
                 transparent: true,
                 blending: THREE.AdditiveBlending
@@ -1085,14 +1160,18 @@
             const wx = x;
             const vec = LogicGetWorldTrackVector(wx);
 
-            // Random lateral position across the road width
-            const lateralMax = (CONFIG.roadWidth / 2) - 1.5; // leaving a little margin from the edge
-            const randomOffset = (Math.random() * 2 - 1) * lateralMax;
+            // Guide the player into the safe side of the track to avoid upcoming obstacles
+            // Divide the road into 2 lanes (Left: -1, Right: 1)
+            // Left lane center: -roadWidth / 4
+            // Right lane center: +roadWidth / 4
+            // currentSafeSide represents the safe lane (-1 or 1)
+            const laneOffsetAmount = CONFIG.roadWidth / 4;
+            const targetLaneX = currentSafeSide * laneOffsetAmount;
 
-            // Float higher above road and offset to the side
+            // Float higher above road and offset to the exact lane center
             m.position.copy(vec.pos)
                 .add(vec.up.clone().multiplyScalar(1.2))
-                .add(vec.side.clone().multiplyScalar(randomOffset));
+                .add(vec.side.clone().multiplyScalar(targetLaneX));
 
             const target = vec.pos.clone().add(vec.tan);
             m.lookAt(target);
@@ -1108,13 +1187,12 @@
         function LogicSpawnObstacle(x) {
             const m = new THREE.Group();
 
-            // Barricade visual (blocks 1/3 or 2/3 of the road)
-            // Determine size: 1 to 2 thirds
-            const thirds = Math.floor(Math.random() * 2) + 1;
-            const barricadeWidth = thirds * (CONFIG.roadWidth / 3);
+            // Barricade visual (blocks 1/2 of the road)
+            const barricadeWidth = CONFIG.roadWidth / 2;
 
-            // Attach to either left or right edge of the road
-            const isLeft = Math.random() < 0.5;
+            // If currentSafeSide is -1 (Left), barricade should be on Right.
+            // If currentSafeSide is 1 (Right), barricade should be on Left.
+            const isLeft = (currentSafeSide === 1);
 
             // Road edges are at -CONFIG.roadWidth/2 and +CONFIG.roadWidth/2
             const sideOffset = isLeft
@@ -1175,6 +1253,9 @@
 
             worldGroup.add(m);
             obstacles.push(m);
+
+            // Decide the NEXT sequence's safe lane (-1 or 1)
+            currentSafeSide = Math.random() > 0.5 ? -1 : 1;
         }
 
         /* --- 7. GAMEPLAY MECHANICS --- */
@@ -1256,39 +1337,10 @@
                 beatTimer = 0;
                 beatPulse = 1.0;
                 if (gameState === 'PLAYING') {
-                    // LogicSpawnEcho(); // Removed player echo effect
                     CyberAudio.playBeat();
                 }
             }
             beatPulse *= Math.pow(0.92, frameFactor);
-
-            // Boost Logic Updates
-            if (boostTimer > 0) {
-                boostTimer -= dt;
-                boostMultiplier += (2.0 - boostMultiplier) * 10 * dt; // Ease to 2.0x speed
-                cameraFovOffset += (30 - cameraFovOffset) * 5 * dt;   // Ease FOV to +30 (warp effect)
-
-                // Tail jet flame stretches backward (X-axis) and gets brighter during boost
-                if (playerJet) {
-                    playerJet.visible = true;
-                    // X-axis is length, Y/Z is thickness. It grows smoothly backwards because of the translated geometry.
-                    playerJet.scale.set(1.5 + Math.random() * 0.5, 1.3, 1.3);
-                    playerJet.material.emissiveIntensity = 8.0;
-                    playerJet.material.color.setHex(0x00ddee); // Sleek Cyan/Blue plasma boost!
-                    playerJet.material.emissive.setHex(0x00ffff);
-                }
-            } else {
-                boostTimer = 0;
-                boostMultiplier -= 2.0 * dt; // Linear decay back to normal speed
-                if (boostMultiplier < 1.0) boostMultiplier = 1.0;
-
-                cameraFovOffset -= 15 * dt; // Linear decay FOV back to normal
-                if (cameraFovOffset < 0) cameraFovOffset = 0;
-
-                if (playerJet) {
-                    playerJet.visible = false;
-                }
-            }
 
             // Apply FOV warp effect smoothly
             if (Math.abs(camera.fov - (75 + cameraFovOffset)) > 0.1) {
@@ -1298,7 +1350,8 @@
 
             // Acceleration based on actual gameplay distance (ignoring START screen rolling)
             const effectiveDistance = gameState !== 'START' ? (worldX - startWorldX) : 0;
-            const baseSpeed = (CONFIG.baseSpeed + (effectiveDistance / (CONFIG.timeAccel * 60))) * boostMultiplier;
+            const speedDistance = Math.min(10000, effectiveDistance); // Speed maxes out at 10,000m
+            const baseSpeed = (CONFIG.baseSpeed + (speedDistance / (CONFIG.timeAccel * 60)));
             let speed = baseSpeed * frameFactor;
 
             // Decelerate if game is over
@@ -1317,6 +1370,14 @@
                 playerWheels.forEach(w => w.rotation.z += wheelSpeed);
                 if (playerNeonBody) {
                     playerNeonBody.emissiveIntensity = 2.0 + Math.sin(time * 10) * 0.5;
+                }
+                if (playerShield && playerShield.visible) {
+                    playerShield.rotation.x += dt * 2.0;
+                    playerShield.rotation.y += dt * 1.5;
+                    playerShield.rotation.z += dt * 1.0;
+                    // Pulse scale slightly
+                    const s = 1.0 + Math.sin(time * 8) * 0.05;
+                    playerShield.scale.set(s, s, s);
                 }
 
                 // Score based directly on distance traveled since PLAYING started
@@ -1480,16 +1541,11 @@
                     const hitY = localP.y > -0.1 && localP.y < 1.1;
 
                     if (hitX && hitZ && hitY) {
-                        if (o.userData.type === 'BOOST') {
-                            boostTimer = 2.0; // 2 seconds of boost
+                        if (o.userData.type === 'SHIELD') {
+                            shieldCount++;
+                            document.getElementById('shield-count').textContent = shieldCount;
                             CyberAudio.playBoost();
-                        } else if (o.userData.type === 'JUMP') {
-                            if (isGrounded) {
-                                isGrounded = false;
-                                velocityY = 25; // Leap into the air
-                                playerJumpY = 0.51; // Prevent instant landing flag
-                                CyberAudio.playJump();
-                            }
+                            if (playerShield) playerShield.visible = true;
                         }
                         worldGroup.remove(o);
                         items.splice(i, 1);
@@ -1525,8 +1581,20 @@
                         const hitY = localP.y < 1.8 + 0.5;
 
                         if (hitX && hitZ && hitY) {
-                            LogicGameOver(speed);
-                            break;
+                            if (shieldCount > 0) {
+                                shieldCount--;
+                                document.getElementById('shield-count').textContent = shieldCount;
+                                if (shieldCount === 0 && playerShield) playerShield.visible = false;
+
+                                worldGroup.remove(obs);
+                                obstacles.splice(i, 1);
+                                CyberAudio.playJump(); // Break sound
+
+                                continue;
+                            } else {
+                                LogicGameOver(speed);
+                                break;
+                            }
                         }
                     }
                 }
@@ -1544,27 +1612,31 @@
                     if (obstacles.length > 0) {
                         const lastObs = obstacles[obstacles.length - 1];
 
-                        // Calculate dynamic gap based on how far we've traveled (score/worldX)
+                        // Calculate dynamic gap based on an exponential curve to stay sparse early, then get very frequent later
                         let progress = (score - CONFIG.obstacleStartScore) / (CONFIG.obstacleMaxScore - CONFIG.obstacleStartScore);
                         progress = Math.max(0, Math.min(1, progress)); // clamp 0 to 1
-                        const currentMinGap = CONFIG.obstacleGapMax - (progress * (CONFIG.obstacleGapMax - CONFIG.obstacleGapMin));
+
+                        // Use a power of 2.5 to make it drop slowly at first, then sharply at the end (최종적으로 자주 나옴)
+                        const difficultyCurve = Math.pow(progress, 2.5);
+                        const currentMinGap = CONFIG.obstacleGapMax - (difficultyCurve * (CONFIG.obstacleGapMax - CONFIG.obstacleGapMin));
 
                         if (nextSpawnX - lastObs.position.x < currentMinGap) {
                             canSpawnObstacle = false;
                         }
                     }
 
-                    // Also scale the probability of choosing an obstacle vs an empty space based on progress
+                    // Also scale the probability of choosing an obstacle vs an empty space based on the same curve
                     let progressProb = (score - CONFIG.obstacleStartScore) / (CONFIG.obstacleMaxScore - CONFIG.obstacleStartScore);
                     progressProb = Math.max(0, Math.min(1, progressProb));
-                    // Start at 40% probability to spawn an obstacle (vs an empty space), scale up to 80%
-                    const obsProbThreshold = 0.6 - (progressProb * 0.4);
+                    const difficultyCurveProb = Math.pow(progressProb, 2);
+                    // Start at sparse probability, scale up to very dense
+                    const obsProbThreshold = 0.6 - (difficultyCurveProb * 0.5); // Drops from 0.6 to 0.1 (meaning up to 90% spawn chance)
 
                     if (canSpawnObstacle && Math.random() > obsProbThreshold && score > CONFIG.obstacleStartScore) {
                         LogicSpawnObstacle(nextSpawnX);
                     } else {
-                        // Speed boosters are rare power-ups (e.g. 10% chance to spawn when there is no obstacle)
-                        if (Math.random() > 0.90) {
+                        // Shield power-ups (e.g. 5% chance to spawn when there is no obstacle)
+                        if (Math.random() > 0.95) {
                             LogicSpawnItem(nextSpawnX);
                         }
                     }
@@ -1580,12 +1652,6 @@
                 p.userData.life -= 0.02;
                 p.scale.setScalar(p.userData.life * 0.15);
                 if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
-            }
-            for (let i = echoes.length - 1; i >= 0; i--) {
-                const e = echoes[i];
-                e.userData.life -= 0.02;
-                e.scale.multiplyScalar(1.02);
-                if (e.userData.life <= 0) { scene.remove(e); echoes.splice(i, 1); }
             }
 
             DrawMainRender();
@@ -1603,7 +1669,7 @@
             composer.render(); // 블룸 적용 (반해상도·파라미터 조정으로 깜빡임 완화)
         }
 
-        /* --- 9. SYSTEM INTEGRATION --- */
+        /* --- 11. SYSTEM INTEGRATION --- */
         WCGames.init({
             id: 'speedrush',
             onStart: () => {
@@ -1613,7 +1679,6 @@
                 startWorldX = worldX; // Record where the player started to ignore START screen distance
                 score = 0;
                 document.getElementById('start-screen').classList.remove('visible');
-                // document.getElementById('joystick-area').style.display = 'block';
             },
             onRestart: () => {
                 // Safe clear worldGroup and backgroundGroup
@@ -1630,15 +1695,17 @@
 
                 // Clear UI FX in scene
                 particles.forEach(p => { if (p && p.geometry && p.geometry !== unitBoxGeo) p.geometry.dispose(); scene.remove(p); });
-                echoes.forEach(e => { if (e && e.geometry && e.geometry !== unitBoxGeo) e.geometry.dispose(); scene.remove(e); });
 
-                items = []; particles = []; echoes = []; backgroundBuildings = []; roadChunks = []; obstacles = [];
+                items = []; particles = []; backgroundBuildings = []; roadChunks = []; obstacles = [];
                 score = 0; sector = 0; gameState = 'PLAYING';
                 worldX = 0; startWorldX = 0; lastSpawnX = CONFIG.roadInitialEnd;
                 window.lastTrackedSpawnX = 0; // Clear item/obstacle spawn frontier tracking
                 lastBuildingXLeft = -100; lastBuildingXRight = -100;
-                boostTimer = 0; boostMultiplier = 1.0; cameraFovOffset = 0;
-                if (playerJet) playerJet.scale.set(1, 1, 1);
+
+                shieldCount = 0; cameraFovOffset = 0;
+                document.getElementById('shield-count').textContent = '0';
+                if (playerShield) playerShield.visible = false;
+
                 camera.fov = 75; camera.updateProjectionMatrix();
                 time = 0; beatTimer = 0; beatPulse = 0;
 
@@ -1646,15 +1713,16 @@
                 player.rotation.set(0, 0, 0);
                 joystickValue = 0; lateralOffset = 0; targetLateralOffset = 0;
                 fallForwardSpeed = 0; fallLateralSpeed = 0; fallRotationSpeed = 0;
+                currentSafeSide = Math.random() > 0.5 ? -1 : 1; // Start in a random left/right lane
 
                 DrawInitFloor();
                 document.getElementById('game-over').classList.remove('visible');
-                // document.getElementById('joystick-area').style.display = 'block';
             }
         });
 
         DrawInitializeScene();
 
+        /* --- 10. INPUT HANDLING --- */
         // Full-Screen Drag Input Listeners
         let isDraggingJoystick = false;
         let dragStartX = 0;
@@ -1710,6 +1778,22 @@
         window.addEventListener('contextmenu', (e) => e.preventDefault());
     </script>
     <script src="/shared/i18n.js"></script>
+    <script>
+        // Custom Speed Rush i18n override to replace 'Booster/부스터' with 'Shield/쉴드'
+        window.addEventListener('DOMContentLoaded', () => {
+            const instEl = document.querySelector('[data-i18n="instruction"]');
+            if (instEl) {
+                const observer = new MutationObserver(() => {
+                    if (instEl.innerHTML.includes('부스터')) {
+                        instEl.innerHTML = instEl.innerHTML.replace('부스터', '쉴드');
+                    } else if (instEl.innerHTML.includes('Boosters')) {
+                        instEl.innerHTML = instEl.innerHTML.replace('Boosters', 'Shields');
+                    }
+                });
+                observer.observe(instEl, { childList: true, characterData: true, subtree: true });
+            }
+        });
+    </script>
 </body>
 
 </html>

@@ -1,9 +1,0 @@
-{
-  "title": "Geometric Dash",
-  "instruction": "Navigate the geometric void.\nMaster the motion.",
-  "play": "INITIATE",
-  "game_over": "SYSTEM HALT",
-  "final_score": "DATA LOG: ",
-  "play_again": "REBOOT",
-  "category": "ACTION"
-}
