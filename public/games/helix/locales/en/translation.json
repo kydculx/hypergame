@@ -1,9 +1,10 @@
 {
   "title": "Helix Jump",
-  "instruction": "Plunge your bouncing ball all the way to the bottom of the spiral tower while avoiding the dangerously colored platforms.",
+  "instruction": "Click and drag (or swipe) left and right to rotate the tower. Let the ball fall through the gaps, but avoid the dangerously colored platforms!",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",
   "play_again": "Retry",
-  "category": "ACTION"
+  "category": "ACTION",
+  "desc": "A satisfying and thrilling arcade experience! Rotate the spiral tower to plunge your bouncing ball all the way to the bottom."
 }

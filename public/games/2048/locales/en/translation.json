@@ -1,9 +1,10 @@
 {
   "title": "2048",
-  "instruction": "Combine matching numbers to reach the ultimate 2048 tile!",
+  "instruction": "Use arrow keys or swipe to move all tiles. When two tiles with the same number touch, they merge into one. Reach 2048 to win!",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",
   "play_again": "Retry",
-  "category": "PUZZLE"
+  "category": "PUZZLE",
+  "desc": "A mesmerizing neon puzzle game. Slide tiles and combine matching numbers to reach the ultimate 2048 tile!"
 }

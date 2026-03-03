@@ -1,9 +1,10 @@
 {
   "title": "Stack",
-  "instruction": "Drop moving blocks precisely on top of each other to build the highest tower possible.",
+  "instruction": "Click or tap the screen at the exact moment the moving block aligns with the tower. Mismatched parts will be sliced off!",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",
   "play_again": "Retry",
-  "category": "ACTION"
+  "category": "ACTION",
+  "desc": "Test your timing and reflexes! Drop blocks precisely on top of each other to build the highest neon tower possible."
 }

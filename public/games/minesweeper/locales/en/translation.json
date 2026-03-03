@@ -1,10 +1,11 @@
 {
   "title": "Mine Sweeper",
-  "instruction": "Deduce the locations of all hidden mines and clear the board without detonating a single explosive.",
+  "instruction": "Left-click to reveal a tile. Right-click to flag a suspected mine. The numbers indicate how many mines are adjacent to that tile.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",
   "play_again": "Retry",
   "category": "PUZZLE",
-  "mission_clear": "MISSION CLEAR"
+  "mission_clear": "MISSION CLEAR",
+  "desc": "The classic PC logic puzzle returns with a sleek neon style. clear the board without detonating a single hidden mine!"
 }

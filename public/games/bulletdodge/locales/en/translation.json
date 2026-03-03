@@ -1,9 +1,10 @@
 {
   "title": "Bullet Dodge",
-  "instruction": "Dodge all incoming red bullets and survive to the end.",
+  "instruction": "Use the on-screen joystick, WASD, or arrow keys to maneuver your core. Avoid every red projectile and survive as long as possible.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",
   "play_again": "Retry",
-  "category": "ACTION"
+  "category": "ACTION",
+  "desc": "A relentless neon bullet-hell survival challenge. Dodge thousands of approaching lasers and see how long you can last!"
 }

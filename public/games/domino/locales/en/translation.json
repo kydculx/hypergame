@@ -1,9 +1,10 @@
 {
   "title": "Toy Domino",
-  "instruction": "Strategically place the right-sized dominoes to complete the circuit and trigger a continuous fall.",
+  "instruction": "Observe the gaps between blocks. Select and drop the appropriately sized domino to connect them and trigger a continuous fall.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",
   "play_again": "Retry",
-  "category": "PUZZLE"
+  "category": "PUZZLE",
+  "desc": "A clever puzzle game of chain reactions. Strategically place the right-sized dominoes to complete the circuit!"
 }

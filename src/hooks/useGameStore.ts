@@ -60,9 +60,9 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/zigzag/index.html',
         },
         {
-          id: 'neon-jump',
-          thumbnailUrl: 'games/neon/thumb.svg',
-          gameUrl: 'games/neon/index.html',
+          id: 'jump',
+          thumbnailUrl: 'games/jump/thumb.png',
+          gameUrl: 'games/jump/index.html',
         },
         {
           id: 'neon-breakout',

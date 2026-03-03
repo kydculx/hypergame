@@ -1,9 +1,10 @@
 {
   "title": "Breakout",
-  "instruction": "Bounce the ball to break all the glowing neon bricks and clear the level.",
+  "instruction": "Use your mouse, arrow keys, or touch to move the paddle. Bounce the ball to break all the glowing neon bricks and clear the level.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",
   "play_again": "Retry",
-  "category": "ACTION"
+  "category": "ACTION",
+  "desc": "Experience classic arcade brick-breaking action enhanced with high-octane neon visuals and explosive particle effects!"
 }

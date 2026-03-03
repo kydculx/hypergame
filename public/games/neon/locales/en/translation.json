@@ -1,9 +1,0 @@
-{
-  "title": "Jump",
-  "instruction": "Navigate your glowing cube through an endless obstacle course of treacherous neon pipes.",
-  "play": "Play",
-  "game_over": "Game Over",
-  "final_score": "Score: ",
-  "play_again": "Retry",
-  "category": "ACTION"
-}

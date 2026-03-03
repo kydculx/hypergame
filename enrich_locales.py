@@ -37,15 +37,15 @@ descriptions = {
             "instruction": "화면을 터치하거나 클릭해 공의 방향을 바꾸세요. 가장자리로 떨어지지 않게 조심하며 보석을 모아 추가 점수를 얻으세요!"
         }
     },
-    "neon": {
-        "folder": "neon",
+    "jump": {
+        "folder": "jump",
         "en": {
-            "desc": "Navigate your glowing cube through an endless obstacle course of treacherous neon pipes.",
-            "instruction": "Press Spacebar, click, or tap the screen to make your cube jump. Time your jumps perfectly to avoid crashing into the pipes."
+            "desc": "Help the Rocket Snail fly through an endless course of classic green pipes and dodge the hungry carnivorous plants!",
+            "instruction": "Press Spacebar, click, or tap the screen to make the snail jump. Time your jumps perfectly to avoid crashing into the pipes or plants."
         },
         "ko": {
-            "desc": "빛나는 큐브를 조종해 위험천만한 네온 파이프 장애물들을 끊임없이 돌파하세요.",
-            "instruction": "스페이스바를 누르거나 화면을 터치하면 큐브가 뛰어오릅니다. 파이프에 부딪히지 않도록 완벽한 타이밍에 점프하세요."
+            "desc": "로켓 달팽이를 조종해 초록색 파이프 사이를 날아오르고 튀어나오는 식충 식물들을 피해 최대한 멀리 가세요!",
+            "instruction": "스페이스바를 누르거나 화면을 터치하면 달팽이가 뛰어오릅니다. 파이프와 식충 식물에 부딪히지 않도록 완벽한 타이밍에 점프하세요."
         }
     },
     "breakout": {

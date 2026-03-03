@@ -10,7 +10,6 @@ import translationKO from './locales/ko/translation.json';
 function buildGameLocales(globResult: Record<string, any>) {
     const folderToGameId: Record<string, string> = {
         'stack': 'stack-tower',
-        'neon': 'neon-jump',
         'breakout': 'neon-breakout'
     };
     const gamesLocal: Record<string, any> = {};
