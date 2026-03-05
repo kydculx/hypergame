@@ -721,22 +721,29 @@
             sprites.bgGrid = bgC;
 
             const bgImg = new Image();
-            bgImg.src = './background_2.png'; // Mordor/Gondor Aesthetic Battlefield
             bgImg.onload = () => {
                 const w = window.innerWidth || 800;
                 const h = window.innerHeight || 1200;
                 const fgC = document.createElement('canvas');
                 fgC.width = w; fgC.height = h;
                 const fctx = fgC.getContext('2d');
-                const imgAspect = bgImg.width / bgImg.height;
-                const zoom = 1;
-                const drawW = Math.max(w, h * imgAspect) * zoom;
-                const drawH = drawW / imgAspect;
-                const offsetX = (w - drawW) / 2;
-                const offsetY = h - drawH;
-                fctx.drawImage(bgImg, offsetX, offsetY, drawW, drawH);
-                sprites.fullBg = fgC;
+                if (bgImg.width > 0 && bgImg.height > 0) {
+                    const imgAspect = bgImg.width / bgImg.height;
+                    const zoom = 1;
+                    const drawW = Math.max(w, h * imgAspect) * zoom;
+                    const drawH = drawW / imgAspect;
+                    const offsetX = (w - drawW) / 2;
+                    const offsetY = h - drawH;
+                    fctx.drawImage(bgImg, offsetX, offsetY, drawW, drawH);
+                    sprites.fullBg = fgC;
+                }
             };
+            bgImg.onerror = (e) => {
+                console.error("[Swarm] Background image failed to load:", bgImg.src, e);
+            };
+            // Use a more robust way to resolve the path relative to the current folder
+            const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+            bgImg.src = currentPath + 'background_2.png';
 
             const bPal = {
                 '0': '#000000', // Solid Outline
