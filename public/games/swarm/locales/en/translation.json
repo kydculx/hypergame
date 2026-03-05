@@ -1,0 +1,9 @@
+{
+    "title": "Swarm Clash",
+    "instruction": "Drag on the screen to select a group of your units. Tap anywhere to command them to move there. They will automatically engage any enemies they encounter on the way.",
+    "play": "Start Battle",
+    "game_over": "Defeat",
+    "final_score": "Enemies Defeated: ",
+    "play_again": "Deploy Again",
+    "category": "STRATEGY"
+}

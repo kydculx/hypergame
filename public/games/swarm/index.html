@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Swarm Clash</title>
+    <link rel="stylesheet" href="/shared/wcgames-style.css">
+    <style>
+        :root {
+            --theme-color: #3b82f6;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #2a2c2b;
+            /* Wasteland Dark Grey */
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            /* Retro 8-bit font style */
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            z-index: 5;
+            position: relative;
+        }
+
+        /* 8-bit chunky UI overlay */
+        #game-ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #000;
+            /* Flat shadow instead of glow */
+        }
+
+        #ui-left {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            font-family: 'Courier New', Courier, monospace;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #ui-center {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            font-family: 'Courier New', Courier, monospace;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 3px solid #666;
+            border-left-color: #aaa;
+            border-top-color: #aaa;
+            border-right-color: #333;
+            border-bottom-color: #333;
+            font-weight: 900;
+            font-size: 18px;
+            color: #ddd;
+            min-width: 140px;
+            text-align: left;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #blue-count {
+            color: #60a5fa;
+        }
+
+        #red-count {
+            color: #f87171;
+        }
+
+        /* Classic UI Overrides */
+        .wcg-popup {
+            background: #1e1e1e !important;
+            border: 4px solid #444 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
+        }
+
+        .wcg-popup h1 {
+            color: #3b82f6 !important;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+        }
+    </style>
+    <script src="/shared/wcgames-core.js"></script>
+</head>
+
+<body>
+    <div id="ui-left">
+        <div class="stat-box" style="color:#60a5fa;">ALLIES <span id="blue-count">0</span></div>
+        <div class="stat-box" style="color:#f87171;">ENEMIES <span id="red-count">0</span></div>
+    </div>
+    <div id="ui-center">
+        <div class="stat-box"
+            style="color:#fcd34d; border-color: #ca8a04; font-size: 22px; justify-content: center; gap: 15px;">SCORE
+            <span id="score">0</span></div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="wcg-overlay">
+        <div class="wcg-popup">
+            <h1 data-i18n="title">Swarm Clash</h1>
+            <p data-i18n="instruction">Drag to select units. Tap to move.</p>
+            <button onclick="WCGames.start()" data-i18n="play">Start Battle</button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over" class="wcg-overlay">
+        <div class="wcg-popup">
+            <h1 data-i18n="game_over">Defeat</h1>
+            <p><span data-i18n="final_score">Enemies Defeated: </span><span id="final-score">0</span></p>
+            <button onclick="WCGames.restart()" data-i18n="play_again">Deploy Again</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize rendering by disabling transparency where unneeded
+
+        let frames = 0;
+        let score = 0;
+        let isGameOver = false;
+        let isStarted = false;
+
+        // Input Selection State
+        const selection = {
+            active: false,
+            startX: 0,
+            startY: 0,
+            endX: 0,
+            endY: 0
+        };
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- INPUT HANDLING ---
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!isStarted || isGameOver) return;
+
+            // Check if we tapped or intent to drag. For now, assume a drag start.
+            // If movement is very small, we treat it as a tap (Move Command) on pointerup.
+            selection.active = true;
+            selection.startX = e.clientX;
+            selection.startY = e.clientY;
+            selection.endX = e.clientX;
+            selection.endY = e.clientY;
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!selection.active) return;
+            selection.endX = e.clientX;
+            selection.endY = e.clientY;
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (!selection.active) return;
+            selection.active = false;
+
+            const dx = selection.endX - selection.startX;
+            const dy = selection.endY - selection.startY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 10) {
+                // Treated as a TAP -> Issue Move Command
+                issueMoveCommand(e.clientX, e.clientY);
+            } else {
+                // Treated as a DRAG -> Select Units
+                processSelectionBox();
+            }
+        });
+
+        // Prevent context menu
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        // --- GAME LOGIC & CONFIGURATION ---
+
+        // 밸런스 및 설정을 쉽게 조절하기 위한 중앙 제어 변수들 (인간 진영)
+        const PlayerConfig = {
+            spawnRateSeconds: 0.1,         // 일반 유닛 소환 주기 (초 단위)
+            spawnBatch: 1,               // 한 번 소환될 때마다 나오는 유닛 수
+            bossSpawnRateSeconds: 30.0,  // 영웅(Enhanced) 소환 주기 (초 단위)
+            unitSize: 16,                // 기본 유닛 크기 배율
+            speed: 1.0,                  // 이동 속도 배율
+            baseMaxHp: 5000,             // 기지 체력
+            probRanged: 0.2,             // 궁수 소환 확률 (20%)
+            probTanker: 0.1,             // 방패병 소환 확률 (10%)
+            baseAttackRange: 175,        // 기지 대포 사거리 (절반으로 감소)
+            baseAttackCooldown: 60,      // 기지 대포 발사 주기 (프레임)
+            baseAttackDamage: 60         // 기지 대포 데미지
+        };
+
+        // 밸런스 및 설정을 쉽게 조절하기 위한 중앙 제어 변수들 (오크 진영)
+        const EnemyConfig = {
+            spawnRateSeconds: 0.1,         // 일반 유닛 소환 주기 (초 단위)
+            spawnBatch: 1,               // 한 번 소환될 때 나오는 유닛 수
+            bossSpawnRateSeconds: 30.0,  // 보스(Enhanced) 소환 주기 (초 단위)
+            unitSize: 16,                // 기본 유닛 크기 배율
+            speed: 1.0,                  // 이동 속도 배율
+            baseMaxHp: 5000,             // 기지 체력
+            probRanged: 0.4,             // 투창병 소환 확률 (20%)
+            probTanker: 0.2,             // 오거 소환 확률 (10%)
+            baseAttackRange: 175,        // 기지 대포 사거리 (절반으로 감소)
+            baseAttackCooldown: 60,      // 기지 대포 발사 주기 (프레임)
+            baseAttackDamage: 60         // 기지 대포 데미지
+        };
+
+        // 환경 변수 (중립 이벤트)
+        const EnvironmentConfig = {
+            lightningRateSeconds: 10,     // 번개가 내리치는 주기 (초 단위)
+            lightningDamage: 100,         // 번개 Area of Effect 데미지
+            lightningRadius: 60          // 번개 타격 범위
+        };
+
+        const HORIZON_Y = 0.1 * canvas.height; // Logical horizon (High 75-degree angle)
+
+        // Unit Types
+        const TYPE_MELEE = 0;
+        const TYPE_RANGED = 1;
+        const TYPE_ENHANCED = 2;
+        const TYPE_TANKER = 3;
+
+        let units = [];
+        let particles = [];
+        let projectiles = [];
+        let lightnings = [];
+        let playerBase = { x: 0, y: 0, hp: PlayerConfig.baseMaxHp, team: 0, cooldown: 0 };
+        let enemyBase = { x: 0, y: 0, hp: EnemyConfig.baseMaxHp, team: 1, cooldown: 0 };
+
+        // Sprite Caching
+        const sprites = {};
+
+        // Helper: Generate an offscreen canvas sprite from a string array
+        function createSprite(w, h, palette, pixels) {
+            const oc = document.createElement('canvas');
+            oc.width = w; oc.height = h;
+            const octx = oc.getContext('2d');
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const idx = pixels[y][x];
+                    if (idx !== ' ') {
+                        octx.fillStyle = palette[idx];
+                        octx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            return oc;
+        }
+
+        // Generate Sprites on boot
+        function generateSprites() {
+            // Palettes
+            const pPal = {
+                '0': '#00000033', // Shadow
+                '1': '#1e3a8a', '2': '#3b82f6', '3': '#93c5fd', // Armor blue
+                '4': '#fbbf24', '5': '#d97706', // Gold trim
+                '6': '#fef08a', '7': '#78350f', // Face/Leather (Skin lighter)
+                '8': '#ffffff', '9': '#ef4444', // White / Red plume
+                // New high-fidelity colors
+                'a': '#000000', // Solid Outline
+                'b': '#ffffff', // Pure White
+                'c': '#e5e7eb', // Bright Steel
+                'd': '#9ca3af', // Mid Steel
+                'e': '#4b5563', // Dark Steel
+                'f': '#fcd34d', // Human Skin Light
+                'g': '#b45309', // Dark Leather/Wood
+                'h': '#fde047', // Bright Gold Highlight
+                'i': '#3b82f6', // Player Blue Tabard
+                'j': '#1e3a8a'  // Dark Blue Shadow
+            };
+            const ePal = {
+                '0': '#00000033', // Shadow
+                '1': '#450a0a', '2': '#991b1b', '3': '#ef4444', // Red Cloth/Armor
+                '4': '#4ade80', '5': '#bef264', // Brighter Lime/Green Skin
+                '6': '#1f2937', '7': '#4b5563', '8': '#9ca3af', // Iron/Armor/Axe
+                '9': '#ffffff', // Bone/Eye
+                // New high-fidelity colors
+                'a': '#000000', // Solid Outline
+                'b': '#ffffff', // Pure White/Teeth/Eyes
+                'c': '#e5e7eb', // Bright Steel Scrap
+                'd': '#9ca3af', // Mid Steel Scrap
+                'e': '#4b5563', // Dark Iron
+                'f': '#4ade80', // Orc Skin Light
+                'g': '#166534', // Orc Skin Dark
+                'h': '#ef4444', // Enemy Red Cloth
+                'i': '#7f1d1d', // Dark Red Shadow
+                'j': '#451a03'  // Dark Wood/Leather
+            };
+
+            // Helper to generate 2-frame animation set at custom size
+            const createAnim = (w, h, pal, f1, f2) => ({
+                spr1: createSprite(w, h, pal, f1),
+                spr2: createSprite(w, h, pal, f2)
+            });
+
+            // --- Humans (Blue) - Facing RIGHT ---
+            sprites.pMelee = createAnim(24, 24, pPal, [
+                "                        ",
+                "          aaaa          ",
+                "         acccca         ",
+                "        aceeeeca        ",
+                "        acffffea        ",
+                "         adddda  aaaa   ",
+                "     aaaa aiia  aaccea  ",
+                "   aaiiiaaajjjjjcccca   ",
+                "  aaihhiia aija acca    ",
+                "  aaiiiija aija  aa     ",
+                "  aajiiija aija         ",
+                "  aajiiija addaa        ",
+                "   aajjjaa aeeea        ",
+                "    aaaa  adeeaa        ",
+                "          aiiija        ",
+                "          ajeeja        ",
+                "           agga         ",
+                "          accaa         ",
+                "         accea          ",
+                "          aaa           ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "          aaaa          ",
+                "         acccca         ",
+                "        aceeeeca        ",
+                "        acffffea        ",
+                "         addddaaaaa     ",
+                "     aaaa aiia cccca    ",
+                "   aaiiiaaajjjacca a    ",
+                "  aaihhiia aijaa  a     ",
+                "  aaiiiija aija         ",
+                "  aajiiija aija         ",
+                "  aajiiija addaa        ",
+                "   aajjjaa aeeea        ",
+                "    aaaa  adeeeaa       ",
+                "          aiiiija       ",
+                "          ajeeeja       ",
+                "          agga aa       ",
+                "         acca           ",
+                "        aceea           ",
+                "         aaa            ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ]);
+            sprites.pRanged = createAnim(24, 24, pPal, [
+                "                        ",
+                "         aaaa           ",
+                "        aiiiia          ",
+                "       aiiiiija         ",
+                "       abffffja         ",
+                "        aiijja a        ",
+                "     aaa agga a         ",
+                "    aiijaaggga  aa      ",
+                "   aiiiia agaa agga     ",
+                "   aaiiia jj a a  a     ",
+                "    aaaa  gga  a  a     ",
+                "          gga  a  a     ",
+                "         aggga a  a     ",
+                "         ajjjaa agga    ",
+                "          aiija  aa     ",
+                "          agga          ",
+                "         agga           ",
+                "        agga            ",
+                "         aa             ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "         aaaa           ",
+                "        aiiiia          ",
+                "       aiiiiija         ",
+                "       abffffja         ",
+                "        aiijja a        ",
+                "     aaa agga a         ",
+                "    aiijaaggga  aa      ",
+                "   aiiiia agaa agga     ",
+                "   aaiiia jj a a  a     ",
+                "    aaaa  gga  a  a     ",
+                "          gga  a  a     ",
+                "         aggga a  a     ",
+                "         ajjjaa agga    ",
+                "          aiija  aa     ",
+                "          agga          ",
+                "         agga           ",
+                "         agga           ",
+                "        agga            ",
+                "         aa             ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ]);
+            sprites.pTank = createAnim(24, 24, pPal, [
+                "                        ",
+                "        aaaaaaa         ",
+                "       aaccccccaa       ",
+                "      aaceeeeeecaa      ",
+                "      aacffffffeaa      ",
+                "       aaddddddaa aaaa  ",
+                "    aaaa aiiiiia aaccca ",
+                "  aaiiiiiaajjjjjjjcccca ",
+                " aaiihhiiia aiiiijaacca ",
+                " aaiiiiiijja aiiiija aa ",
+                " aajiiiiiija aiiiija    ",
+                " aajiiiiiija adddddaa   ",
+                " aajjjjjjjaa aeeeeeea   ",
+                "  aaaaaaaaa adeeeedeaa  ",
+                "           aiiiiijja    ",
+                "           ajeeeeeja    ",
+                "           aaaggggaa    ",
+                "          aaccccccaa    ",
+                "         aacceeeecaa    ",
+                "          aaaaaaaaa     ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "        aaaaaaa         ",
+                "       aaccccccaa       ",
+                "      aaceeeeeecaa      ",
+                "      aacffffffeaa      ",
+                "       aaddddddaaaaaaa  ",
+                "    aaaa aiiiiiaaccccaa ",
+                "  aaiiiiiaajjjjjjaaccaa ",
+                " aaiihhiiia aiiiijaaa   ",
+                " aaiiiiiijja aiiiija    ",
+                " aajiiiiiija aiiiija    ",
+                " aajiiiiiija adddddaa   ",
+                " aajjjjjjjaa aeeeeeea   ",
+                "  aaaaaaaaa adeeeeedeaa ",
+                "           aiiiiiijja   ",
+                "           ajeeeeeeja   ",
+                "           aaggggaaaa   ",
+                "          aaccccaa      ",
+                "         aacceecaa      ",
+                "          aaaaaaa       ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ]);
+            sprites.pEnh = sprites.pTank;
+
+            // --- Enemy (Orcs) - Facing LEFT ---
+            // --- Enemy (Orcs) - Facing LEFT ---
+            sprites.eMelee = createAnim(24, 24, ePal, [
+                "                        ",
+                "           aaaa         ",
+                "          affffa        ",
+                "         afgbbgfa       ",
+                "         agffffga       ",
+                "          agggga        ",
+                "     a  a  ahha aaa     ",
+                "    aeeaajjhihihaaa     ",
+                "    aeeacajagagaafga    ",
+                "     ae a aaja aagffa   ",
+                "      ae a gga agggfa   ",
+                "       aa aggga aggga   ",
+                "          aifia  aaa    ",
+                "          aiiia         ",
+                "          aijia         ",
+                "          ajjja         ",
+                "          agga          ",
+                "          agga          ",
+                "         aggga          ",
+                "         aaa            ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "           aaaa         ",
+                "          affffa        ",
+                "         afgbbgfa       ",
+                "         agffffga       ",
+                "          agggga        ",
+                "     a  a  ahha aaa     ",
+                "    aeeaajjhihihaaa     ",
+                "    aeeacajagagaafga    ",
+                "     ae a aaja aagffa   ",
+                "      ae a gga agggfa   ",
+                "       aa aggga aggga   ",
+                "          aifia  aaa    ",
+                "          aiiia         ",
+                "          aijia         ",
+                "          ajjja         ",
+                "          aga           ",
+                "         agga           ",
+                "        agga            ",
+                "         aa             ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ]);
+            sprites.eRanged = createAnim(24, 24, ePal, [
+                "                        ",
+                "           aaaa         ",
+                "          affffa        ",
+                "         afggbbga       ",
+                "         affffffa       ",
+                "          agggga        ",
+                "        a aihha aaa     ",
+                "         j jhhhaaa      ",
+                "      a  aj gg aggga    ",
+                "      aa a aj agfffa    ",
+                "      acja a gg aaaa    ",
+                "      agga ajj a        ",
+                "      a  a ajga         ",
+                "      a  a agia         ",
+                "      aa a ahia         ",
+                "       a aajjja         ",
+                "          agga          ",
+                "          agga          ",
+                "         aggga          ",
+                "         aaa            ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "           aaaa         ",
+                "          affffa        ",
+                "         afggbbga       ",
+                "         affffffa       ",
+                "          agggga        ",
+                "        a aihha aaa     ",
+                "         j jhhhaaa      ",
+                "      a  aj gg aggga    ",
+                "      aa a aj agfffa    ",
+                "      acja a gg aaaa    ",
+                "      agga ajj a        ",
+                "      a  a ajga         ",
+                "      a  a agia         ",
+                "      aa a ahia         ",
+                "       a aajjja         ",
+                "          aga           ",
+                "         agga           ",
+                "        agga            ",
+                "         aa             ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ]);
+            sprites.eTank = createAnim(24, 24, ePal, [
+                "                        ",
+                "          aaaaaa        ",
+                "         affffffa       ",
+                "        aafgbbgfaa      ",
+                "        aaggffffgaa     ",
+                "         aaggggaa       ",
+                "    aa  aa aahhaa aaaa  ",
+                "   aeeeaajjjhhiihhaaaa  ",
+                "   aeeeeacajjagaggaafga ",
+                "   aeeee a aaajaa aagffa",
+                "    aee a  aaggaa agggfa",
+                "     aa a  agggaa aggga ",
+                "         aaiffiia  aaa  ",
+                "         aaiiiiaa       ",
+                "         aaiijiaa       ",
+                "         aajjjjaa       ",
+                "         aaggggaa       ",
+                "         aaggggaa       ",
+                "        aagggggaa       ",
+                "         aaaaaaa        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "          aaaaaa        ",
+                "         affffffa       ",
+                "        aafgbbgfaa      ",
+                "        aaggffffgaa     ",
+                "         aaggggaa       ",
+                "    aa  aa aahhaa aaaa  ",
+                "   aeeeaajjjhhiihhaaaa  ",
+                "   aeeeeacajjagaggaafga ",
+                "   aeeee a aaajaa aagffa",
+                "    aee a  aaggaa agggfa",
+                "     aa a  agggaa aggga ",
+                "         aaiffiia  aaa  ",
+                "         aaiiiiaa       ",
+                "         aaiijiaa       ",
+                "         aajjjjaa       ",
+                "         aaggaa         ",
+                "        aaggggaa        ",
+                "       aagggggaa        ",
+                "        aaaaaaa         ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ]);
+            sprites.eEnh = sprites.eTank;
+
+            // --- Environment ---
+            const bgC = document.createElement('canvas');
+            bgC.width = 8; bgC.height = 8;
+            const bgCtx = bgC.getContext('2d');
+            bgCtx.fillStyle = "#1c1917";
+            bgCtx.fillRect(0, 0, 8, 8);
+            sprites.bgGrid = bgC;
+
+            const bgImg = new Image();
+            bgImg.src = 'background.png?v=' + Date.now();
+            bgImg.onload = () => {
+                const w = window.innerWidth || 800;
+                const h = window.innerHeight || 1200;
+                const fgC = document.createElement('canvas');
+                fgC.width = w; fgC.height = h;
+                const fctx = fgC.getContext('2d');
+                const imgAspect = bgImg.width / bgImg.height;
+                const zoom = 1.4;
+                const drawW = Math.max(w, h * imgAspect) * zoom;
+                const drawH = drawW / imgAspect;
+                const offsetX = (w - drawW) / 2;
+                const offsetY = h - drawH;
+                fctx.drawImage(bgImg, offsetX, offsetY, drawW, drawH);
+                sprites.fullBg = fgC;
+            };
+
+            const bPal = {
+                '0': '#000000', // Solid Outline
+                '1': '#3b82f6', '2': '#1e3a8a', // Human Blue Roof/Flag
+                '3': '#94a3b8', '4': '#64748b', '5': '#475569', // Stone walls
+                '6': '#78350f', '7': '#92400e', // Orc Wood/Spikes
+                '8': '#ef4444', '9': '#991b1b', // Orc Red Flag/Cloth
+                'a': '#1c1917', 'b': '#b45309', // Dark gaps / Dark Gold
+                'c': '#fcd34d', // Bright Gold Trim
+                'e': '#e5e7eb', // Bright Stone/Highlight
+                'i': '#ffffff', // Pure White
+                'j': '#9ca3af', // Steel Metal Portcullis
+                'k': '#ea580c', // Flame outer
+                'l': '#f59e0b'  // Flame core
+            };
+
+            // Human Castle Tower (32x24)
+            sprites.pBase = createSprite(32, 24, bPal, [
+                "               0                ",
+                "              010               ",
+                "             01i10              ",
+                "            011i110             ",
+                "             01i10              ",
+                "              000               ",
+                "  000         0e0          000  ",
+                " 0eee0       0e3e0        0eee0 ",
+                " 0e3e0       03e30        0e3e0 ",
+                " 03530       05350        03530 ",
+                " 00000        000         00000 ",
+                "  0e30000000003530000000003e0   ",
+                " 0ecc303c53c5353535c35c303cce0  ",
+                " 0e3350355355555555553550533e0  ",
+                " 035550c505350c3bc053505c055530 ",
+                " 0b33b05503530baab03530550b33b0 ",
+                " 0abcb0c505350a00a053505c0bcba0 ",
+                " 00aaa05503530j00j03530550aaa00 ",
+                " 0a3a50c505550j00j055505c05a3a0 ",
+                " 0a33b0550c5c0jaaj0c5c0550b33a0 ",
+                " 0cba505505550j00j055505505abc0 ",
+                " 0000000000000j00j0000000000000 ",
+                " 000000000000000000000000000000 ",
+                "                                "
+            ]);
+
+            // Orc Spike Fortress (32x24)
+            sprites.eBase = createSprite(32, 24, bPal, [
+                "                                ",
+                "            8                   ",
+                "           888          8       ",
+                "          88988        888      ",
+                "         8899888      88988     ",
+                "          88988        888      ",
+                "           888          8       ",
+                "            8          676      ",
+                "           676        6iii6     ",
+                "  676     6iii6       6i0i6     ",
+                " 6iii6    6i0i6       6i0i6     ",
+                " 6i0i6    6i0i6       6iii6     ",
+                " 6i0i6    6iii6       6a0a6     ",
+                " 6iii6    6a0a6   676 67676     ",
+                " 6a0a6  6767676  676766666667   ",
+                " 67676  6666666  66666alkla66   ",
+                " 66667  6a000a6  6a0a6alkla66   ",
+                " 6alkla66a000a6 666666a000a66   ",
+                " 6alkla66a000a6 6alkla0ll0066   ",
+                " 6a000a66a000a6 6alkla0ll0066   ",
+                " 6a000a66a000a6 6a000a0ll0a66   ",
+                " 60ll0066a000a6 600l000aa0066   ",
+                " 00aa00000ll0000000l000aa0000   ",
+                "                                "
+            ]);
+        }
+
+        generateSprites();
+
+        // Projectile for Ranged Units
+        class Projectile {
+            constructor(x, y, target, damage, team, speed = 5, isCannon = false) {
+                this.x = x;
+                this.y = y;
+                this.startX = x;
+                this.startY = y;
+                this.z = 0; // Height for parabolic arc
+                this.target = target;
+                this.team = team;
+                this.damage = damage;
+                this.speed = speed;
+                this.isCannon = isCannon;
+                this.active = true;
+            }
+        }
+
+        // Particle FX
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.life = 20 + Math.random() * 20;
+                this.maxLife = this.life;
+                this.color = color;
+            }
+        }
+
+        // Simple data structure for Units to minimize GC pauses
+        class Unit {
+            constructor(x, y, team, type = TYPE_MELEE) {
+                this.x = x;
+                this.y = y;
+                this.team = team; // 0 = Player (Blue), 1 = Enemy (Red)
+                this.type = type; // 0=Melee, 1=Ranged, 2=Enhanced
+
+                const conf = team === 0 ? PlayerConfig : EnemyConfig;
+                // Base stats by type
+                if (type === TYPE_MELEE) {
+                    this.maxHp = 15;
+                    this.damage = 3;
+                    this.attackRange = conf.unitSize + 3;
+                    this.speed = conf.speed;
+                    this.cooldownMax = 30; // 0.5s
+                    this.size = conf.unitSize;
+                } else if (type === TYPE_RANGED) {
+                    this.maxHp = 8;
+                    this.damage = 2;
+                    this.attackRange = 60;
+                    this.speed = conf.speed * 0.8;
+                    this.cooldownMax = 45; // 0.75s
+                    this.size = conf.unitSize;
+                } else if (type === TYPE_TANKER) {
+                    this.maxHp = 50;
+                    this.damage = 4;
+                    this.attackRange = conf.unitSize + 5;
+                    this.speed = conf.speed * 0.5;
+                    this.cooldownMax = 40;
+                    this.size = conf.unitSize * 1.5;
+                } else if (type === TYPE_ENHANCED) { // Boss unit
+                    this.maxHp = 150;
+                    this.damage = 10;
+                    this.attackRange = conf.unitSize + 5;
+                    this.speed = conf.speed * 0.6;
+                    this.cooldownMax = 40;
+                    this.size = conf.unitSize * 2;
+                }
+
+                this.hp = this.maxHp;
+                this.vx = 0;
+                this.vy = 0;
+                this.targetX = null;
+                this.targetY = null;
+
+                // State: 0=Idle(Running Forward), 1=Moving(Commanded), 2=Attacking
+                this.state = 0;
+                this.selected = false;
+
+                // Combat
+                this.attackTarget = null;
+                this.attackCooldown = 0;
+            }
+        }
+
+        function issueMoveCommand(destX, destY) {
+            let selectedCount = 0;
+            for (let i = 0; i < units.length; i++) {
+                if (units[i].selected && units[i].team === 0) {
+                    selectedCount++;
+                    // Add slight random offset so they don't all converge to the exact same pixel pixel-perfectly
+                    units[i].targetX = destX + (Math.random() - 0.5) * 40;
+                    units[i].targetY = destY + (Math.random() - 0.5) * 40;
+                    units[i].state = 1; // Set state to MOVING
+                    units[i].selected = false; // Deselect after issuing command
+                }
+            }
+            // If no units are selected, we shouldn't do anything special (yet).
+        }
+
+        function processSelectionBox() {
+            // Find bounding box limits
+            const minX = Math.min(selection.startX, selection.endX);
+            const maxX = Math.max(selection.startX, selection.endX);
+            const minY = Math.min(selection.startY, selection.endY);
+            const maxY = Math.max(selection.startY, selection.endY);
+
+            for (let i = 0; i < units.length; i++) {
+                const u = units[i];
+                if (u.team === 0) {
+                    // Check if unit center is inside the box
+                    if (u.x >= minX && u.x <= maxX && u.y >= minY && u.y <= maxY) {
+                        u.selected = true;
+                    } else {
+                        // Clear selection if it wasn't in the new box
+                        u.selected = false;
+                    }
+                }
+            }
+        }
+
+        function drawBackground() {
+            // Keep it crispy pixel perfect
+            ctx.imageSmoothingEnabled = false;
+
+            // Draw Pre-rendered Battlefield Scene
+            if (sprites.fullBg) {
+                ctx.drawImage(sprites.fullBg, 0, 0, canvas.width, canvas.height);
+            } else {
+                // Fallback Tile Native Pattern
+                const ptrn = ctx.createPattern(sprites.bgGrid, 'repeat');
+                ctx.fillStyle = ptrn;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function update() {
+            if (isGameOver || !isStarted) return;
+
+            // Initialize Bases on first frame if needed
+            if (frames === 0) {
+                playerBase.x = 20; // Anchor for calculations
+                playerBase.y = canvas.height * 0.5;
+                enemyBase.x = canvas.width - 20;
+                enemyBase.y = canvas.height * 0.5;
+            }
+
+            let blueCount = 0;
+            let redCount = 0;
+
+            // Simple Spatial Grid Partitioning (Grid size: 40x40)
+            const CELL_SIZE = 40;
+            const grid = {};
+            const getGridKey = (x, y) => `${Math.floor(x / CELL_SIZE)},${Math.floor(y / CELL_SIZE)}`;
+
+            // Populate Grid
+            for (let i = 0; i < units.length; i++) {
+                const u = units[i];
+                if (u.hp <= 0) continue; // Skip dying
+                const key = getGridKey(u.x, u.y);
+                if (!grid[key]) grid[key] = [];
+                grid[key].push(u);
+            }
+
+            // Spawning Logic (Batches for massive armies)
+            const pSpawnInterval = Math.max(1, Math.floor(PlayerConfig.spawnRateSeconds * 60));
+            const eSpawnInterval = Math.max(1, Math.floor(EnemyConfig.spawnRateSeconds * 60));
+            const depthMin = canvas.height * 0.35; // Centered exactly around 0.5
+            const depthMax = canvas.height * 0.65; // Combat restricted to middle
+
+            // Helper to determine spawn type based on Config probabilities
+            const getSpawnType = (conf) => {
+                const r = Math.random();
+                if (r < conf.probRanged) return TYPE_RANGED;
+                if (r < (conf.probRanged + conf.probTanker)) return TYPE_TANKER;
+                return TYPE_MELEE;
+            };
+
+            // Player Spawn
+            if (frames % pSpawnInterval === 0) {
+                for (let b = 0; b < PlayerConfig.spawnBatch; b++) {
+                    const psx = -40 + Math.random() * -40; // Spawns between -40 and -80
+                    const psy = depthMin + Math.random() * (depthMax - depthMin);
+                    const pu = new Unit(psx, psy, 0, getSpawnType(PlayerConfig));
+                    units.push(pu);
+                }
+                if (Math.random() > 0.5) WCGames.Audio.play([600, 200], 'square', 0.05, 0.02);
+            }
+
+            // Enemy Spawn
+            if (frames % eSpawnInterval === 0) {
+                for (let b = 0; b < EnemyConfig.spawnBatch; b++) {
+                    const esx = canvas.width + 40 + Math.random() * 40; // Spawns between width+40 and width+80
+                    const esy = depthMin + Math.random() * (depthMax - depthMin);
+                    const eu = new Unit(esx, esy, 1, getSpawnType(EnemyConfig));
+                    units.push(eu);
+                }
+                if (Math.random() > 0.5) WCGames.Audio.play([600, 200], 'square', 0.05, 0.02);
+            }
+
+            // Game End Conditions
+            if (playerBase.hp <= 0) {
+                endGame(false);
+                return;
+            }
+            if (enemyBase.hp <= 0) {
+                endGame(true);
+                return;
+            }
+
+            // Enhanced Unit Spawning
+            const pBossInterval = Math.max(1, Math.floor(PlayerConfig.bossSpawnRateSeconds * 60));
+            const eBossInterval = Math.max(1, Math.floor(EnemyConfig.bossSpawnRateSeconds * 60));
+            const bDepth = canvas.height * 0.5;
+
+            if (frames > 0 && frames % pBossInterval === 0) {
+                // Player Boss (offscreen left)
+                units.push(new Unit(-60, bDepth, 0, TYPE_ENHANCED));
+                WCGames.Audio.play([150, 80], 'square', 0.2, 0.2); // Boss spawn sound
+            }
+            if (frames > 0 && frames % eBossInterval === 0) {
+                // Enemy Boss (offscreen right)
+                units.push(new Unit(canvas.width + 60, bDepth, 1, TYPE_ENHANCED));
+                WCGames.Audio.play([150, 80], 'square', 0.2, 0.2); // Boss spawn sound
+            }
+
+            // Base Cannons Logic
+            [playerBase, enemyBase].forEach(base => {
+                if (base.cooldown > 0) base.cooldown--;
+
+                if (base.hp > 0 && base.cooldown === 0) {
+                    const config = base.team === 0 ? PlayerConfig : EnemyConfig;
+
+                    // Find closest enemy within range
+                    let closestEnemy = null;
+                    let closestDistSq = config.baseAttackRange * config.baseAttackRange;
+
+                    for (let i = 0; i < units.length; i++) {
+                        const u = units[i];
+                        if (u.team !== base.team && u.hp > 0) {
+                            const dx = u.x - base.x;
+                            const dy = u.y - base.y;
+                            const distSq = dx * dx + dy * dy;
+                            if (distSq < closestDistSq) {
+                                closestDistSq = distSq;
+                                closestEnemy = u;
+                            }
+                        }
+                    }
+
+                    if (closestEnemy) {
+                        // Fire Cannon
+                        projectiles.push(new Projectile(base.x, base.y, closestEnemy, config.baseAttackDamage, base.team, 12, true));
+                        base.cooldown = config.baseAttackCooldown;
+                        WCGames.Audio.play([200, 100], 'square', 0.2, 0.1); // Cannon fire sound
+                    }
+                }
+            });
+
+            // Environmental Event: Random Lightning Strike
+            const lightningInterval = Math.max(1, Math.floor(EnvironmentConfig.lightningRateSeconds * 60));
+            if (frames > 0 && frames % lightningInterval === 0) {
+                // Lightning strikes a random location on the terrain, not necessarily on a unit
+                const targetX = Math.random() * canvas.width;
+                // Constraints match the depth clamping for units (0.35 to 0.66 of height)
+                const minY = canvas.height * 0.35;
+                const maxY = canvas.height * 0.66;
+                const targetY = minY + Math.random() * (maxY - minY);
+
+                lightnings.push({ x: targetX, y: targetY, life: 15, maxLife: 15 });
+
+                // Thunder sound crack - sharper starting tone dropping to a deep rumble
+                WCGames.Audio.play([400, 100, 30], 'square', 0.8, 0.4);
+                WCGames.Audio.play([200, 50, 10], 'sawtooth', 1.0, 0.5); // Accompanying low rumble
+
+                // AOE Damage Application (Friendly Fire enabled)
+                for (let i = 0; i < units.length; i++) {
+                    const u = units[i];
+                    const dist = Math.sqrt(Math.pow(u.x - targetX, 2) + Math.pow(u.y - targetY, 2));
+                    if (dist < EnvironmentConfig.lightningRadius) {
+                        u.hp -= EnvironmentConfig.lightningDamage;
+                        if (u.hp <= 0) u.killedByLightning = true;
+                        // Spark particles indicating hit
+                        for (let k = 0; k < 3; k++) particles.push(new Particle(u.x, u.y, "#fef08a"));
+                    }
+                }
+            }
+
+            // Physics & State Update
+            for (let i = units.length - 1; i >= 0; i--) {
+                const u = units[i];
+
+                if (u.team === 0) blueCount++;
+                else redCount++;
+
+                // Combat & Target Acquisition
+                if (u.attackCooldown > 0) u.attackCooldown--;
+
+                // Base Attack Logic Check First
+                let attackingBase = false;
+                if (u.team === 0 && u.x > enemyBase.x - 80 && Math.abs(u.y - enemyBase.y) < 150) {
+                    u.attackTarget = enemyBase;
+                    u.state = 2; // ATTACKING
+                    attackingBase = true;
+                } else if (u.team === 1 && u.x < playerBase.x + 80 && Math.abs(u.y - playerBase.y) < 150) {
+                    u.attackTarget = playerBase;
+                    u.state = 2; // ATTACKING
+                    attackingBase = true;
+                }
+
+                // If IDLE or MOVING and not attacking base, check for nearby enemies to intercept
+                if (!attackingBase && (u.state === 0 || u.state === 1)) {
+                    let closestEnemy = null;
+                    let closestDist = u.type === TYPE_RANGED ? 120 : (u.type === TYPE_ENHANCED ? 100 : 80); // Aggro range
+
+                    // Check own cell and 8 adjacent neighbors
+                    const cx = Math.floor(u.x / CELL_SIZE);
+                    const cy = Math.floor(u.y / CELL_SIZE);
+
+                    for (let nx = cx - 1; nx <= cx + 1; nx++) {
+                        for (let ny = cy - 1; ny <= cy + 1; ny++) {
+                            const neighbors = grid[`${nx},${ny}`];
+                            if (!neighbors) continue;
+
+                            for (let j = 0; j < neighbors.length; j++) {
+                                const n = neighbors[j];
+                                if (n.team !== u.team && n.hp > 0) {
+                                    const dx = n.x - u.x;
+                                    const dy = n.y - u.y;
+                                    const dist = Math.sqrt(dx * dx + dy * dy);
+                                    if (dist < closestDist) {
+                                        closestDist = dist;
+                                        closestEnemy = n;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (closestEnemy) {
+                        u.attackTarget = closestEnemy;
+                        u.state = 2; // ATTACKING
+                    }
+                }
+
+                // Apply perspective scaling to movement speed
+                const scaleFactor = 0.5 + (u.y / canvas.height) * 0.7;
+                let adjSpeed = u.speed * scaleFactor;
+
+                if (u.state === 0) { // IDLE (Running Forward)
+                    const dir = u.team === 0 ? 1 : -1; // Player right, Enemy left
+                    u.vx = adjSpeed * dir * 0.5;
+                    // Slightly trend towards base Y
+                    const centerDir = (canvas.height * 0.6 - u.y) * 0.001;
+                    u.vy = centerDir;
+                } else if (u.state === 1) { // MOVING (Commanded)
+                    if (u.targetX !== null && u.targetY !== null) {
+                        const dx = u.targetX - u.x;
+                        const dy = u.targetY - u.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < adjSpeed) {
+                            // Arrived
+                            u.x = u.targetX;
+                            u.y = u.targetY;
+                            u.state = 0; // Return to IDLE mode (auto-push forward)
+                            u.targetX = null;
+                            u.targetY = null;
+                            u.vx = 0;
+                            u.vy = 0;
+                        } else {
+                            // Move towards target
+                            u.vx = (dx / dist) * adjSpeed * 1.5; // Comanded units run slightly faster
+                            u.vy = (dy / dist) * adjSpeed * 1.5;
+                        }
+                    } else {
+                        u.state = 0; // Fallback to IDLE if no target
+                    }
+                } else if (u.state === 2) { // ATTACKING
+                    if (u.attackTarget && u.attackTarget.hp > 0) {
+                        const target = u.attackTarget;
+                        const dx = target.x - u.x;
+                        const dy = target.y - u.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        // Scale attack range to perspective X axis
+                        const effRange = u.attackRange * scaleFactor;
+
+                        if (dist < effRange) {
+                            u.vx = 0; u.vy = 0; // Stop moving to hit
+                            if (u.attackCooldown <= 0) {
+                                if (u.type === TYPE_RANGED) {
+                                    projectiles.push(new Projectile(u.x, u.y, target, u.damage, u.team, 4));
+                                    if (Math.random() > 0.8) WCGames.Audio.play([800, 600], 'triangle', 0.1, 0.05);
+                                } else {
+                                    // Melee Hit (Fiery Explosion)
+                                    target.hp -= u.damage;
+                                    const exColor = u.team === 0 ? "#60a5fa" : "#fb923c"; // Orange for enemy, Light Blue for player
+                                    for (let k = 0; k < 3; k++) particles.push(new Particle((u.x + target.x) / 2, (u.y + target.y) / 2, exColor));
+                                    if (Math.random() > 0.8) WCGames.Audio.play([150, 50], 'sawtooth', 0.05, 0.05);
+                                }
+                                u.attackCooldown = u.cooldownMax;
+                            }
+                        } else {
+                            // Chase target
+                            u.vx = (dx / dist) * adjSpeed * 1.2;
+                            u.vy = (dy / dist) * adjSpeed * 1.2;
+                        }
+                    } else {
+                        u.attackTarget = null;
+                        u.state = 0; // Target died, return to IDLE forward push
+                    }
+                }
+
+                u.x += u.vx;
+                u.y += u.vy;
+
+                // Simple Flocking (Separation)
+                for (let j = 0; j < units.length; j++) {
+                    const other = units[j];
+                    if (i !== j && other.team === u.team) {
+                        const conf = u.team === 0 ? PlayerConfig : EnemyConfig;
+                        const dx = u.x - other.x;
+                        const dy = u.y - other.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < (conf.unitSize) * (conf.unitSize)) {
+                            u.x += dx * 0.02; // Reduced push to allow tighter clusters
+                            u.y += dy * 0.02;
+                        }
+                    }
+                }
+
+                // Depth clamping so units don't walk into the sky or bottom 1/3
+                if (u.y < canvas.height * 0.35 && u.hp > 0) u.y = canvas.height * 0.35;
+                if (u.y > canvas.height * 0.66 && u.hp > 0) u.y = canvas.height * 0.66;
+
+                // Basic bounds check to prevent memory leaks from wandering units or death
+                if (u.x < -150 || u.x > canvas.width + 150 || u.hp <= 0) {
+                    if (u.hp <= 0) {
+                        // Dead
+                        if (u.team === 1 && !u.killedByLightning) {
+                            score += u.type === TYPE_ENHANCED ? 10 : (u.type === TYPE_TANKER ? 3 : 1);
+                        }
+                        u.selected = false; // Ensure dead units drop selection
+
+                        // Death Explosion
+                        const dieColor = u.team === 0 ? "#3b82f6" : "#ef4444";
+                        for (let k = 0; k < 8; k++) particles.push(new Particle(u.x, u.y, dieColor));
+
+                        if (Math.random() > 0.8) WCGames.Audio.play([100, 30], 'square', 0.05, 0.1);
+                    }
+                    units.splice(i, 1);
+                }
+            }
+
+            // Projectile Updates
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                if (!p.active || !p.target || p.target.hp <= 0) {
+                    projectiles.splice(i, 1);
+                    continue;
+                }
+
+                const dx = p.target.x - p.x;
+                const dy = p.target.y - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < p.speed) {
+                    // Hit Target
+                    p.target.hp -= p.damage;
+                    const sparkColor = p.team === 0 ? "#93c5fd" : "#fca5a5";
+                    for (let k = 0; k < 2; k++) particles.push(new Particle(p.target.x, p.target.y - 10, sparkColor)); // tiny spark
+
+                    if (p.isCannon) {
+                        for (let k = 0; k < 6; k++) particles.push(new Particle(p.target.x, p.target.y, "#fef08a")); // Larger explosion
+                        WCGames.Audio.play([100, 50], 'sawtooth', 0.2, 0.1); // Impact sound
+                    } else {
+                        if (Math.random() > 0.8) WCGames.Audio.play([400, 100], 'sawtooth', 0.05, 0.02);
+                    }
+                    projectiles.splice(i, 1);
+                } else {
+                    p.x += (dx / dist) * p.speed;
+                    p.y += (dy / dist) * p.speed;
+
+                    // Projectile Trail for cannons
+                    if (p.isCannon && frames % 2 === 0) {
+                        const trailColor = p.team === 0 ? "rgba(96, 165, 250, 0.5)" : "rgba(244, 63, 94, 0.5)";
+                        particles.push(new Particle(p.x, p.y - p.z, trailColor));
+                    }
+
+                    // Calculate Parabolic Arc (Z-axis)
+                    // Progress from 0.0 to 1.0 based on distance traveled vs total distance
+                    const totalDist = Math.sqrt(Math.pow(p.target.x - p.startX, 2) + Math.pow(p.target.y - p.startY, 2));
+                    const currentDist = Math.sqrt(Math.pow(p.x - p.startX, 2) + Math.pow(p.y - p.startY, 2));
+                    let progress = currentDist / Math.max(1, totalDist);
+                    progress = Math.max(0, Math.min(1, progress));
+
+                    // Standard Parabola: y = 4h * p * (1-p) -> peaks at height 'h' when progress 'p' is 0.5
+                    // Dynamic peak height based on travel distance (longer shot = higher arc)
+                    const peakHeight = Math.min(60, Math.max(15, totalDist * 0.25));
+                    p.z = peakHeight * 4 * progress * (1 - progress);
+                }
+            }
+
+            // Update UI
+            if (frames % 15 === 0) {
+                document.getElementById('blue-count').textContent = blueCount;
+                document.getElementById('red-count').textContent = redCount;
+                document.getElementById('score').textContent = score; // Added alive score tracking
+            }
+
+            frames++;
+        }
+
+        function draw() {
+            drawBackground();
+
+            if (isStarted) {
+                // Pre-draw ground effects (Attack Ranges) before anything else
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 10]);
+                ctx.strokeStyle = "rgba(59, 130, 246, 0.3)"; // Player Base Range (Blue)
+                ctx.beginPath();
+                ctx.arc(playerBase.x, playerBase.y, PlayerConfig.baseAttackRange, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.strokeStyle = "rgba(239, 68, 68, 0.3)"; // Enemy Base Range (Red)
+                ctx.beginPath();
+                ctx.arc(enemyBase.x, enemyBase.y, EnemyConfig.baseAttackRange, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Unified Depth Sorting list (Y-axis)
+                // This guarantees that layers between factions, units, and bases are rendered perfectly.
+                const renderQueue = [];
+                renderQueue.push({ isBase: true, team: 0, obj: playerBase, y: playerBase.y });
+                renderQueue.push({ isBase: true, team: 1, obj: enemyBase, y: enemyBase.y });
+
+                for (let i = 0; i < units.length; i++) {
+                    renderQueue.push({ isBase: false, team: units[i].team, obj: units[i], y: units[i].y });
+                }
+
+                renderQueue.sort((a, b) => a.y - b.y);
+
+                // Draw sorted objects
+                for (let i = 0; i < renderQueue.length; i++) {
+                    const r = renderQueue[i];
+
+                    if (r.isBase) {
+                        const baseScale = 0.5 + (r.obj.y / canvas.height) * 0.7;
+                        const drawW = 64 * baseScale;
+                        const drawH = 48 * baseScale;
+                        const drawY = r.obj.y - drawH; // Bottom-aligned height offset
+
+                        const spr = r.team === 0 ? sprites.pBase : sprites.eBase;
+                        const bx = r.team === 0 ? 0 : canvas.width - drawW;
+
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.drawImage(spr, bx, drawY, drawW, drawH);
+
+                        // Base HP Bars
+                        const hpW = drawW * 0.8;
+                        const hpH = 6 * baseScale;
+                        const hpY = drawY - hpH - 6;
+                        const maxHp = r.team === 0 ? PlayerConfig.baseMaxHp : EnemyConfig.baseMaxHp;
+                        const curHp = r.obj.hp;
+
+                        ctx.fillStyle = "rgba(0,0,0,0.8)";
+                        ctx.fillRect(bx + drawW / 2 - hpW / 2, hpY, hpW, hpH);
+                        ctx.fillStyle = r.team === 0 ? "#3b82f6" : "#ef4444";
+                        ctx.fillRect(bx + drawW / 2 - hpW / 2, hpY, Math.max(0, curHp / maxHp) * hpW, hpH);
+                    } else {
+                        const u = r.obj;
+                        const scaleFactor = 0.4 + 0.6 * ((u.y - HORIZON_Y) / (canvas.height - HORIZON_Y));
+                        const sz = u.size * 2 * scaleFactor;
+                        const drawW = sz;
+                        const drawH = sz;
+                        const visualOffsetY = drawH * (20 / 24);
+
+                        // Drop Shadow
+                        ctx.fillStyle = "rgba(0,0,0,0.5)";
+                        ctx.beginPath();
+                        ctx.ellipse(u.x, u.y, drawW * 0.35, drawH * 0.12, 0, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        let sprSet = sprites.pMelee;
+                        if (u.team === 0) {
+                            if (u.type === TYPE_RANGED) sprSet = sprites.pRanged;
+                            else if (u.type === TYPE_TANKER) sprSet = sprites.pTank;
+                            else if (u.type === TYPE_ENHANCED) sprSet = sprites.pEnh;
+                        } else {
+                            sprSet = sprites.eMelee;
+                            if (u.type === TYPE_RANGED) sprSet = sprites.eRanged;
+                            else if (u.type === TYPE_TANKER) sprSet = sprites.eTank;
+                            else if (u.type === TYPE_ENHANCED) sprSet = sprites.eEnh;
+                        }
+
+                        let spr = sprSet.spr1;
+                        if (Math.abs(u.vx) + Math.abs(u.vy) > 0.1) {
+                            const frame = Math.floor(Date.now() / 200) % 2;
+                            spr = frame === 0 ? sprSet.spr1 : sprSet.spr2;
+                        }
+
+                        if (spr) {
+                            ctx.imageSmoothingEnabled = false;
+                            ctx.drawImage(spr, u.x - drawW / 2, u.y - visualOffsetY, drawW, drawH);
+                        }
+
+                        if (u.selected) {
+                            ctx.strokeStyle = "#a7f3d0";
+                            ctx.lineWidth = 1;
+                            ctx.strokeRect(u.x - drawW / 2 - 2, u.y - visualOffsetY - 2, drawW + 4, drawH + 4);
+                        }
+
+                        if (u.hp < u.maxHp) {
+                            const barW = (u.type === TYPE_ENHANCED || u.type === TYPE_TANKER ? 24 : 16) * scaleFactor;
+                            const offY = visualOffsetY + 5;
+                            ctx.fillStyle = "rgba(0,0,0,0.8)";
+                            ctx.fillRect(u.x - barW / 2, u.y - offY - 3, barW, 3);
+                            ctx.fillStyle = u.team === 0 ? "#86efac" : "#fb7185";
+                            // Fixing "strange graph" rendering error preventing negative width
+                            ctx.fillRect(u.x - barW / 2, u.y - offY - 3, Math.max(0, u.hp / u.maxHp) * barW, 3);
+                        }
+                    }
+                }
+
+                // Draw Projectiles
+                for (let i = 0; i < projectiles.length; i++) {
+                    const p = projectiles[i];
+                    const pScale = (p.y - HORIZON_Y) / (canvas.height - HORIZON_Y);
+                    const pSize = 3 * pScale;
+
+                    // Ground shadow for the arrow to emphasize height
+                    ctx.fillStyle = "rgba(0,0,0,0.3)";
+                    ctx.beginPath();
+                    ctx.ellipse(p.x, p.y, pSize * 1.5, pSize * 0.5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Arrow/Cannon body offset by Z
+                    if (p.isCannon) {
+                        ctx.fillStyle = p.team === 0 ? "#60a5fa" : "#f43f5e";
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y - p.z, pSize * 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        ctx.fillStyle = p.team === 0 ? "#22d3ee" : "#f97316";
+                        ctx.fillRect(p.x - pSize / 2, p.y - p.z - pSize / 2, pSize, pSize);
+                    }
+                }
+
+                // Draw Lightning Effect
+                for (let i = lightnings.length - 1; i >= 0; i--) {
+                    const l = lightnings[i];
+                    ctx.strokeStyle = "#fef08a"; // Yellow/White bright pulse
+                    ctx.lineWidth = 2 + (l.life / l.maxLife) * 5; // thicker at start
+
+                    // Draw jagged lightning bolt
+                    ctx.beginPath();
+                    ctx.moveTo(l.x, -20);
+                    let cx = l.x;
+                    let cy = -20;
+                    while (cy < l.y) {
+                        cx += (Math.random() - 0.5) * 40; // horizontal jitter
+                        cy += 30 + Math.random() * 40; // drop down 30-70px
+                        if (cy > l.y) {
+                            cx = l.x; // Force connection to exact target point
+                            cy = l.y;
+                        }
+                        ctx.lineTo(cx, cy);
+                    }
+                    ctx.stroke();
+
+                    // Burn mark on the ground
+                    ctx.fillStyle = "rgba(0,0,0,0.5)";
+                    ctx.beginPath();
+                    ctx.ellipse(l.x, l.y, EnvironmentConfig.lightningRadius * 0.8, EnvironmentConfig.lightningRadius * 0.3, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Global flash overlay for the first 3 frames
+                    if (l.life > l.maxLife - 3) {
+                        ctx.fillStyle = "rgba(255,255,255,0.4)";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+
+                    l.life--;
+                    if (l.life <= 0) lightnings.splice(i, 1);
+                }
+
+                // Draw & Update Particles (Fiery/Energy sparks)
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.life--;
+
+                    ctx.globalAlpha = p.life / p.maxLife;
+
+                    // Explosive flash at start of life
+                    if (p.life > p.maxLife * 0.7) {
+                        ctx.fillStyle = "#ffffff";
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, 2 * (p.life / p.maxLife), 0, Math.PI * 2); // Reduced from 4
+                        ctx.fill();
+                    }
+
+                    ctx.fillStyle = p.color;
+                    const pScale = (p.y - HORIZON_Y) / (canvas.height - HORIZON_Y);
+                    const pSize = 2 * pScale;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, pSize, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (p.life <= 0) particles.splice(i, 1);
+                }
+                ctx.globalAlpha = 1.0;
+
+                // Draw drag selection box as the topmost UI layer
+                if (selection.active) {
+                    const x = Math.min(selection.startX, selection.endX);
+                    const y = Math.min(selection.startY, selection.endY);
+                    const w = Math.abs(selection.endX - selection.startX);
+                    const h = Math.abs(selection.endY - selection.startY);
+
+                    ctx.fillStyle = "rgba(167, 243, 208, 0.2)";
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = "#10b981";
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([8, 8]);
+                    ctx.strokeRect(x, y, w, h);
+                    ctx.setLineDash([]);
+                }
+            }
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        function endGame(playerWon) {
+            if (isGameOver) return;
+            isGameOver = true;
+
+            // Adjust Game Over Text based on win/loss
+            const titleEl = document.querySelector('#game-over h1');
+            if (playerWon) {
+                titleEl.textContent = "VICTORY";
+                titleEl.style.color = "#34d399";
+                score += 1000; // Bonus for winning
+            } else {
+                titleEl.textContent = "DEFEAT";
+                titleEl.style.color = "#f87171";
+            }
+
+            document.getElementById('final-score').textContent = score;
+            WCGames.gameOver(score);
+        }
+
+        function resetGame() {
+            isGameOver = false;
+            isStarted = true;
+            frames = 0;
+            score = 0;
+            document.getElementById('score').textContent = '0';
+
+            // Reset entities
+            units = [];
+            particles = [];
+            projectiles = [];
+            lightnings = [];
+            playerBase.hp = PlayerConfig.baseMaxHp;
+            playerBase.cooldown = 0;
+            enemyBase.hp = EnemyConfig.baseMaxHp;
+            enemyBase.cooldown = 0;
+            selection.active = false;
+        }
+
+        WCGames.init({
+            id: 'swarm',
+            onStart: () => { WCGames.Audio.init(); resetGame(); },
+            onRestart: () => { WCGames.Audio.init(); resetGame(); }
+        });
+
+        draw();
+    </script>
+    <script src="/shared/i18n.js"></script>
+</body>
+
+</html>

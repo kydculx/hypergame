@@ -94,6 +94,11 @@ export const useGameStore = create<GameState>()(
           thumbnailUrl: 'games/bulletdodge/thumb.png',
           gameUrl: 'games/bulletdodge/index.html',
         },
+        {
+          id: 'swarm',
+          thumbnailUrl: 'games/swarm/thumb.png',
+          gameUrl: 'games/swarm/index.html',
+        },
 
       ],
 

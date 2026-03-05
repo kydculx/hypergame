@@ -113,6 +113,17 @@ descriptions = {
             "desc": "숨 막히는 네온 탄막 생존 게임! 사방에서 몰려오는 수천 개의 레이저들을 피하며 자신의 한계를 시험하세요.",
             "instruction": "화면의 조이스틱, WASD, 혹은 방향키를 사용해 코어를 움직이세요. 붉은색 발사체와 파티클을 모두 피하며 살아남아야 합니다."
         }
+    },
+    "swarm": {
+        "folder": "swarm",
+        "en": {
+            "desc": "Command a massive swarm of units in a thrilling battle of numbers and strategy. Overwhelm the enemy forces before they overwhelm you!",
+            "instruction": "Drag on the screen to select a group of your units. Tap anywhere to command them to move there. They will automatically engage any enemies they encounter on the way."
+        },
+        "ko": {
+            "desc": "끊임없이 몰려나오는 대규모 병력을 지휘하여 적의 물량을 압도하세요! 가장 치열한 컨트롤과 인해전술의 세계가 펼쳐집니다.",
+            "instruction": "화면을 드래그해 아군 병력을 다중 선택할 수 있습니다. 선택된 상태에서 원하는 위치를 터치해 이동 명령을 내리세요. 이동 중 적을 만나면 자동으로 전투를 벌입니다."
+        }
     }
 }
 
