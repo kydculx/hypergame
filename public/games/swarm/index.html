@@ -242,41 +242,36 @@
 
             // 플레이어 합체 설정
             playerMerge: {
-                unitsRequired: 2,         // 합체에 필요한 동일 타입 & 레벨 유닛 수
+                unitsRequired: 5,         // 합체에 필요한 동일 타입 & 레벨 유닛 수
                 // 합체 보너스 (합쳐진 스탯의 몇 배가 될지 결정)
                 // 현재 LevelScalingConfig.statMultiplierPerLevel과 연동됩니다.
-                bonusScaling: 2.0 / 2.0   // (2배 / 2마리) -> 합체 시 레벨 2배 보수 유지
+                bonusScaling: 1.2   // (5배 / 5마리) -> 합체 시 레벨 5배 보수 유지
             }
         };
 
-        // 밸런스 및 설정을 쉽게 조절하기 위한 중앙 제어 변수들 (인간 진영)
-        const PlayerConfig = {
-            spawnRateSeconds: 0.1,         // 일반 유닛 소환 주기 (초 단위)
-            spawnBatch: 1,               // 한 번 소환될 때마다 나오는 유닛 수
-            bossSpawnRateSeconds: 30.0,  // 영웅(Enhanced) 소환 주기 (초 단위)
-            unitSize: 16,                // 기본 유닛 크기 배율
-            speed: 1.0,                  // 이동 속도 배율
-            baseMaxHp: 5000,             // 기지 체력
-            probRanged: 0.2,             // 궁수 소환 확률 (20%)
-            probTanker: 0.1,             // 방패병 소환 확률 (10%)
-            baseAttackRange: 175,        // 기지 대포 사거리 (절반으로 감소)
-            baseAttackCooldown: 60,      // 기지 대포 발사 주기 (프레임)
-            baseAttackDamage: 60         // 기지 대포 데미지
-        };
-
-        // 밸런스 및 설정을 쉽게 조절하기 위한 중앙 제어 변수들 (오크 진영)
-        const EnemyConfig = {
-            spawnRateSeconds: 0.1,         // 일반 유닛 소환 주기 (초 단위)
+        // 공통 설정 (인간과 오크 모두에게 적용되는 기본값)
+        const CommonConfig = {
+            spawnRateSeconds: 1,         // 일반 유닛 소환 주기 (초 단위)
             spawnBatch: 1,               // 한 번 소환될 때 나오는 유닛 수
             bossSpawnRateSeconds: 30.0,  // 보스(Enhanced) 소환 주기 (초 단위)
             unitSize: 16,                // 기본 유닛 크기 배율
             speed: 1.0,                  // 이동 속도 배율
             baseMaxHp: 5000,             // 기지 체력
-            probRanged: 0.4,             // 투창병 소환 확률 (20%)
-            probTanker: 0.2,             // 오거 소환 확률 (10%)
-            baseAttackRange: 175,        // 기지 대포 사거리 (절반으로 감소)
+            probRanged: 0.2,             // 궁수 소환 확률 (20%)
+            probTanker: 0.1,             // 방패병 소환 확률 (10%)
+            baseAttackRange: 175,        // 기지 대포 사거리
             baseAttackCooldown: 60,      // 기지 대포 발사 주기 (프레임)
-            baseAttackDamage: 60,         // 기지 대포 데미지
+            baseAttackDamage: 60,        // 기지 대포 데미지
+            minSpawnRateSeconds: 0.1,    // 최소 스폰 주기 (0.1초 미만으로 작아지지 않음)
+            reductionInterval: 100,      // 이 점수마다 스폰 주기 감소
+            reductionAmount: 0.05        // 감소할 초 단위 시간
+        };
+
+        // 인간 진영 설정 (CommonConfig 상속)
+        const PlayerConfig = Object.assign({}, CommonConfig);
+
+        // 오크 진영 설정 (CommonConfig 상속 및 전용 레벨 밸런스 설정)
+        const EnemyConfig = Object.assign({}, CommonConfig, {
             levelBalance: {
                 Lv2: { scoreInterval: 200, probIncrement: 0.005, maxProb: 0.7 },
                 Lv3: { scoreInterval: 500, probIncrement: 0.005, maxProb: 0.7 },
@@ -288,7 +283,7 @@
                 Lv9: { scoreInterval: 20000, probIncrement: 0.005, maxProb: 0.7 },
                 Lv10: { scoreInterval: 30000, probIncrement: 0.005, maxProb: 0.7 },
             }
-        };
+        });
 
         // 환경 변수 (중립 이벤트)
         const EnvironmentConfig = {
@@ -313,9 +308,9 @@
 
             // 4. 본기지 기준으로 합체할 영역 위치 및 크기 설정 (Player 전용)
             mergeOffsetX: -40,          // 기지 기준 X축 거리
-            mergeOffsetY: -320,          // 기지 기준 Y축 상단 거리
-            mergeWidth: 500,            // 영역 가로 폭
-            mergeHeight: 500,           // 영역 세로 폭
+            mergeOffsetY: 30,          // 기지 기준 Y축 상단 거리
+            mergeWidth: 150,            // 영역 가로 폭
+            mergeHeight: 150,           // 영역 세로 폭
 
             // 안전 구역(리스폰/합체)과 전투 구역을 나누는 X축 가이드라인 (기지 기준 X 오프셋)
             safeZoneWidth: 250
@@ -868,6 +863,16 @@
             ]);
             sprites.eEnh = sprites.eTank;
 
+            // --- Performance: Pre-rendered Shadow ---
+            const shC = document.createElement('canvas');
+            shC.width = 64; shC.height = 64;
+            const shCtx = shC.getContext('2d');
+            shCtx.fillStyle = "rgba(0,0,0,0.5)";
+            shCtx.beginPath();
+            shCtx.ellipse(32, 32, 32, 12, 0, 0, Math.PI * 2);
+            shCtx.fill();
+            sprites.shadow = shC;
+
             // --- Environment ---
             const bgC = document.createElement('canvas');
             bgC.width = 8; bgC.height = 8;
@@ -889,7 +894,7 @@
                     const drawW = Math.max(w, h * imgAspect) * zoom;
                     const drawH = drawW / imgAspect;
                     const offsetX = (w - drawW) / 2;
-                    const offsetY = 0; // Align to top center instead of bottom center
+                    const offsetY = h - drawH;
                     fctx.drawImage(bgImg, offsetX, offsetY, drawW, drawH);
                     sprites.fullBg = fgC;
                 }
@@ -1006,8 +1011,10 @@
         }
 
         // Simple data structure for Units to minimize GC pauses
+        let unitIdCounter = 0;
         class Unit {
             constructor(x, y, team, type = TYPE_MELEE, level = 1, overrideStats = null) {
+                this.id = unitIdCounter++;
                 this.x = x;
                 this.y = y;
                 this.team = team; // 0 = Player (Blue), 1 = Enemy (Red)
@@ -1159,8 +1166,14 @@
             }
 
             // Spawning Logic (Batches for massive armies)
-            const pSpawnInterval = Math.max(1, Math.floor(PlayerConfig.spawnRateSeconds * 60));
-            const eSpawnInterval = Math.max(1, Math.floor(EnemyConfig.spawnRateSeconds * 60));
+            const getDynamicRate = (conf) => {
+                const reductionCount = Math.floor(score / conf.reductionInterval);
+                const currentRate = conf.spawnRateSeconds - (reductionCount * conf.reductionAmount);
+                return Math.max(conf.minSpawnRateSeconds, currentRate);
+            };
+
+            const pSpawnInterval = Math.max(1, Math.floor(getDynamicRate(PlayerConfig) * 60));
+            const eSpawnInterval = Math.max(1, Math.floor(getDynamicRate(EnemyConfig) * 60));
 
             // 리스폰 영역 설정 (본기지 Y값 기준)
             const pSpawnMinY = playerBase.y + LayoutConfig.spawnOffsetTop;
@@ -1198,8 +1211,8 @@
                     const lb = EnemyConfig.levelBalance;
 
                     // Check from highest level to lowest
-                    const levels = ["Lv5", "Lv4", "Lv3", "Lv2"];
-                    const levelNums = [5, 4, 3, 2];
+                    const levels = ["Lv10", "Lv9", "Lv8", "Lv7", "Lv6", "Lv5", "Lv4", "Lv3", "Lv2"];
+                    const levelNums = [10, 9, 8, 7, 6, 5, 4, 3, 2];
 
                     for (let i = 0; i < levels.length; i++) {
                         const cfg = lb[levels[i]];
@@ -1402,9 +1415,11 @@
                 }
 
                 // If IDLE or MOVING and not attacking base, check for nearby enemies to intercept
-                if (!attackingBase && (u.state === 0 || u.state === 1)) {
+                // Performance: Throttling targeting logic to run every 10 frames per unit
+                if (!attackingBase && (u.state === 0 || u.state === 1) && (frames + u.id) % 10 === 0) {
                     let closestEnemy = null;
-                    let closestDist = u.type === TYPE_RANGED ? 120 : (u.type === TYPE_ENHANCED ? 100 : 80); // Aggro range
+                    const aggroRange = u.type === TYPE_RANGED ? 120 : (u.type === TYPE_ENHANCED ? 100 : 80); // Aggro range
+                    let closestDistSq = aggroRange * aggroRange;
 
                     // Check own cell and 8 adjacent neighbors
                     const cx = Math.floor(u.x / CELL_SIZE);
@@ -1420,9 +1435,10 @@
                                 if (n.team !== u.team && n.hp > 0) {
                                     const dx = n.x - u.x;
                                     const dy = n.y - u.y;
-                                    const dist = Math.sqrt(dx * dx + dy * dy);
-                                    if (dist < closestDist) {
-                                        closestDist = dist;
+                                    // Performance: Using squared distance to avoid Math.sqrt()
+                                    const distSq = dx * dx + dy * dy;
+                                    if (distSq < closestDistSq) {
+                                        closestDistSq = distSq;
                                         closestEnemy = n;
                                     }
                                 }
@@ -1797,17 +1813,17 @@
                         ctx.fillRect(bx + drawW / 2 - hpW / 2, hpY, Math.max(0, curHp / maxHp) * hpW, hpH);
                     } else {
                         const u = r.obj;
+                        // Performance: Culling units outside viewport
+                        if (u.x < -100 || u.x > canvas.width + 100) continue;
+
                         const scaleFactor = 0.4 + 0.6 * ((u.y - HORIZON_Y) / (canvas.height - HORIZON_Y));
                         const sz = u.size * 2 * scaleFactor;
                         const drawW = sz;
                         const drawH = sz;
                         const visualOffsetY = drawH * (20 / 24);
 
-                        // Drop Shadow
-                        ctx.fillStyle = "rgba(0,0,0,0.5)";
-                        ctx.beginPath();
-                        ctx.ellipse(u.x, u.y, drawW * 0.35, drawH * 0.12, 0, 0, Math.PI * 2);
-                        ctx.fill();
+                        // Drop Shadow: Replaced with pre-rendered sprite for performance
+                        ctx.drawImage(sprites.shadow, u.x - drawW * 0.35, u.y - drawH * 0.12, drawW * 0.7, drawH * 0.24);
 
                         let sprSet = sprites.pMelee;
                         if (u.team === 0) {
