@@ -139,7 +139,7 @@
     </div>
     <div id="ui-center">
         <div class="stat-box"
-            style="color:#fcd34d; border-color: #ca8a04; font-size: 22px; justify-content: center; gap: 15px;">SCORE
+            style="color:#fcd34d; border-color: #ca8a04; font-size: 22px; justify-content: center; gap: 15px;">
             <span id="score">0</span>
         </div>
     </div>
@@ -228,7 +228,26 @@
         // Prevent context menu
         window.addEventListener('contextmenu', e => e.preventDefault());
 
-        // --- GAME LOGIC & CONFIGURATION ---
+        // --- GAME CONFIGURATION ---
+
+        // 유닛 공통 레벨링/밸런스 설정
+        const BalanceConfig = {
+            // 레벨별 크기 배율 (1레벨, 2레벨, 3레벨, 4레벨, 5레벨...)
+            // 1.4는 기본 크기의 1.4배를 의미합니다.
+            sizeScales: [1.0, 1.4, 1.6, 1.8, 2.0],
+
+            // 레벨당 스탯(HP, 데미지) 증가 배율
+            // 레벨 2는 레벨 1의 이 배수만큼 강해집니다.
+            statMultiplierPerLevel: 1.5,
+
+            // 플레이어 합체 설정
+            playerMerge: {
+                unitsRequired: 5,         // 합체에 필요한 동일 타입 & 레벨 유닛 수
+                // 합체 보너스 (합쳐진 스탯의 몇 배가 될지 결정)
+                // 현재 LevelScalingConfig.statMultiplierPerLevel과 연동됩니다.
+                bonusScaling: 1.5 / 5.0   // (1.5배 / 5마리) -> 합체 시 레벨 1.5배 보수 유지
+            }
+        };
 
         // 밸런스 및 설정을 쉽게 조절하기 위한 중앙 제어 변수들 (인간 진영)
         const PlayerConfig = {
@@ -257,7 +276,13 @@
             probTanker: 0.2,             // 오거 소환 확률 (10%)
             baseAttackRange: 175,        // 기지 대포 사거리 (절반으로 감소)
             baseAttackCooldown: 60,      // 기지 대포 발사 주기 (프레임)
-            baseAttackDamage: 60         // 기지 대포 데미지
+            baseAttackDamage: 60,         // 기지 대포 데미지
+            levelBalance: {
+                Lv2: { scoreInterval: 200, probIncrement: 0.005, maxProb: 0.7 },
+                Lv3: { scoreInterval: 500, probIncrement: 0.005, maxProb: 0.7 },
+                Lv4: { scoreInterval: 1000, probIncrement: 0.005, maxProb: 0.7 },
+                Lv5: { scoreInterval: 5000, probIncrement: 0.005, maxProb: 0.7 }
+            }
         };
 
         // 환경 변수 (중립 이벤트)
@@ -266,6 +291,32 @@
             lightningDamage: 100,         // 번개 Area of Effect 데미지
             lightningRadius: 60          // 번개 타격 범위
         };
+
+        // 화면 레이아웃 및 영역 설정 (본기지를 기준으로 모두 설정)
+        const LayoutConfig = {
+            // 1. 본기지 위치 설정 (화면 양 끝 여백, Y축은 화면 높이 대비 비율)
+            baseMarginX: 60,
+            baseRatioY: 0.55,           // 화면 끝에서 55% 위치(수직 중앙에서 약간 아래)
+
+            // 2. 본기지 기준으로 리스폰 영역 상/하 (Y축 오프셋)
+            spawnOffsetTop: -100,       // 스폰 허용 상단 끝
+            spawnOffsetBottom: 100,     // 스폰 허용 하단 끝
+
+            // 3. 본기지 기준으로 전투 영역 상/하 (Y축 오프셋 - 제한 범위)
+            combatOffsetTop: -180,
+            combatOffsetBottom: 180,
+
+            // 4. 본기지 기준으로 합체할 영역 위치 및 크기 설정 (Player 전용)
+            mergeOffsetX: -40,          // 기지 기준 X축 거리
+            mergeOffsetY: 55,          // 기지 기준 Y축 상단 거리
+            mergeWidth: 70,            // 영역 가로 폭
+            mergeHeight: 70,           // 영역 세로 폭
+
+            // 안전 구역(리스폰/합체)과 전투 구역을 나누는 X축 가이드라인 (기지 기준 X 오프셋)
+            safeZoneWidth: 250
+        };
+
+        let MergeZone = { x: -1000, y: -1000, width: LayoutConfig.mergeWidth, height: LayoutConfig.mergeHeight }; // 초기화는 startGame() 에서
 
         const HORIZON_Y = 0.1 * canvas.height; // Logical horizon (High 75-degree angle)
 
@@ -670,7 +721,7 @@
             sprites.bgGrid = bgC;
 
             const bgImg = new Image();
-            bgImg.src = 'background.png?v=' + Date.now();
+            bgImg.src = './background_2.png'; // Mordor/Gondor Aesthetic Battlefield
             bgImg.onload = () => {
                 const w = window.innerWidth || 800;
                 const h = window.innerHeight || 1200;
@@ -678,7 +729,7 @@
                 fgC.width = w; fgC.height = h;
                 const fctx = fgC.getContext('2d');
                 const imgAspect = bgImg.width / bgImg.height;
-                const zoom = 1.4;
+                const zoom = 1;
                 const drawW = Math.max(w, h * imgAspect) * zoom;
                 const drawH = drawW / imgAspect;
                 const offsetX = (w - drawW) / 2;
@@ -785,7 +836,7 @@
                 this.y = y;
                 this.vx = (Math.random() - 0.5) * 4;
                 this.vy = (Math.random() - 0.5) * 4;
-                this.life = 20 + Math.random() * 20;
+                this.life = 5 + Math.random() * 20;
                 this.maxLife = this.life;
                 this.color = color;
             }
@@ -793,7 +844,7 @@
 
         // Simple data structure for Units to minimize GC pauses
         class Unit {
-            constructor(x, y, team, type = TYPE_MELEE) {
+            constructor(x, y, team, type = TYPE_MELEE, level = 1, overrideStats = null) {
                 this.x = x;
                 this.y = y;
                 this.team = team; // 0 = Player (Blue), 1 = Enemy (Red)
@@ -826,12 +877,30 @@
                     this.maxHp = 150;
                     this.damage = 10;
                     this.attackRange = conf.unitSize + 5;
-                    this.speed = conf.speed * 0.6;
                     this.cooldownMax = 40;
                     this.size = conf.unitSize * 2;
                 }
 
-                this.hp = this.maxHp;
+                // Apply level-based scaling
+                if (level > 1) {
+                    const skillMult = Math.pow(BalanceConfig.statMultiplierPerLevel, level - 1);
+                    this.maxHp = Math.ceil(this.maxHp * skillMult);
+                    this.damage = Math.ceil(this.damage * skillMult);
+
+                    // 레벨별 크기 배율 적용 (BalanceConfig.sizeScales 변수 사용)
+                    const sizeScale = BalanceConfig.sizeScales[Math.min(level, BalanceConfig.sizeScales.length) - 1] || 1.0;
+                    this.size = this.size * sizeScale;
+                }
+
+                if (overrideStats) {
+                    if (overrideStats.maxHp !== undefined) this.maxHp = overrideStats.maxHp;
+                    if (overrideStats.damage !== undefined) this.damage = overrideStats.damage;
+                    if (overrideStats.size !== undefined) this.size = overrideStats.size;
+                    this.hp = overrideStats.hp !== undefined ? overrideStats.hp : (overrideStats.maxHp !== undefined ? overrideStats.maxHp : this.maxHp);
+                }
+
+                this.level = level;
+                this.hp = overrideStats ? overrideStats.hp : this.maxHp;
                 this.vx = 0;
                 this.vy = 0;
                 this.targetX = null;
@@ -929,8 +998,12 @@
             // Spawning Logic (Batches for massive armies)
             const pSpawnInterval = Math.max(1, Math.floor(PlayerConfig.spawnRateSeconds * 60));
             const eSpawnInterval = Math.max(1, Math.floor(EnemyConfig.spawnRateSeconds * 60));
-            const depthMin = canvas.height * 0.35; // Centered exactly around 0.5
-            const depthMax = canvas.height * 0.65; // Combat restricted to middle
+
+            // 리스폰 영역 설정 (본기지 Y값 기준)
+            const pSpawnMinY = playerBase.y + LayoutConfig.spawnOffsetTop;
+            const pSpawnMaxY = playerBase.y + LayoutConfig.spawnOffsetBottom;
+            const eSpawnMinY = enemyBase.y + LayoutConfig.spawnOffsetTop;
+            const eSpawnMaxY = enemyBase.y + LayoutConfig.spawnOffsetBottom;
 
             // Helper to determine spawn type based on Config probabilities
             const getSpawnType = (conf) => {
@@ -944,7 +1017,7 @@
             if (frames % pSpawnInterval === 0) {
                 for (let b = 0; b < PlayerConfig.spawnBatch; b++) {
                     const psx = -40 + Math.random() * -40; // Spawns between -40 and -80
-                    const psy = depthMin + Math.random() * (depthMax - depthMin);
+                    const psy = pSpawnMinY + Math.random() * (pSpawnMaxY - pSpawnMinY);
                     const pu = new Unit(psx, psy, 0, getSpawnType(PlayerConfig));
                     units.push(pu);
                 }
@@ -955,8 +1028,26 @@
             if (frames % eSpawnInterval === 0) {
                 for (let b = 0; b < EnemyConfig.spawnBatch; b++) {
                     const esx = canvas.width + 40 + Math.random() * 40; // Spawns between width+40 and width+80
-                    const esy = depthMin + Math.random() * (depthMax - depthMin);
-                    const eu = new Unit(esx, esy, 1, getSpawnType(EnemyConfig));
+                    const esy = eSpawnMinY + Math.random() * (eSpawnMaxY - eSpawnMinY);
+
+                    // Determine enemy level based on score
+                    let spawnLevel = 1;
+                    const lb = EnemyConfig.levelBalance;
+
+                    // Check from highest level to lowest
+                    const levels = ["Lv5", "Lv4", "Lv3", "Lv2"];
+                    const levelNums = [5, 4, 3, 2];
+
+                    for (let i = 0; i < levels.length; i++) {
+                        const cfg = lb[levels[i]];
+                        const prob = Math.min(cfg.maxProb, (score / cfg.scoreInterval) * cfg.probIncrement);
+                        if (Math.random() < prob) {
+                            spawnLevel = levelNums[i];
+                            break;
+                        }
+                    }
+
+                    const eu = new Unit(esx, esy, 1, getSpawnType(EnemyConfig), spawnLevel);
                     units.push(eu);
                 }
                 if (Math.random() > 0.5) WCGames.Audio.play([600, 200], 'square', 0.05, 0.02);
@@ -975,16 +1066,17 @@
             // Enhanced Unit Spawning
             const pBossInterval = Math.max(1, Math.floor(PlayerConfig.bossSpawnRateSeconds * 60));
             const eBossInterval = Math.max(1, Math.floor(EnemyConfig.bossSpawnRateSeconds * 60));
-            const bDepth = canvas.height * 0.5;
 
             if (frames > 0 && frames % pBossInterval === 0) {
+                const psy = playerBase.y + LayoutConfig.spawnOffsetTop + Math.random() * (LayoutConfig.spawnOffsetBottom - LayoutConfig.spawnOffsetTop);
                 // Player Boss (offscreen left)
-                units.push(new Unit(-60, bDepth, 0, TYPE_ENHANCED));
+                units.push(new Unit(-60, psy, 0, TYPE_ENHANCED));
                 WCGames.Audio.play([150, 80], 'square', 0.2, 0.2); // Boss spawn sound
             }
             if (frames > 0 && frames % eBossInterval === 0) {
+                const esy = enemyBase.y + LayoutConfig.spawnOffsetTop + Math.random() * (LayoutConfig.spawnOffsetBottom - LayoutConfig.spawnOffsetTop);
                 // Enemy Boss (offscreen right)
-                units.push(new Unit(canvas.width + 60, bDepth, 1, TYPE_ENHANCED));
+                units.push(new Unit(canvas.width + 60, esy, 1, TYPE_ENHANCED));
                 WCGames.Audio.play([150, 80], 'square', 0.2, 0.2); // Boss spawn sound
             }
 
@@ -1033,9 +1125,10 @@
 
                 lightnings.push({ x: targetX, y: targetY, life: 15, maxLife: 15 });
 
-                // Thunder sound crack - sharper starting tone dropping to a deep rumble
-                WCGames.Audio.play([400, 100, 30], 'square', 0.8, 0.4);
-                WCGames.Audio.play([200, 50, 10], 'sawtooth', 1.0, 0.5); // Accompanying low rumble
+                // Electric Zap ("찌직") - Sharp, high frequency crackle sequence (Volume halved)
+                WCGames.Audio.play([2000, 800], 'sawtooth', 0.15, 0.1);
+                setTimeout(() => WCGames.Audio.play([1500, 200], 'square', 0.3, 0.15), 40);
+                setTimeout(() => WCGames.Audio.play([800, 50], 'sawtooth', 0.35, 0.2), 90);
 
                 // AOE Damage Application (Friendly Fire enabled)
                 for (let i = 0; i < units.length; i++) {
@@ -1046,6 +1139,79 @@
                         if (u.hp <= 0) u.killedByLightning = true;
                         // Spark particles indicating hit
                         for (let k = 0; k < 3; k++) particles.push(new Particle(u.x, u.y, "#fef08a"));
+                    }
+                }
+            }
+
+            // Auto-Merge Zone Logic
+            if (isStarted && MergeZone.x !== -1000) {
+                const mergeGroups = {};
+                for (let i = 0; i < units.length; i++) {
+                    const u = units[i];
+                    if (u.team === 0 && u.hp > 0) {
+                        // Elliptical boundary check (Perspective Magic Circle - 0.35x squash)
+                        const centerX = MergeZone.x + MergeZone.width / 2;
+                        const centerY = MergeZone.y + MergeZone.height / 2;
+                        const dx = u.x - centerX;
+                        const dy = u.y - centerY;
+                        const rx = MergeZone.width / 2;
+                        const ry = rx * 0.35; // Match visual 0.35x squash
+
+                        if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1.2) { // 1.2 for slight buffer 
+                            const key = u.type + "_" + u.level;
+                            if (!mergeGroups[key]) mergeGroups[key] = [];
+                            mergeGroups[key].push(u);
+                        }
+                    }
+                }
+
+                for (const key in mergeGroups) {
+                    if (mergeGroups[key].length >= BalanceConfig.playerMerge.unitsRequired) {
+                        const targets = mergeGroups[key].slice(0, BalanceConfig.playerMerge.unitsRequired);
+                        const baseType = targets[0].type;
+                        const newLevel = targets[0].level + 1;
+                        let centerX = 0;
+                        let centerY = 0;
+                        let totalHp = 0;
+                        let totalMaxHp = 0;
+                        let totalDmg = 0;
+                        let sumArea = 0;
+
+                        for (const u of targets) {
+                            centerX += u.x;
+                            centerY += u.y;
+                            totalHp += u.hp;
+                            totalMaxHp += u.maxHp;
+                            totalDmg += u.damage;
+                            sumArea += (u.size * u.size);
+                            u.hp = 0; // Destroy component unit
+                        }
+                        centerX /= targets.length;
+                        centerY /= targets.length;
+
+                        // Apply balancing multiplier for the new merged unit
+                        const finalHp = Math.ceil(totalHp * BalanceConfig.playerMerge.bonusScaling);
+                        const finalMaxHp = Math.ceil(totalMaxHp * BalanceConfig.playerMerge.bonusScaling);
+                        const finalDmg = Math.ceil(totalDmg * BalanceConfig.playerMerge.bonusScaling);
+
+                        // Size is now automatically handled by the Unit constructor using level scaling (1.05x)
+                        const overrideStats = { hp: finalHp, maxHp: finalMaxHp, damage: finalDmg };
+                        const mergedUnit = new Unit(centerX, centerY, 0, baseType, newLevel, overrideStats);
+                        mergedUnit.state = 0; // Ensure it auto-moves forward
+                        units.push(mergedUnit);
+
+                        // Flashy visual and sound
+                        WCGames.Audio.play([150, 400], 'square', 0.4, 0.4);
+                        for (let i = 0; i < 20; i++) {
+                            particles.push({
+                                x: centerX + (Math.random() - 0.5) * 40,
+                                y: centerY + (Math.random() - 0.5) * 40,
+                                vx: (Math.random() - 0.5) * 8,
+                                vy: (Math.random() - 0.5) * 8 - 3,
+                                life: Math.random() * 20 + 20,
+                                color: '#fcd34d' // Gold particles
+                            });
+                        }
                     }
                 }
             }
@@ -1115,7 +1281,7 @@
                     const dir = u.team === 0 ? 1 : -1; // Player right, Enemy left
                     u.vx = adjSpeed * dir * 0.5;
                     // Slightly trend towards base Y
-                    const centerDir = (canvas.height * 0.6 - u.y) * 0.001;
+                    const centerDir = (playerBase.y - u.y) * 0.001;
                     u.vy = centerDir;
                 } else if (u.state === 1) { // MOVING (Commanded)
                     if (u.targetX !== null && u.targetY !== null) {
@@ -1195,8 +1361,10 @@
                 }
 
                 // Depth clamping so units don't walk into the sky or bottom 1/3
-                if (u.y < canvas.height * 0.35 && u.hp > 0) u.y = canvas.height * 0.35;
-                if (u.y > canvas.height * 0.66 && u.hp > 0) u.y = canvas.height * 0.66;
+                const minY = playerBase.y + LayoutConfig.combatOffsetTop;
+                const maxY = playerBase.y + LayoutConfig.combatOffsetBottom;
+                if (u.y < minY && u.hp > 0) u.y = minY;
+                if (u.y > maxY && u.hp > 0) u.y = maxY;
 
                 // Basic bounds check to prevent memory leaks from wandering units or death
                 if (u.x < -150 || u.x > canvas.width + 150 || u.hp <= 0) {
@@ -1293,6 +1461,130 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
 
+                // Draw Safe Zone Shading (Soot and Dust Overlay)
+                const boundaryX = playerBase.x + LayoutConfig.safeZoneWidth;
+                // ctx.fillStyle = "rgba(64, 64, 64, 0.2)"; // Dark charcoal/soot dust
+                // ctx.fillRect(0, playerBase.y + LayoutConfig.combatOffsetTop, boundaryX, LayoutConfig.combatOffsetBottom - LayoutConfig.combatOffsetTop);
+
+                // Draw Combat / Respawn Boundary Line
+                // ctx.lineWidth = 3;
+                // ctx.setLineDash([25, 20]); // Long, heavy spectral dashes
+                // ctx.strokeStyle = "rgba(163, 163, 163, 0.5)"; // Iron grey (Neutral-400)
+
+                // Vertical Line
+                // ctx.beginPath();
+                // ctx.moveTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetTop);
+                // ctx.lineTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetBottom);
+                // ctx.stroke();
+
+                // Horizontal Lines (Top and Bottom of combat lane)
+                // ctx.beginPath();
+                // ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetTop);
+                // ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetTop);
+                // ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetBottom);
+                // ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetBottom);
+                // ctx.stroke();
+
+                // Optional: Add a second faint glow layer
+                // ctx.lineWidth = 8;
+                // ctx.strokeStyle = "rgba(96, 165, 250, 0.15)";
+                // ctx.stroke();
+
+                // ctx.setLineDash([]);
+
+                // Add text label for the zones
+                // ctx.font = "bold 18px Courier New";
+                // ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+                // ctx.shadowBlur = 4;
+                // ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // White text for better visibility
+                // ctx.textAlign = "right";
+                // ctx.fillText("SAFE ZONE", boundaryX - 15, playerBase.y + LayoutConfig.combatOffsetTop + 30);
+                // ctx.textAlign = "left";
+                // ctx.fillText("COMBAT ZONE", boundaryX + 15, playerBase.y + LayoutConfig.combatOffsetTop + 30);
+
+                // ctx.shadowBlur = 0; // Reset shadow
+
+                // Auto-Merge Zone (Mysterious Magic Circle with Perspective)
+                if (MergeZone.x !== -1000) {
+                    const cx = MergeZone.x + MergeZone.width / 2;
+                    const cy = MergeZone.y + MergeZone.height / 2;
+                    const rx = MergeZone.width / 2;
+                    // Enforce 0.35x perspective squash (Flat on ground)
+                    const ry = rx * 0.35;
+                    const pulse = Math.sin(frames * 0.05) * 0.2 + 0.8;
+                    const rot = frames * 0.02;
+
+                    ctx.save();
+                    ctx.setLineDash([]);
+
+                    // 0. Base "Height" Layering (Stacking thin ellipses for depth)
+                    for (let i = 4; i >= 1; i--) {
+                        ctx.strokeStyle = `rgba(180, 83, 9, ${0.12 * (1 / i)})`;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.ellipse(cx, cy + (i * 1.5), rx, ry, 0, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+
+                    // 1. Outer Glow Base
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = "rgba(251, 191, 36, 0.7)";
+                    ctx.fillStyle = "rgba(251, 191, 36, 0.15)";
+                    ctx.strokeStyle = "rgba(251, 191, 36, 0.8)";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // 2. Rotating Outer Rune Ring
+                    ctx.shadowBlur = 5;
+                    ctx.strokeStyle = `rgba(251, 191, 36, ${0.6 * pulse})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, rx * 0.9, ry * 0.9, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Rune Ticks (Foreshortened)
+                    for (let i = 0; i < 16; i++) {
+                        const angle = rot + (i * Math.PI * 2) / 16;
+                        const tx1 = cx + Math.cos(angle) * (rx * 0.85);
+                        const ty1 = cy + Math.sin(angle) * (ry * 0.85);
+                        const tx2 = cx + Math.cos(angle) * (rx * 0.98);
+                        const ty2 = cy + Math.sin(angle) * (ry * 0.98);
+                        ctx.beginPath();
+                        ctx.moveTo(tx1, ty1);
+                        ctx.lineTo(tx2, ty2);
+                        ctx.stroke();
+                    }
+
+                    // 3. Inner Magic Geometry (Foreshortened Diamond)
+                    ctx.strokeStyle = `rgba(251, 191, 36, ${0.8 * pulse})`;
+                    ctx.beginPath();
+                    for (let i = 0; i < 4; i++) {
+                        const angle = -rot * 1.5 + (i * Math.PI * 2) / 4;
+                        const px = cx + Math.cos(angle) * rx * 0.65;
+                        const py = cy + Math.sin(angle) * ry * 0.65;
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+
+                    // 4. Center Core
+                    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx * 0.5);
+                    gradient.addColorStop(0, `rgba(255, 255, 255, ${0.7 * pulse})`);
+                    gradient.addColorStop(0.4, `rgba(251, 191, 36, ${0.3 * pulse})`);
+                    gradient.addColorStop(1, "rgba(251, 191, 36, 0)");
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, rx * 0.5, ry * 0.5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.restore();
+                    ctx.shadowBlur = 0;
+                }
+
                 // Unified Depth Sorting list (Y-axis)
                 // This guarantees that layers between factions, units, and bases are rendered perfectly.
                 const renderQueue = [];
@@ -1383,6 +1675,14 @@
                             ctx.fillStyle = u.team === 0 ? "#86efac" : "#fb7185";
                             // Fixing "strange graph" rendering error preventing negative width
                             ctx.fillRect(u.x - barW / 2, u.y - offY - 3, Math.max(0, u.hp / u.maxHp) * barW, 3);
+                        }
+
+                        if (u.level > 1) {
+                            const offY = visualOffsetY + 15;
+                            ctx.fillStyle = "#fcd34d";
+                            ctx.font = "bold 12px Courier New";
+                            ctx.textAlign = "center";
+                            ctx.fillText("Lv" + u.level, u.x, u.y - offY);
                         }
                     }
                 }
@@ -1529,11 +1829,23 @@
             particles = [];
             projectiles = [];
             lightnings = [];
+            // 기지 위치 초기화 (위치 설정 변수 기반)
+            playerBase.x = LayoutConfig.baseMarginX;
+            playerBase.y = canvas.height * LayoutConfig.baseRatioY;
+            enemyBase.x = canvas.width - LayoutConfig.baseMarginX;
+            enemyBase.y = canvas.height * LayoutConfig.baseRatioY;
+
             playerBase.hp = PlayerConfig.baseMaxHp;
             playerBase.cooldown = 0;
             enemyBase.hp = EnemyConfig.baseMaxHp;
             enemyBase.cooldown = 0;
             selection.active = false;
+
+            // Define Auto-Merge zone near Player Base using Layout config variables
+            MergeZone.width = LayoutConfig.mergeWidth;
+            MergeZone.height = LayoutConfig.mergeHeight;
+            MergeZone.x = playerBase.x + LayoutConfig.mergeOffsetX;
+            MergeZone.y = playerBase.y + LayoutConfig.mergeOffsetY;
         }
 
         WCGames.init({
