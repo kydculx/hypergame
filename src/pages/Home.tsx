@@ -68,10 +68,10 @@ const Home: React.FC = () => {
                             {t('footer.contact')}
                         </p>
                         <a
-                            href="mailto:kydculx@gmail.com"
+                            href="mailto:fhdls429@gmail.com"
                             className="text-slate-300 hover:text-cyan-400 transition-colors duration-200 text-sm font-medium"
                         >
-                            kydculx@gmail.com
+                            fhdls429@gmail.com
                         </a>
                     </div>
                 </div>
