@@ -257,8 +257,10 @@
             unitSize: 16,                // 기본 유닛 크기 배율
             speed: 1.0,                  // 이동 속도 배율
             baseMaxHp: 5000,             // 기지 체력
-            probRanged: 0.2,             // 궁수 소환 확률 (20%)
+            probRanged: 0.15,            // 궁수 소환 확률 (15%)
             probTanker: 0.1,             // 방패병 소환 확률 (10%)
+            probMage: 0.1,               // 마법사 소환 확률 (10%)
+            probHealer: 0.1,             // 힐러 소환 확률 (10%) - 나머지 55%는 근접
             baseAttackRange: 175,        // 기지 대포 사거리
             baseAttackCooldown: 60,      // 기지 대포 발사 주기 (프레임)
             baseAttackDamage: 60,        // 기지 대포 데미지
@@ -289,7 +291,7 @@
         const EnvironmentConfig = {
             lightningRateSeconds: 10,     // 번개가 내리치는 주기 (초 단위)
             lightningDamage: 100,         // 번개 Area of Effect 데미지
-            lightningRadius: 60          // 번개 타격 범위
+            lightningRadius: 60           // 번개 타격 범위
         };
 
         // 화면 레이아웃 및 영역 설정 (본기지를 기준으로 모두 설정)
@@ -325,6 +327,8 @@
         const TYPE_RANGED = 1;
         const TYPE_ENHANCED = 2;
         const TYPE_TANKER = 3;
+        const TYPE_MAGE = 4;
+        const TYPE_HEALER = 5;
 
         let units = [];
         let particles = [];
@@ -629,7 +633,161 @@
                 "                        ",
                 "                        "
             ]);
+
             sprites.pEnh = sprites.pTank;
+            sprites.pMage = createAnim(24, 24, pPal, [
+                "                        ",
+                "         aaaa           ",
+                "        aiiiia          ",
+                "       aiiiiija         ",
+                "       abffffja         ",
+                "        aiijja   aa     ",
+                "     aaa agga   ahha    ",
+                "    aiijaaagga  ahha    ",
+                "   aiiiia agaa   aa     ",
+                "   aaiiia jj a   ga     ",
+                "    aaaa  gga    ga     ",
+                "          gga    ga     ",
+                "         aiigaa  ga     ",
+                "         ajjjaa  ga     ",
+                "          aiiia  ga     ",
+                "          agga   ga     ",
+                "         agga    ga     ",
+                "        agga     ga     ",
+                "         aa      aa     ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "         aaaa           ",
+                "        aiiiia          ",
+                "       aiiiiija         ",
+                "       abffffja         ",
+                "        aiijja   aa     ",
+                "     aaa agga   ahha    ",
+                "    aiijaaagga  ahha    ",
+                "   aiiiia agaa   aa     ",
+                "   aaiiia jj aa  ga     ",
+                "    aaaa  ggaa   ga     ",
+                "          ggaa   ga     ",
+                "         aiigaa  ga     ",
+                "         ajjjaa  ga     ",
+                "          aiiia  ga     ",
+                "          agga   ga     ",
+                "         agga   ga      ",
+                "        agga    aa      ",
+                "         aa             ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "          aa            ",
+                "         ahha           ",
+                "         ahha           ",
+                "         agaa           ",
+                "         aaaa           ",
+                "        aiiiia  ga      ",
+                "       aiiiiija ga      ",
+                "       abffffja ga      ",
+                "        aiijja  ga      ",
+                "     aaa agga   ga      ",
+                "    aiijaaagga  ga      ",
+                "   aiiiia agaa a a      ",
+                "   aaiiia jj aaa        ",
+                "    aaaa  gg a          ",
+                "          gg a          ",
+                "         aiig           ",
+                "         ajjj           ",
+                "          aii           ",
+                "          agg           ",
+                "         agga           ",
+                "        agga            ",
+                "         aa             ",
+                "                        ",
+                "                        "
+            ]);
+
+            sprites.pHealer = createAnim(24, 24, pPal, [
+                "                        ",
+                "         aaaa           ",
+                "        abbbba          ",
+                "       abbbbbja         ",
+                "       abffffja         ",
+                "        abjjja   aa     ",
+                "     aaa agga   ahha    ",
+                "    abbjaaggga  ahha    ",
+                "   ahbhha ahaa   aa     ",
+                "   aahhha jj a   ga     ",
+                "    aaaa  gga    ga     ",
+                "          gga    ga     ",
+                "         abbjaa  ga     ",
+                "         abjjaa  ga     ",
+                "          abjja  ga     ",
+                "          agga   ga     ",
+                "         agga    ga     ",
+                "        agga     ga     ",
+                "         aa      aa     ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "         aaaa           ",
+                "        abbbba          ",
+                "       abbbbbja         ",
+                "       abffffja         ",
+                "        abjjja   aa     ",
+                "     aaa agga   ahha    ",
+                "    abbjaaggga  ahha    ",
+                "   ahbhha ahaa   aa     ",
+                "   aahhha jj aa  ga     ",
+                "    aaaa  ggaa   ga     ",
+                "          ggaa   ga     ",
+                "         abbjaa  ga     ",
+                "         abjjaa  ga     ",
+                "          abjja  ga     ",
+                "          agga   ga     ",
+                "         agga   ga      ",
+                "        agga    aa      ",
+                "         aa             ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "          aa            ",
+                "         ahha           ",
+                "         ahha           ",
+                "         agaa           ",
+                "         aaaa           ",
+                "        abbbba  ga      ",
+                "       abbbbbja ga      ",
+                "       abffffja ga      ",
+                "        abjjja  ga      ",
+                "     aaa agga   ga      ",
+                "    abbjaaggga  ga      ",
+                "   ahbhha ahaa a a      ",
+                "   aahhha jj aaa        ",
+                "    aaaa  gg a          ",
+                "          gg a          ",
+                "         abbj           ",
+                "         abjj           ",
+                "          abj           ",
+                "          agg           ",
+                "         agga           ",
+                "        agga            ",
+                "         aa             ",
+                "                        ",
+                "                        "
+            ]);
 
             // --- Enemy (Orcs) - Facing LEFT ---
             // --- Enemy (Orcs) - Facing LEFT ---
@@ -861,7 +1019,161 @@
                 "                        ",
                 "                        "
             ]);
+
             sprites.eEnh = sprites.eTank;
+            sprites.eMage = createAnim(24, 24, ePal, [
+                "                        ",
+                "           aaaa         ",
+                "          ahhhha        ",
+                "         ahhhh hia      ",
+                "         abffffhia      ",
+                "     aa   ahhjja        ",
+                "    abba   agga aaa     ",
+                "    abba  aggaaahia     ",
+                "     aa   aaga ahhhha   ",
+                "     aj   a ii ahhhaa   ",
+                "     aj    agg  aaaa    ",
+                "     aj    agg          ",
+                "     aj  aahha          ",
+                "     aj  aiiia          ",
+                "     aj  ahhha          ",
+                "     aj   agga          ",
+                "     aj    agga         ",
+                "     aj     agga        ",
+                "     aa      aa         ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "           aaaa         ",
+                "          ahhhha        ",
+                "         ahhhh hia      ",
+                "         abffffhia      ",
+                "     aa   ahhjja        ",
+                "    abba   agga aaa     ",
+                "    abba  aggaaahia     ",
+                "     aa   aaga ahhhha   ",
+                "     aj  aa ii ahhhaa   ",
+                "     aj   aagg  aaaa    ",
+                "     aj   aagg          ",
+                "     aj  aahha          ",
+                "     aj  aiiia          ",
+                "     aj  ahhha          ",
+                "     aj   agga          ",
+                "      aj  agga          ",
+                "      aa   agga         ",
+                "            aa          ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "            aa          ",
+                "           abba         ",
+                "           abba         ",
+                "           aaja         ",
+                "           aaaa         ",
+                "      aj  ahhhha        ",
+                "      aj ahhhh hia      ",
+                "      aj abffffhia      ",
+                "      aj  ahhjja        ",
+                "      aj   agga aaa     ",
+                "      aj  aggaaahia     ",
+                "      a a agaa ahhhha   ",
+                "        aaa ii ahhhaa   ",
+                "          a gg  aaaa    ",
+                "          a gg          ",
+                "           giia         ",
+                "           jjja         ",
+                "           iia          ",
+                "           gga          ",
+                "           agga         ",
+                "            agga        ",
+                "             aa         ",
+                "                        ",
+                "                        "
+            ]);
+
+            sprites.eHealer = createAnim(24, 24, ePal, [
+                "                        ",
+                "           aaaa         ",
+                "          abbbba        ",
+                "         abbbb bia      ",
+                "         abffffbia      ",
+                "     aa   abbjja        ",
+                "    affa   agga aaa     ",
+                "    affa  aggaaabia     ",
+                "     aa   aaga abbbba   ",
+                "     aj   a ii abbbaa   ",
+                "     aj    agg  aaaa    ",
+                "     aj    agg          ",
+                "     aj  aabba          ",
+                "     aj  aibia          ",
+                "     aj  abbba          ",
+                "     aj   agga          ",
+                "     aj    agga         ",
+                "     aj     agga        ",
+                "     aa      aa         ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "                        ",
+                "           aaaa         ",
+                "          abbbba        ",
+                "         abbbb bia      ",
+                "         abffffbia      ",
+                "     aa   abbjja        ",
+                "    affa   agga aaa     ",
+                "    affa  aggaaabia     ",
+                "     aa   aaga abbbba   ",
+                "     aj  aa ii abbbaa   ",
+                "     aj   aagg  aaaa    ",
+                "     aj   aagg          ",
+                "     aj  aabba          ",
+                "     aj  aibia          ",
+                "     aj  abbba          ",
+                "     aj   agga          ",
+                "      aj  agga          ",
+                "      aa   agga         ",
+                "            aa          ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        ",
+                "                        "
+            ], [
+                "            aa          ",
+                "           affa         ",
+                "           affa         ",
+                "           aaja         ",
+                "           aaaa         ",
+                "      aj  abbbba        ",
+                "      aj abbbb bia      ",
+                "      aj abffffbia      ",
+                "      aj  abbjja        ",
+                "      aj   agga aaa     ",
+                "      aj  aggaaabia     ",
+                "      a a agaa abbbba   ",
+                "        aaa ii abbbaa   ",
+                "          a gg  aaaa    ",
+                "          a gg          ",
+                "           gii          ",
+                "           jjj          ",
+                "           ii           ",
+                "           gg           ",
+                "           agga         ",
+                "            agga        ",
+                "             aa         ",
+                "                        ",
+                "                        "
+            ]);
 
             // --- Performance: Pre-rendered Shadow ---
             const shC = document.createElement('canvas');
@@ -982,7 +1294,7 @@
 
         // Projectile for Ranged Units
         class Projectile {
-            constructor(x, y, target, damage, team, speed = 5, isCannon = false) {
+            constructor(x, y, target, damage, team, speed = 5, isCannon = false, isMagic = false, isHeal = false) {
                 this.x = x;
                 this.y = y;
                 this.startX = x;
@@ -993,13 +1305,15 @@
                 this.damage = damage;
                 this.speed = speed;
                 this.isCannon = isCannon;
+                this.isMagic = isMagic;
+                this.isHeal = isHeal;
                 this.active = true;
             }
         }
 
         // Particle FX
         class Particle {
-            constructor(x, y, color) {
+            constructor(x, y, color, isCross = false) {
                 this.x = x;
                 this.y = y;
                 this.vx = (Math.random() - 0.5) * 4;
@@ -1007,6 +1321,7 @@
                 this.life = 5 + Math.random() * 20;
                 this.maxLife = this.life;
                 this.color = color;
+                this.isCross = isCross;
             }
         }
 
@@ -1048,9 +1363,23 @@
                     this.damage = 10;
                     this.attackRange = conf.unitSize + 5;
                     this.cooldownMax = 40;
+                    this.speed = conf.speed * 0.4;
                     this.size = conf.unitSize * 2;
+                } else if (type === TYPE_MAGE) {
+                    this.maxHp = 6;
+                    this.damage = 5;
+                    this.attackRange = 100;
+                    this.speed = conf.speed * 0.7;
+                    this.cooldownMax = 60; // 1s
+                    this.size = conf.unitSize;
+                } else if (type === TYPE_HEALER) {
+                    this.maxHp = 8;
+                    this.damage = -5; // Negative damage implies healing
+                    this.attackRange = 120;
+                    this.speed = conf.speed * 0.9;
+                    this.cooldownMax = 50;
+                    this.size = conf.unitSize;
                 }
-
                 // Apply level-based scaling
                 if (level > 1) {
                     const skillMult = Math.pow(BalanceConfig.statMultiplierPerLevel, level - 1);
@@ -1186,6 +1515,8 @@
                 const r = Math.random();
                 if (r < conf.probRanged) return TYPE_RANGED;
                 if (r < (conf.probRanged + conf.probTanker)) return TYPE_TANKER;
+                if (r < (conf.probRanged + conf.probTanker + conf.probMage)) return TYPE_MAGE;
+                if (r < (conf.probRanged + conf.probTanker + conf.probMage + conf.probHealer)) return TYPE_HEALER;
                 return TYPE_MELEE;
             };
 
@@ -1432,14 +1763,28 @@
 
                             for (let j = 0; j < neighbors.length; j++) {
                                 const n = neighbors[j];
-                                if (n.team !== u.team && n.hp > 0) {
-                                    const dx = n.x - u.x;
-                                    const dy = n.y - u.y;
-                                    // Performance: Using squared distance to avoid Math.sqrt()
-                                    const distSq = dx * dx + dy * dy;
-                                    if (distSq < closestDistSq) {
-                                        closestDistSq = distSq;
-                                        closestEnemy = n;
+
+                                if (u.type === TYPE_HEALER) {
+                                    // Healer logic: Find closest ALLY that is missing HP
+                                    if (n.team === u.team && n.hp > 0 && n.hp < n.maxHp && n !== u) {
+                                        const dx = n.x - u.x;
+                                        const dy = n.y - u.y;
+                                        const distSq = dx * dx + dy * dy;
+                                        if (distSq < closestDistSq) {
+                                            closestDistSq = distSq;
+                                            closestEnemy = n; // Resusing variable for closest target
+                                        }
+                                    }
+                                } else {
+                                    // Normal combat logic: Find closest ENEMY
+                                    if (n.team !== u.team && n.hp > 0) {
+                                        const dx = n.x - u.x;
+                                        const dy = n.y - u.y;
+                                        const distSq = dx * dx + dy * dy;
+                                        if (distSq < closestDistSq) {
+                                            closestDistSq = distSq;
+                                            closestEnemy = n;
+                                        }
                                     }
                                 }
                             }
@@ -1501,6 +1846,12 @@
                                 if (u.type === TYPE_RANGED) {
                                     projectiles.push(new Projectile(u.x, u.y, target, u.damage, u.team, 4));
                                     if (Math.random() > 0.8) WCGames.Audio.play([800, 600], 'triangle', 0.1, 0.05);
+                                } else if (u.type === TYPE_MAGE) {
+                                    projectiles.push(new Projectile(u.x, u.y, target, u.damage, u.team, 3, false, true));
+                                    if (Math.random() > 0.4) WCGames.Audio.play([800, 1500], 'sine', 0.05, 0.05);
+                                } else if (u.type === TYPE_HEALER) {
+                                    projectiles.push(new Projectile(u.x, u.y, target, u.damage, u.team, 3.5, false, false, true));
+                                    if (Math.random() > 0.3) WCGames.Audio.play([1200, 1600], 'sine', 0.05, 0.05);
                                 } else {
                                     // Melee Hit (Fiery Explosion + Slash)
                                     target.hp -= u.damage;
@@ -1583,19 +1934,40 @@
                 const dx = p.target.x - p.x;
                 const dy = p.target.y - p.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-
                 if (dist < p.speed) {
-                    // Hit Target
-                    p.target.hp -= p.damage;
-                    const sparkColor = p.team === 0 ? "#93c5fd" : "#fca5a5";
-                    for (let k = 0; k < 2; k++) particles.push(new Particle(p.target.x, p.target.y - 10, sparkColor)); // tiny spark
+                    // Hit
+                    if (p.isHeal) {
+                        // Healing logic
+                        p.target.hp += Math.abs(p.damage);
+                        if (p.target.hp > p.target.maxHp) p.target.hp = p.target.maxHp;
 
-                    if (p.isCannon) {
-                        for (let k = 0; k < 6; k++) particles.push(new Particle(p.target.x, p.target.y, "#fef08a")); // Larger explosion
-                        WCGames.Audio.play([100, 50], 'sawtooth', 0.2, 0.1); // Impact sound
+                        // Healing Particles (Green crosses or sparks)
+                        for (let k = 0; k < 6; k++) {
+                            const hpPart = new Particle(p.target.x, p.target.y - 10, "#4ade80", true);
+                            hpPart.vy = -0.5 - Math.random() * 1.5; // Float upwards slower
+                            hpPart.vx = (Math.random() - 0.5) * 1.5; // Less horizontal variance
+                            hpPart.life = 30 + Math.random() * 15; // Lasts longer
+                            particles.push(hpPart);
+                        }
+                        if (Math.random() > 0.5) WCGames.Audio.play([1500, 2000], 'sine', 0.1, 0.05); // Tiny heal chime
                     } else {
-                        if (Math.random() > 0.8) WCGames.Audio.play([400, 100], 'sawtooth', 0.05, 0.02);
+                        // Damage logic
+                        p.target.hp -= p.damage;
+                        const sparkColor = p.team === 0 ? "#93c5fd" : "#fca5a5";
+                        for (let k = 0; k < 2; k++) particles.push(new Particle(p.target.x, p.target.y - 10, sparkColor)); // tiny spark
+
+                        if (p.isCannon) {
+                            for (let k = 0; k < 6; k++) particles.push(new Particle(p.target.x, p.target.y, "#fef08a")); // Larger explosion
+                            WCGames.Audio.play([100, 50], 'sawtooth', 0.2, 0.1); // Impact sound
+                        } else if (p.isMagic) {
+                            for (let k = 0; k < 8; k++) particles.push(new Particle(p.target.x, p.target.y - 15, p.team === 0 ? "#60a5fa" : "#fbbf24")); // Magic burst
+                            if (Math.random() > 0.5) WCGames.Audio.play([1200, 400], 'sine', 0.1, 0.05);
+                        } else {
+                            if (Math.random() > 0.8) WCGames.Audio.play([400, 100], 'sawtooth', 0.05, 0.02);
+                        }
                     }
+
+                    p.active = false;
                     projectiles.splice(i, 1);
                 } else {
                     p.x += (dx / dist) * p.speed;
@@ -1605,6 +1977,18 @@
                     if (p.isCannon && frames % 2 === 0) {
                         const trailColor = p.team === 0 ? "rgba(96, 165, 250, 0.5)" : "rgba(244, 63, 94, 0.5)";
                         particles.push(new Particle(p.x, p.y - p.z, trailColor));
+                    } else if (p.isMagic && frames % 2 === 0) {
+                        const trailColor = p.team === 0 ? "#bfdbfe" : "#fef08a";
+                        const magPart = new Particle(p.x, p.y - p.z, trailColor);
+                        magPart.life = 10;
+                        magPart.vy = -1;
+                        particles.push(magPart);
+                    } else if (p.isHeal && frames % 3 === 0) {
+                        const trailColor = "#4ade80"; // Green spark trail
+                        const healPart = new Particle(p.x, p.y - p.z, trailColor);
+                        healPart.life = 12;
+                        healPart.vy = -0.5;
+                        particles.push(healPart);
                     }
 
                     // Calculate Parabolic Arc (Z-axis)
@@ -1636,60 +2020,60 @@
 
             if (isStarted) {
                 // Pre-draw ground effects (Attack Ranges) before anything else
-                ctx.lineWidth = 1;
-                ctx.setLineDash([5, 10]);
-                ctx.strokeStyle = "rgba(59, 130, 246, 0.3)"; // Player Base Range (Blue)
-                ctx.beginPath();
-                ctx.arc(playerBase.x, playerBase.y, PlayerConfig.baseAttackRange, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.strokeStyle = "rgba(239, 68, 68, 0.3)"; // Enemy Base Range (Red)
-                ctx.beginPath();
-                ctx.arc(enemyBase.x, enemyBase.y, EnemyConfig.baseAttackRange, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.setLineDash([]);
+                // ctx.lineWidth = 1;
+                // ctx.setLineDash([5, 10]);
+                // ctx.strokeStyle = "rgba(59, 130, 246, 0.3)"; // Player Base Range (Blue)
+                // ctx.beginPath();
+                // ctx.arc(playerBase.x, playerBase.y, PlayerConfig.baseAttackRange, 0, Math.PI * 2);
+                // ctx.stroke();
+                // ctx.strokeStyle = "rgba(239, 68, 68, 0.3)"; // Enemy Base Range (Red)
+                // ctx.beginPath();
+                // ctx.arc(enemyBase.x, enemyBase.y, EnemyConfig.baseAttackRange, 0, Math.PI * 2);
+                // ctx.stroke();
+                // ctx.setLineDash([]);
 
-                // Draw Safe Zone Shading (Soot and Dust Overlay)
-                const boundaryX = playerBase.x + LayoutConfig.safeZoneWidth;
-                ctx.fillStyle = "rgba(64, 64, 64, 0.2)"; // Dark charcoal/soot dust
-                ctx.fillRect(0, playerBase.y + LayoutConfig.combatOffsetTop, boundaryX, LayoutConfig.combatOffsetBottom - LayoutConfig.combatOffsetTop);
+                // // Draw Safe Zone Shading (Soot and Dust Overlay)
+                // const boundaryX = playerBase.x + LayoutConfig.safeZoneWidth;
+                // ctx.fillStyle = "rgba(64, 64, 64, 0.2)"; // Dark charcoal/soot dust
+                // ctx.fillRect(0, playerBase.y + LayoutConfig.combatOffsetTop, boundaryX, LayoutConfig.combatOffsetBottom - LayoutConfig.combatOffsetTop);
 
-                // Draw Combat / Respawn Boundary Line
-                ctx.lineWidth = 3;
-                ctx.setLineDash([25, 20]); // Long, heavy spectral dashes
-                ctx.strokeStyle = "rgba(163, 163, 163, 0.5)"; // Iron grey (Neutral-400)
+                // // Draw Combat / Respawn Boundary Line
+                // ctx.lineWidth = 3;
+                // ctx.setLineDash([25, 20]); // Long, heavy spectral dashes
+                // ctx.strokeStyle = "rgba(163, 163, 163, 0.5)"; // Iron grey (Neutral-400)
 
-                // Vertical Line
-                ctx.beginPath();
-                ctx.moveTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetTop);
-                ctx.lineTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetBottom);
-                ctx.stroke();
+                // // Vertical Line
+                // ctx.beginPath();
+                // ctx.moveTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetTop);
+                // ctx.lineTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetBottom);
+                // ctx.stroke();
 
-                // Horizontal Lines (Top and Bottom of combat lane)
-                ctx.beginPath();
-                ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetTop);
-                ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetTop);
-                ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetBottom);
-                ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetBottom);
-                ctx.stroke();
+                // // Horizontal Lines (Top and Bottom of combat lane)
+                // ctx.beginPath();
+                // ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetTop);
+                // ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetTop);
+                // ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetBottom);
+                // ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetBottom);
+                // ctx.stroke();
 
-                // Optional: Add a second faint glow layer
-                ctx.lineWidth = 8;
-                ctx.strokeStyle = "rgba(96, 165, 250, 0.15)";
-                ctx.stroke();
+                // // Optional: Add a second faint glow layer
+                // ctx.lineWidth = 8;
+                // ctx.strokeStyle = "rgba(96, 165, 250, 0.15)";
+                // ctx.stroke();
 
-                ctx.setLineDash([]);
+                // ctx.setLineDash([]);
 
-                // Add text label for the zones
-                ctx.font = "bold 18px Courier New";
-                ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-                ctx.shadowBlur = 4;
-                ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // White text for better visibility
-                ctx.textAlign = "right";
-                ctx.fillText("SAFE ZONE", boundaryX - 15, playerBase.y + LayoutConfig.combatOffsetTop + 30);
-                ctx.textAlign = "left";
-                ctx.fillText("COMBAT ZONE", boundaryX + 15, playerBase.y + LayoutConfig.combatOffsetTop + 30);
+                // // Add text label for the zones
+                // ctx.font = "bold 18px Courier New";
+                // ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+                // ctx.shadowBlur = 4;
+                // ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // White text for better visibility
+                // ctx.textAlign = "right";
+                // ctx.fillText("SAFE ZONE", boundaryX - 15, playerBase.y + LayoutConfig.combatOffsetTop + 30);
+                // ctx.textAlign = "left";
+                // ctx.fillText("COMBAT ZONE", boundaryX + 15, playerBase.y + LayoutConfig.combatOffsetTop + 30);
 
-                ctx.shadowBlur = 0; // Reset shadow
+                // ctx.shadowBlur = 0; // Reset shadow
 
                 // Auto-Merge Zone (Mysterious Magic Circle with Perspective)
                 if (MergeZone.x !== -1000) {
@@ -1830,11 +2214,15 @@
                             if (u.type === TYPE_RANGED) sprSet = sprites.pRanged;
                             else if (u.type === TYPE_TANKER) sprSet = sprites.pTank;
                             else if (u.type === TYPE_ENHANCED) sprSet = sprites.pEnh;
+                            else if (u.type === TYPE_MAGE) sprSet = sprites.pMage;
+                            else if (u.type === TYPE_HEALER) sprSet = sprites.pHealer;
                         } else {
                             sprSet = sprites.eMelee;
                             if (u.type === TYPE_RANGED) sprSet = sprites.eRanged;
                             else if (u.type === TYPE_TANKER) sprSet = sprites.eTank;
                             else if (u.type === TYPE_ENHANCED) sprSet = sprites.eEnh;
+                            else if (u.type === TYPE_MAGE) sprSet = sprites.eMage;
+                            else if (u.type === TYPE_HEALER) sprSet = sprites.eHealer;
                         }
 
                         let spr = sprSet.spr1;
@@ -1953,6 +2341,25 @@
                         ctx.beginPath();
                         ctx.arc(p.x, p.y - p.z, pSize * 2, 0, Math.PI * 2);
                         ctx.fill();
+                    } else if (p.isMagic) {
+                        // Glowing orb
+                        ctx.save();
+                        ctx.shadowColor = p.team === 0 ? "#60a5fa" : "#fbbf24";
+                        ctx.shadowBlur = 10;
+                        ctx.fillStyle = "#ffffff";
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y - p.z, pSize * 1.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    } else if (p.isHeal) {
+                        // Healing orb (emerald cross or glow)
+                        ctx.save();
+                        ctx.shadowColor = "#4ade80";
+                        ctx.shadowBlur = 8;
+                        ctx.fillStyle = "#bbf7d0";
+                        ctx.fillRect((p.x - pSize), (p.y - p.z - pSize * 2), pSize * 2, pSize * 4);
+                        ctx.fillRect((p.x - pSize * 2), (p.y - p.z - pSize), pSize * 4, pSize * 2);
+                        ctx.restore();
                     } else {
                         ctx.fillStyle = p.team === 0 ? "#22d3ee" : "#f97316";
                         ctx.fillRect(p.x - pSize / 2, p.y - p.z - pSize / 2, pSize, pSize);
@@ -1962,14 +2369,22 @@
                 // Draw Lightning Effect
                 for (let i = lightnings.length - 1; i >= 0; i--) {
                     const l = lightnings[i];
-                    ctx.strokeStyle = "#fef08a"; // Yellow/White bright pulse
-                    ctx.lineWidth = 2 + (l.life / l.maxLife) * 5; // thicker at start
+                    // Global flash overlay for the first 3 frames
+                    if (l.life > l.maxLife - 3) {
+                        ctx.strokeStyle = "rgba(255,255,255,0.8)";
+                        ctx.lineWidth = 15;
+                    } else {
+                        ctx.strokeStyle = `rgba(167, 243, 208, ${l.life / l.maxLife})`; // Lightning color
+                        ctx.lineWidth = 2 + (l.life / l.maxLife) * 8;
+                    }
 
                     // Draw jagged lightning bolt
                     ctx.beginPath();
-                    ctx.moveTo(l.x, -20);
-                    let cx = l.x;
-                    let cy = -20;
+                    const startX = l.x;
+                    const startY = -20;
+                    ctx.moveTo(startX, startY);
+                    let cx = startX;
+                    let cy = startY;
                     while (cy < l.y) {
                         cx += (Math.random() - 0.5) * 40; // horizontal jitter
                         cy += 30 + Math.random() * 40; // drop down 30-70px
@@ -2006,8 +2421,8 @@
 
                     ctx.globalAlpha = p.life / p.maxLife;
 
-                    // Explosive flash at start of life
-                    if (p.life > p.maxLife * 0.7) {
+                    // Explosive flash at start of life (Don't flash for crosses)
+                    if (p.life > p.maxLife * 0.7 && !p.isCross) {
                         ctx.fillStyle = "#ffffff";
                         ctx.beginPath();
                         ctx.arc(p.x, p.y, 2 * (p.life / p.maxLife), 0, Math.PI * 2); // Reduced from 4
@@ -2016,10 +2431,18 @@
 
                     ctx.fillStyle = p.color;
                     const pScale = (p.y - HORIZON_Y) / (canvas.height - HORIZON_Y);
-                    const pSize = 2 * pScale;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, pSize, 0, Math.PI * 2);
-                    ctx.fill();
+
+                    if (p.isCross) {
+                        const sz = 2.0 * pScale; // thickness
+                        const len = 6.0 * pScale; // length
+                        ctx.fillRect(p.x - sz / 2, p.y - len / 2, sz, len); // Vertical bar
+                        ctx.fillRect(p.x - len / 2, p.y - sz / 2, len, sz); // Horizontal bar
+                    } else {
+                        const pSize = 2 * pScale;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, pSize, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
 
                     if (p.life <= 0) particles.splice(i, 1);
                 }
