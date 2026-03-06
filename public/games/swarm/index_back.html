@@ -1831,43 +1831,43 @@
 
             if (isStarted) {
                 // Pre-draw ground effects (Attack Ranges) before anything else
-                // ctx.lineWidth = 1;
-                // ctx.setLineDash([5, 10]);
-                // ctx.strokeStyle = "rgba(59, 130, 246, 0.3)"; // Player Base Range (Blue)
-                // ctx.beginPath();
-                // ctx.arc(playerBase.x, playerBase.y, PlayerConfig.baseAttackRange, 0, Math.PI * 2);
-                // ctx.stroke();
-                // ctx.strokeStyle = "rgba(239, 68, 68, 0.3)"; // Enemy Base Range (Red)
-                // ctx.beginPath();
-                // ctx.arc(enemyBase.x, enemyBase.y, EnemyConfig.baseAttackRange, 0, Math.PI * 2);
-                // ctx.stroke();
-                // ctx.setLineDash([]);
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 10]);
+                ctx.strokeStyle = "rgba(59, 130, 246, 0.3)"; // Player Base Range (Blue)
+                ctx.beginPath();
+                ctx.arc(playerBase.x, playerBase.y, PlayerConfig.baseAttackRange, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.strokeStyle = "rgba(239, 68, 68, 0.3)"; // Enemy Base Range (Red)
+                ctx.beginPath();
+                ctx.arc(enemyBase.x, enemyBase.y, EnemyConfig.baseAttackRange, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
 
-                // // Draw Safe Zone Shading (Soot and Dust Overlay)
-                // const boundaryX = playerBase.x + LayoutConfig.safeZoneWidth;
-                // ctx.fillStyle = "rgba(64, 64, 64, 0.2)"; // Dark charcoal/soot dust
-                // ctx.fillRect(0, playerBase.y + LayoutConfig.combatOffsetTop, boundaryX, LayoutConfig.combatOffsetBottom - LayoutConfig.combatOffsetTop);
+                // Draw Safe Zone Shading (Soot and Dust Overlay)
+                const boundaryX = playerBase.x + LayoutConfig.safeZoneWidth;
+                ctx.fillStyle = "rgba(64, 64, 64, 0.2)"; // Dark charcoal/soot dust
+                ctx.fillRect(0, playerBase.y + LayoutConfig.combatOffsetTop, boundaryX, LayoutConfig.combatOffsetBottom - LayoutConfig.combatOffsetTop);
 
-                // // Draw Combat / Respawn Boundary Line
-                // ctx.lineWidth = 3;
-                // ctx.setLineDash([25, 20]); // Long, heavy spectral dashes
-                // ctx.strokeStyle = "rgba(163, 163, 163, 0.5)"; // Iron grey (Neutral-400)
+                // Draw Combat / Respawn Boundary Line
+                ctx.lineWidth = 3;
+                ctx.setLineDash([25, 20]); // Long, heavy spectral dashes
+                ctx.strokeStyle = "rgba(163, 163, 163, 0.5)"; // Iron grey (Neutral-400)
 
-                // // Vertical Line
-                // ctx.beginPath();
-                // ctx.moveTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetTop);
-                // ctx.lineTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetBottom);
-                // ctx.stroke();
+                // Vertical Line
+                ctx.beginPath();
+                ctx.moveTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetTop);
+                ctx.lineTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetBottom);
+                ctx.stroke();
 
-                // // Horizontal Lines (Top and Bottom of combat lane)
-                // ctx.beginPath();
-                // ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetTop);
-                // ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetTop);
-                // ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetBottom);
-                // ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetBottom);
-                // ctx.stroke();
+                // Horizontal Lines (Top and Bottom of combat lane)
+                ctx.beginPath();
+                ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetTop);
+                ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetTop);
+                ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetBottom);
+                ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetBottom);
+                ctx.stroke();
 
-                // ctx.setLineDash([]);
+                ctx.setLineDash([]);
 
 
                 // Auto-Merge Zone (Mysterious Magic Circle with Perspective)
