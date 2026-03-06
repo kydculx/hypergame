@@ -185,6 +185,18 @@
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+
+            // Re-sync base positions on resize to maintain configured ratios
+            if (isStarted) {
+                playerBase.x = BASE_MARGIN_X;
+                playerBase.y = canvas.height * BASE_RATIO_Y;
+                enemyBase.x = canvas.width - BASE_MARGIN_X;
+                enemyBase.y = canvas.height * BASE_RATIO_Y;
+
+                // Also sync back to LayoutConfig if needed for other calculations
+                LayoutConfig.baseMarginX = BASE_MARGIN_X;
+                LayoutConfig.baseRatioY = BASE_RATIO_Y;
+            }
         }
         window.addEventListener('resize', resize);
         resize();
@@ -234,7 +246,7 @@
         const BalanceConfig = {
             // 레벨별 크기 배율 (1레벨, 2레벨, 3레벨, 4레벨, 5레벨...)
             // 1.4는 기본 크기의 1.4배를 의미합니다.
-            sizeScales: [1.0, 1.4, 1.8, 2.2, 2.6, 3.0, 3.4, 3.8, 4.2, 4.6, 5.0],
+            sizeScales: [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0],
 
             // 레벨당 스탯(HP, 데미지) 증가 배율
             // 레벨 2는 레벨 1의 이 배수만큼 강해집니다.
@@ -249,7 +261,9 @@
             }
         };
 
-        // 공통 설정 (인간과 오크 모두에게 적용되는 기본값)
+        // --- GLOBAL CONFIGURABLE CONSTANTS ---
+        var BASE_MARGIN_X = 20; // Anchor Margin from edges
+        var BASE_RATIO_Y = 0.7;  // Y position as ratio of height (0.0 to 1.0)
         const CommonConfig = {
             spawnRateSeconds: 1,         // 일반 유닛 소환 주기 (초 단위)
             spawnBatch: 1,               // 한 번 소환될 때 나오는 유닛 수
@@ -257,10 +271,10 @@
             unitSize: 16,                // 기본 유닛 크기 배율
             speed: 1.0,                  // 이동 속도 배율
             baseMaxHp: 5000,             // 기지 체력
-            probRanged: 0.15,            // 궁수 소환 확률 (15%)
-            probTanker: 0.1,             // 방패병 소환 확률 (10%)
-            probMage: 0.1,               // 마법사 소환 확률 (10%)
-            probHealer: 0.1,             // 힐러 소환 확률 (10%) - 나머지 55%는 근접
+            probRanged: 0.1,            // 궁수 소환 확률 (15%)
+            probTanker: 0.05,             // 방패병 소환 확률 (10%)
+            probMage: 0.05,               // 마법사 소환 확률 (10%)
+            probHealer: 0.05,             // 힐러 소환 확률 (10%) - 나머지 55%는 근접
             baseAttackRange: 175,        // 기지 대포 사거리
             baseAttackCooldown: 60,      // 기지 대포 발사 주기 (프레임)
             baseAttackDamage: 60,        // 기지 대포 데미지
@@ -297,8 +311,8 @@
         // 화면 레이아웃 및 영역 설정 (본기지를 기준으로 모두 설정)
         const LayoutConfig = {
             // 1. 본기지 위치 설정 (화면 양 끝 여백, Y축은 화면 높이 대비 비율)
-            baseMarginX: 60,
-            baseRatioY: 0.65,           // Lower base position for expansive flat plain (v5)
+            baseMarginX: BASE_MARGIN_X,
+            baseRatioY: BASE_RATIO_Y,
 
             // 2. 본기지 기준으로 리스폰 영역 상/하 (Y축 오프셋)
             spawnOffsetTop: -150,       // 스폰 허용 상단 끝
@@ -309,8 +323,8 @@
             combatOffsetBottom: 200,
 
             // 4. 본기지 기준으로 합체할 영역 위치 및 크기 설정 (Player 전용)
-            mergeOffsetX: -40,          // 기지 기준 X축 거리
-            mergeOffsetY: 150,          // 기지 기준 Y축 상단 거리
+            mergeOffsetX: -20,          // 기지 기준 X축 거리
+            mergeOffsetY: 100,          // 기지 기준 Y축 상단 거리
             mergeWidth: 150,            // 영역 가로 폭
             mergeHeight: 150,           // 영역 세로 폭
 
@@ -421,8 +435,54 @@
             function metalGrad(ctx, x, y, w, h) { const g = ctx.createLinearGradient(x, y, x + w, y); g.addColorStop(0, '#475569'); g.addColorStop(0.3, '#94a3b8'); g.addColorStop(0.6, '#cbd5e1'); g.addColorStop(1, '#64748b'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); }
             function armorGrad(ctx, x, y, w, h) { const g = ctx.createLinearGradient(x, y, x + w, y); g.addColorStop(0, '#1e3a8a'); g.addColorStop(0.4, '#2563eb'); g.addColorStop(0.7, '#3b82f6'); g.addColorStop(1, '#1e40af'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); }
             function drawBoot(ctx, x, y, flip) { ctx.fillStyle = '#78350f'; ctx.fillRect(x, y, 10, 8); ctx.fillStyle = '#92400e'; ctx.fillRect(x + (flip ? 0 : 6), y + 5, 4, 6); ctx.fillStyle = '#451a03'; ctx.fillRect(x, y + 8, 12, 4); }
-            function drawFace(ctx, x, y, s) { ctx.fillStyle = '#fcd34d'; ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(x, y, s, -Math.PI, 0); ctx.fill();/* eye */ctx.fillStyle = '#000'; ctx.fillRect(x + s * 0.3, y - s * 0.2, s * 0.35, s * 0.25); ctx.fillStyle = '#fff'; ctx.fillRect(x + s * 0.35, y - s * 0.15, s * 0.15, s * 0.1); }
+            function drawFace(ctx, x, y, s) {
+                ctx.fillStyle = '#fcd34d'; ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(x, y, s, -Math.PI, 0); ctx.fill();
+                /* eye */
+                ctx.fillStyle = '#000'; ctx.fillRect(x + s * 0.3, y - s * 0.2, s * 0.35, s * 0.25);
+                ctx.fillStyle = '#fff'; ctx.fillRect(x + s * 0.35, y - s * 0.15, s * 0.15, s * 0.1);
+            }
 
+            // --- Enhanced Orc shared helpers ---
+            function orcSkin(ctx, x, y, r) {
+                const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+                g.addColorStop(0, '#86efac'); g.addColorStop(0.6, '#4ade80'); g.addColorStop(1, '#166534');
+                ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = 'rgba(22, 101, 52, 0.4)'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.arc(x, y, r * 0.7, 0.2, 1.5); ctx.stroke();
+            }
+            function orcFace(ctx, x, y, s) {
+                // Head shape
+                ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
+                // Menacing Glowy Eyes
+                ctx.fillStyle = '#ef4444'; // Red glow
+                ctx.shadowBlur = 4; ctx.shadowColor = '#fca5a5';
+                ctx.fillRect(x + s * 0.1, y - s * 0.3, s * 0.4, s * 0.25);
+                ctx.shadowBlur = 0;
+                // Tusks (Orc characteristic)
+                ctx.fillStyle = '#f3f4f6'; // Bone color
+                ctx.beginPath(); ctx.moveTo(x + s * 0.2, y + s * 0.1); ctx.lineTo(x + s * 0.5, y - s * 0.4); ctx.lineTo(x + s * 0.6, y + s * 0.1); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(x + s * 0.7, y + s * 0.2); ctx.lineTo(x + s * 1.0, y - s * 0.2); ctx.lineTo(x + s * 1.1, y + s * 0.2); ctx.fill();
+                // War Paint (Red stripe)
+                ctx.fillStyle = 'rgba(153, 27, 27, 0.6)';
+                ctx.fillRect(x + s * 0.1, y - s * 0.8, s * 0.2, s * 1.6);
+            }
+            function orcArmorGrad(ctx, x, y, w, h) {
+                const g = ctx.createLinearGradient(x, y, x + w, y);
+                g.addColorStop(0, '#374151');   // Charcoal
+                g.addColorStop(0.5, '#4b5563'); // Dark iron
+                g.addColorStop(1, '#1f2937');   // Deep shadow
+                ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+                // "Rust/Blood" weathering
+                ctx.fillStyle = 'rgba(127, 29, 29, 0.2)';
+                for (let i = 0; i < 3; i++) ctx.fillRect(x + Math.random() * w, y + Math.random() * h, w / 3, 2);
+            }
+            function orcBoot(ctx, x, y) {
+                ctx.fillStyle = '#2d1a01'; ctx.fillRect(x, y, 10, 6);
+                ctx.fillStyle = '#451a03'; ctx.fillRect(x - 3, y + 4, 13, 5);
+                // Metal toe cap
+                ctx.fillStyle = '#9ca3af'; ctx.fillRect(x - 4, y + 6, 4, 3);
+            }
             // --- Humans (Blue) - Facing RIGHT ---
 
             // ========== WARRIOR ==========
@@ -471,10 +531,8 @@
                 (ctx) => { drawWarriorBase(ctx, 0, -1, 3); drawSword(ctx, 72, 28, -0.15); },
                 (ctx) => {
                     ctx.translate(5, 3); ctx.rotate(0.12); drawWarriorBase(ctx, 0, 0, 5);
-                    // Horizontal thrust sword
-                    ctx.save(); ctx.translate(70, 50); ctx.rotate(-Math.PI / 2 + 0.3);
-                    metalGrad(ctx, -4, -60, 10, 55); ctx.fillStyle = '#e2e8f0'; ctx.fillRect(4, -60, 2, 55);
-                    ctx.fillStyle = '#fbbf24'; ctx.fillRect(-7, -5, 16, 5); ctx.fillStyle = '#78350f'; ctx.fillRect(-2, 0, 6, 10); ctx.restore();
+                    // Standardized sword thrust
+                    drawSword(ctx, 72, 50, -Math.PI / 2 + 0.2);
                     // Slash trail
                     ctx.globalAlpha = 0.3; ctx.strokeStyle = '#bfdbfe'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(75, 50, 25, -1, 0.5); ctx.stroke(); ctx.globalAlpha = 1;
                     ctx.resetTransform();
@@ -706,51 +764,39 @@
             sprites.pEnh = sprites.pTank;
 
             // --- Enemy (Orcs) - Facing LEFT --- (100x100 Canvas)
-            // Orc shared helpers
-            function orcSkin(ctx, x, y, r) { ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
-            function orcFace(ctx, x, y, s) {
-                const fg = ctx.createRadialGradient(x, y, 2, x, y, s); fg.addColorStop(0, '#86efac'); fg.addColorStop(1, '#22c55e'); ctx.fillStyle = fg;
-                ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
-                // Angry brow
-                ctx.fillStyle = '#14532d'; ctx.fillRect(x - s * 0.7, y - s * 0.4, s * 0.5, s * 0.2);
-                // Eye
-                ctx.fillStyle = '#fef08a'; ctx.fillRect(x - s * 0.5, y - s * 0.15, s * 0.4, s * 0.3);
-                ctx.fillStyle = '#dc2626'; ctx.fillRect(x - s * 0.4, y - s * 0.05, s * 0.2, s * 0.2);
-                // Jaw/Tusks
-                ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.moveTo(x - s * 0.3, y + s * 0.5); ctx.lineTo(x - s * 0.5, y + s * 0.2); ctx.lineTo(x - s * 0.1, y + s * 0.4); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(x + s * 0.1, y + s * 0.5); ctx.lineTo(x + s * 0.3, y + s * 0.2); ctx.lineTo(x - s * 0.1, y + s * 0.4); ctx.fill();
-            }
-            function orcBoot(ctx, x, y) { ctx.fillStyle = '#451a03'; ctx.fillRect(x, y, 10, 6); ctx.fillRect(x - 3, y + 4, 13, 4); }
-
             // ========== ORC MELEE ==========
             function drawOrcMeleeBase(ctx, ox, oy, legOff) {
-                // Legs
-                ctx.fillStyle = '#166534'; ctx.fillRect(42 + ox, 76 + oy + legOff, 10, 16); ctx.fillRect(56 + ox, 76 + oy - legOff, 10, 16);
-                drawJoint(ctx, 47 + ox, 76 + oy + legOff, 5, '#22c55e'); drawJoint(ctx, 61 + ox, 76 + oy - legOff, 5, '#22c55e');
+                // Muscular Legs
+                ctx.fillStyle = '#166534'; ctx.fillRect(42 + ox, 76 + oy + legOff, 11, 16); ctx.fillRect(55 + ox, 76 + oy - legOff, 11, 16);
                 orcBoot(ctx, 41 + ox, 90 + oy + legOff); orcBoot(ctx, 55 + ox, 90 + oy - legOff);
-                // Body (muscular, red cloth)
-                const bg = ctx.createLinearGradient(35 + ox, 35 + oy, 70 + ox, 35 + oy); bg.addColorStop(0, '#991b1b'); bg.addColorStop(0.5, '#dc2626'); bg.addColorStop(1, '#7f1d1d'); ctx.fillStyle = bg;
-                ctx.fillRect(35 + ox, 35 + oy, 32, 42);
-                // Orc skin arms (muscular)
-                ctx.fillStyle = '#22c55e'; ctx.fillRect(30 + ox, 40 + oy, 8, 25); ctx.fillRect(64 + ox, 40 + oy, 8, 25);
-                drawJoint(ctx, 34 + ox, 40 + oy, 7, '#4ade80'); drawJoint(ctx, 68 + ox, 40 + oy, 7, '#4ade80');
-                // Belt with skull
-                ctx.fillStyle = '#78350f'; ctx.fillRect(35 + ox, 70 + oy, 32, 4);
-                ctx.fillStyle = '#e2e8f0'; drawJoint(ctx, 51 + ox, 72 + oy, 3, '#e2e8f0');
-                // Head
+                // Hunched Muscular Torso (Brutal Red Leather)
+                const bg = ctx.createLinearGradient(30 + ox, 40 + oy, 70 + ox, 40 + oy);
+                bg.addColorStop(0, '#7f1d1d'); bg.addColorStop(0.5, '#ef4444'); bg.addColorStop(1, '#991b1b');
+                ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(35 + ox, 40 + oy); ctx.lineTo(65 + ox, 35 + oy); ctx.lineTo(72 + ox, 78 + oy); ctx.lineTo(28 + ox, 78 + oy); ctx.fill();
+                // Muscular Orc Arms
+                orcSkin(ctx, 32 + ox, 50 + oy, 9); orcSkin(ctx, 68 + ox, 48 + oy, 9);
+                // Spiked Iron Pauldrons
+                orcArmorGrad(ctx, 28 + ox, 35 + oy, 14, 12); orcArmorGrad(ctx, 62 + ox, 32 + oy, 14, 12);
+                ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.moveTo(28 + ox, 35 + oy); ctx.lineTo(20 + ox, 25 + oy); ctx.lineTo(35 + ox, 35 + oy); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(76 + ox, 32 + oy); ctx.lineTo(84 + ox, 22 + oy); ctx.lineTo(62 + ox, 32 + oy); ctx.fill();
+                // Belt with Iron Buckle
+                ctx.fillStyle = '#2d1a01'; ctx.fillRect(32 + ox, 72 + oy, 38, 5);
+                ctx.fillStyle = '#374151'; ctx.fillRect(48 + ox, 71 + oy, 8, 8);
+                // Neck & Head (Hunched aggressively)
+                ctx.fillStyle = '#166534'; ctx.fillRect(42 + ox, 28 + oy, 10, 10);
                 orcFace(ctx, 45 + ox, 24 + oy, 12);
-                // Iron helmet (crude)
-                ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.arc(45 + ox, 20 + oy, 13, Math.PI, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#374151'; ctx.fillRect(32 + ox, 18 + oy, 26, 4);
-                // Spikes on helmet
-                ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.moveTo(35 + ox, 18 + oy); ctx.lineTo(37 + ox, 8 + oy); ctx.lineTo(39 + ox, 18 + oy); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(50 + ox, 18 + oy); ctx.lineTo(52 + ox, 6 + oy); ctx.lineTo(54 + ox, 18 + oy); ctx.fill();
             }
             function drawOrcAxe(ctx, x, y, angle) {
                 ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-                ctx.fillStyle = '#78350f'; ctx.fillRect(-2, 0, 5, 40);
-                ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.moveTo(-12, -5); ctx.lineTo(3, -5); ctx.lineTo(3, 10); ctx.quadraticCurveTo(-15, 10, -12, -5); ctx.fill();
-                ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.moveTo(-8, -2); ctx.lineTo(1, -2); ctx.lineTo(1, 7); ctx.quadraticCurveTo(-10, 7, -8, -2); ctx.fill();
+                // Notched Bone Handle
+                ctx.fillStyle = '#f3f4f6'; ctx.fillRect(-2, 0, 5, 45);
+                ctx.fillStyle = '#d1d5db'; for (let i = 0; i < 3; i++) ctx.fillRect(-2, 10 + i * 8, 5, 2);
+                // Heavy Rusted Iron Blade
+                ctx.fillStyle = '#374151'; ctx.beginPath(); ctx.moveTo(-15, -10); ctx.lineTo(5, -5); ctx.lineTo(5, 15); ctx.quadraticCurveTo(-22, 20, -18, -10); ctx.fill();
+                // Sharp edge
+                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-18, -10); ctx.quadraticCurveTo(-22, 20, -18, -10); ctx.stroke();
+                // Blood stains
+                ctx.fillStyle = 'rgba(127, 29, 29, 0.4)'; ctx.beginPath(); ctx.arc(-10, 5, 4, 0, Math.PI); ctx.fill();
                 ctx.restore();
             }
             sprites.eMelee = createHighResAnim(
@@ -766,23 +812,22 @@
 
             // ========== ORC RANGED ==========
             function drawOrcRangedBase(ctx, ox, oy, legOff) {
+                // Leaner Legs
                 ctx.fillStyle = '#166534'; ctx.fillRect(42 + ox, 78 + oy + legOff, 9, 14); ctx.fillRect(55 + ox, 78 + oy - legOff, 9, 14);
-                drawJoint(ctx, 46 + ox, 78 + oy + legOff, 4, '#22c55e'); drawJoint(ctx, 59 + ox, 78 + oy - legOff, 4, '#22c55e');
                 orcBoot(ctx, 41 + ox, 90 + oy + legOff); orcBoot(ctx, 54 + ox, 90 + oy - legOff);
-                // Leather vest
-                ctx.fillStyle = '#78350f'; ctx.fillRect(38 + ox, 38 + oy, 26, 40);
-                ctx.fillStyle = '#92400e'; ctx.fillRect(38 + ox, 38 + oy, 6, 40);
+                // Weathered Leather Vest
+                const lg = ctx.createLinearGradient(38 + ox, 38 + oy, 64 + ox, 38 + oy);
+                lg.addColorStop(0, '#451a03'); lg.addColorStop(1, '#78350f');
+                ctx.fillStyle = lg; ctx.fillRect(38 + ox, 38 + oy, 26, 40);
+                // Fur trim on shoulders
+                ctx.fillStyle = '#d4d4d4'; ctx.beginPath(); ctx.arc(38 + ox, 42 + oy, 5, 0, Math.PI * 2); ctx.arc(64 + ox, 42 + oy, 5, 0, Math.PI * 2); ctx.fill();
                 // Arms
-                ctx.fillStyle = '#22c55e'; ctx.fillRect(62 + ox, 42 + oy, 7, 20); drawJoint(ctx, 65 + ox, 42 + oy, 5, '#4ade80');
-                // Belt
-                ctx.fillStyle = '#451a03'; ctx.fillRect(38 + ox, 70 + oy, 26, 3);
-                // Head (hooded)
-                ctx.fillStyle = '#451a03'; ctx.beginPath(); ctx.arc(50 + ox, 25 + oy, 14, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(64 + ox, 25 + oy); ctx.quadraticCurveTo(68 + ox, 40 + oy, 60 + ox, 38 + oy); ctx.lineTo(58 + ox, 28 + oy); ctx.fill();
+                orcSkin(ctx, 65 + ox, 50 + oy, 6);
+                // Head (Hooded Stalker)
+                ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.arc(50 + ox, 25 + oy, 14, 0, Math.PI * 2); ctx.fill();
                 orcFace(ctx, 44 + ox, 26 + oy, 8);
-                // Quiver
-                ctx.fillStyle = '#5c3a1e'; ctx.fillRect(60 + ox, 30 + oy, 5, 30);
-                ctx.fillStyle = '#92400e'; for (let i = 0; i < 3; i++)ctx.fillRect(61 + ox, 31 + oy + i * 4, 1, 10);
+                // Tattered Hood Back
+                ctx.beginPath(); ctx.moveTo(64 + ox, 25 + oy); ctx.quadraticCurveTo(72 + ox, 40 + oy, 62 + ox, 45 + oy); ctx.lineTo(58 + ox, 28 + oy); ctx.fill();
             }
             sprites.eRanged = createHighResAnim(
                 (ctx) => {
@@ -801,51 +846,55 @@
                     // Drawn bow
                     ctx.strokeStyle = '#451a03'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(58, 55, 32, Math.PI * 2 / 3 + 0.1, Math.PI * 4 / 3 - 0.1); ctx.stroke();
                     ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(42, 26); ctx.lineTo(58, 55); ctx.lineTo(42, 84); ctx.stroke();
-                    // Arrow
-                    ctx.fillStyle = '#78350f'; ctx.fillRect(15, 54, 43, 2);
+                    // Arrow (Bone tipped)
+                    ctx.fillStyle = '#f3f4f6'; ctx.fillRect(15, 54, 43, 2);
                     ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.moveTo(15, 55); ctx.lineTo(8, 51); ctx.lineTo(8, 59); ctx.fill();
-                    ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.moveTo(56, 53); ctx.lineTo(62, 50); ctx.lineTo(62, 60); ctx.lineTo(56, 57); ctx.fill();
+                    // Crimson fletching
+                    ctx.fillStyle = '#7f1d1d'; ctx.beginPath(); ctx.moveTo(56, 53); ctx.lineTo(62, 50); ctx.lineTo(62, 60); ctx.lineTo(56, 57); ctx.fill();
                 }
             );
 
             // ========== ORC TANK ==========
             function drawOrcTankBase(ctx, ox, oy, legOff) {
-                // Massive legs
-                metalGrad(ctx, 40 + ox, 76 + oy + legOff, 12, 16); metalGrad(ctx, 56 + ox, 76 + oy - legOff, 12, 16);
-                drawJoint(ctx, 46 + ox, 76 + oy + legOff, 6, '#4b5563'); drawJoint(ctx, 62 + ox, 76 + oy - legOff, 6, '#4b5563');
-                ctx.fillStyle = '#374151'; ctx.fillRect(38 + ox, 90 + oy + legOff, 16, 8); ctx.fillRect(54 + ox, 90 + oy - legOff, 16, 8);
-                // Huge body
-                const bg = ctx.createLinearGradient(30 + ox, 28 + oy, 75 + ox, 28 + oy); bg.addColorStop(0, '#7f1d1d'); bg.addColorStop(0.5, '#991b1b'); bg.addColorStop(1, '#7f1d1d'); ctx.fillStyle = bg;
-                ctx.fillRect(30 + ox, 28 + oy, 42, 50);
-                // Massive pauldrons
-                drawJoint(ctx, 72 + ox, 33 + oy, 12, '#4b5563'); ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(72 + ox, 33 + oy, 12, 0, Math.PI); ctx.fill();
-                drawJoint(ctx, 30 + ox, 33 + oy, 10, '#4b5563');
-                // Skull belt
-                ctx.fillStyle = '#451a03'; ctx.fillRect(30 + ox, 70 + oy, 42, 5);
-                ctx.fillStyle = '#e2e8f0'; drawJoint(ctx, 51 + ox, 72 + oy, 4, '#d4d4d4');
-                ctx.fillStyle = '#000'; ctx.fillRect(49 + ox, 71 + oy, 1, 2); ctx.fillRect(52 + ox, 71 + oy, 1, 2);
-                // Neck
-                ctx.fillStyle = '#22c55e'; ctx.fillRect(44 + ox, 22 + oy, 14, 10);
-                // Head
-                orcFace(ctx, 44 + ox, 16 + oy, 14);
-                ctx.fillStyle = '#374151'; ctx.beginPath(); ctx.arc(44 + ox, 12 + oy, 15, Math.PI, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#4b5563'; ctx.fillRect(29 + ox, 10 + oy, 30, 5);
-                // Horns
-                ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.moveTo(30 + ox, 10 + oy); ctx.quadraticCurveTo(22 + ox, -2, 34 + ox, 4 + oy); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(58 + ox, 10 + oy); ctx.quadraticCurveTo(66 + ox, -2, 54 + ox, 4 + oy); ctx.fill();
+                // Heavy Armor Legs
+                orcArmorGrad(ctx, 38 + ox, 76 + oy + legOff, 14, 16); orcArmorGrad(ctx, 58 + ox, 76 + oy - legOff, 14, 16);
+                orcBoot(ctx, 38 + ox, 90 + oy + legOff); orcBoot(ctx, 58 + ox, 90 + oy - legOff);
+                // Massive Torso (Blood-Iron Plate)
+                const bg = ctx.createLinearGradient(25 + ox, 30 + oy, 75 + ox, 30 + oy);
+                bg.addColorStop(0, '#450a0a'); bg.addColorStop(0.5, '#7f1d1d'); bg.addColorStop(1, '#450a0a');
+                ctx.fillStyle = bg; ctx.fillRect(25 + ox, 30 + oy, 50, 50);
+                // Iron Ribs
+                ctx.fillStyle = 'rgba(156, 163, 175, 0.3)';
+                for (let i = 0; i < 3; i++) ctx.fillRect(30 + ox, 40 + oy + i * 10, 40, 2);
+                // Gargantuan Pauldrons
+                orcArmorGrad(ctx, 15 + ox, 25 + oy, 22, 18); orcArmorGrad(ctx, 63 + ox, 25 + oy, 22, 18);
+                // Pauldron Spikes
+                ctx.fillStyle = '#f3f4f6'; ctx.beginPath(); ctx.moveTo(15 + ox, 25 + oy); ctx.lineTo(5 + ox, 5 + oy); ctx.lineTo(25 + ox, 25 + oy); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(85 + ox, 25 + oy); ctx.lineTo(95 + ox, 5 + oy); ctx.lineTo(75 + ox, 25 + oy); ctx.fill();
+                // Skull Belt
+                ctx.fillStyle = '#2d1a01'; ctx.fillRect(25 + ox, 72 + oy, 50, 6);
+                ctx.fillStyle = '#f9fafb'; drawJoint(ctx, 50 + ox, 75 + oy, 5, '#f9fafb'); // Bone buckle
+                // Neck & Head (Fully Armored)
+                ctx.fillStyle = '#166534'; ctx.fillRect(44 + ox, 20 + oy, 12, 10);
+                orcFace(ctx, 50 + ox, 18 + oy, 14);
+                // Iron Top-Helm
+                ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(50 + ox, 14 + oy, 16, Math.PI, Math.PI * 2); ctx.fill();
+                // Massive Side Horns
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath(); ctx.moveTo(35 + ox, 10 + oy); ctx.quadraticCurveTo(15 + ox, -10 + oy, 25 + ox, 5 + oy); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(65 + ox, 10 + oy); ctx.quadraticCurveTo(85 + ox, -10 + oy, 75 + ox, 5 + oy); ctx.fill();
             }
             function drawOrcShield(ctx, x, y) {
-                ctx.fillStyle = '#4b5563';
-                ctx.beginPath(); ctx.moveTo(x + 28, y); ctx.lineTo(x + 3, y); ctx.quadraticCurveTo(x - 2, y, x - 2, y + 5);
-                ctx.lineTo(x - 2, y + 70); ctx.quadraticCurveTo(x - 2, y + 78, x + 13, y + 80);
-                ctx.quadraticCurveTo(x + 30, y + 78, x + 30, y + 70); ctx.lineTo(x + 30, y + 5); ctx.quadraticCurveTo(x + 30, y, x + 28, y); ctx.fill();
-                ctx.strokeStyle = '#374151'; ctx.lineWidth = 2; ctx.stroke();
-                // Skull emblem
-                ctx.fillStyle = '#e2e8f0'; drawJoint(ctx, x + 14, y + 30, 8, '#d4d4d4');
-                ctx.fillStyle = '#1f2937'; ctx.fillRect(x + 10, y + 28, 3, 3); ctx.fillRect(x + 16, y + 28, 3, 3);
-                ctx.fillRect(x + 12, y + 35, 5, 2);
-                // Spikes on edge
-                ctx.fillStyle = '#6b7280'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(x - 2, y + 15 + i * 20); ctx.lineTo(x - 8, y + 20 + i * 20); ctx.lineTo(x - 2, y + 25 + i * 20); ctx.fill(); }
+                // Crude Spiked Tower Shield
+                orcArmorGrad(ctx, x, y, 35, 80);
+                ctx.strokeStyle = '#111827'; ctx.lineWidth = 2; ctx.strokeRect(x, y, 35, 80);
+                // Central Bone Cross
+                ctx.fillStyle = '#f3f4f6'; ctx.fillRect(x + 15, y + 10, 5, 60); ctx.fillRect(x + 5, y + 35, 25, 5);
+                // Reactive Spikes
+                ctx.fillStyle = '#9ca3af';
+                for (let i = 0; i < 4; i++) {
+                    ctx.beginPath(); ctx.moveTo(x, y + 10 + i * 20); ctx.lineTo(x - 10, y + 15 + i * 20); ctx.lineTo(x, y + 20 + i * 20); ctx.fill();
+                }
             }
             sprites.eTank = createHighResAnim(
                 (ctx) => { drawOrcTankBase(ctx, 0, 0, 0); drawOrcShield(ctx, 2, 10); },
@@ -861,30 +910,35 @@
 
             // ========== ORC MAGE (Shaman) ==========
             function drawOrcShamanBase(ctx, ox, oy) {
-                // Ragged robe
-                const rg = ctx.createLinearGradient(30 + ox, 35 + oy, 70 + ox, 95 + oy); rg.addColorStop(0, '#7f1d1d'); rg.addColorStop(0.5, '#991b1b'); rg.addColorStop(1, '#450a0a'); ctx.fillStyle = rg;
-                ctx.beginPath(); ctx.moveTo(50 + ox, 35 + oy); ctx.quadraticCurveTo(25 + ox, 65 + oy, 28 + ox, 95 + oy); ctx.lineTo(72 + ox, 95 + oy); ctx.quadraticCurveTo(75 + ox, 65 + oy, 50 + ox, 35 + oy); ctx.fill();
-                // Tattered edges
-                ctx.fillStyle = '#450a0a'; for (let i = 0; i < 5; i++)ctx.fillRect(30 + ox + i * 8, 90 + oy, 4, 5 + i % 3 * 2);
-                // Bone necklace
-                ctx.strokeStyle = '#d4d4d4'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(50 + ox, 42 + oy, 12, 0, Math.PI); ctx.stroke();
-                for (let i = 0; i < 3; i++)drawJoint(ctx, 40 + ox + i * 10, 50 + oy + i % 2 * 3, 2, '#e2e8f0');
+                // Tattered Blood Robe
+                const rg = ctx.createLinearGradient(30 + ox, 35 + oy, 70 + ox, 95 + oy);
+                rg.addColorStop(0, '#450a0a'); rg.addColorStop(0.5, '#991b1b'); rg.addColorStop(1, '#000000');
+                ctx.fillStyle = rg; ctx.beginPath(); ctx.moveTo(50 + ox, 30 + oy);
+                ctx.quadraticCurveTo(20 + ox, 60 + oy, 25 + ox, 95 + oy);
+                ctx.lineTo(75 + ox, 95 + oy);
+                ctx.quadraticCurveTo(80 + ox, 60 + oy, 50 + ox, 30 + oy); ctx.fill();
+                // Bone Ornaments
+                ctx.fillStyle = '#f3f4f6';
+                for (let i = 0; i < 4; i++) drawJoint(ctx, 35 + ox + i * 10, 85 + oy, 3, '#f3f4f6');
+                // Tattered belt
+                ctx.fillStyle = '#1a202c'; ctx.fillRect(30 + ox, 65 + oy, 40, 4);
                 // Head
                 orcFace(ctx, 50 + ox, 24 + oy, 10);
-                // Feathered headdress
-                ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.moveTo(44 + ox, 14 + oy); ctx.lineTo(40 + ox, -2); ctx.lineTo(48 + ox, 10 + oy); ctx.fill();
-                ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(50 + ox, 12 + oy); ctx.lineTo(50 + ox, -5); ctx.lineTo(54 + ox, 10 + oy); ctx.fill();
-                ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.moveTo(56 + ox, 14 + oy); ctx.lineTo(60 + ox, 0); ctx.lineTo(58 + ox, 12 + oy); ctx.fill();
+                // Large Ritual Feathers
+                ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(45 + ox, 15 + oy); ctx.lineTo(35 + ox, -5); ctx.lineTo(48 + ox, 12 + oy); ctx.fill();
+                ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.moveTo(55 + ox, 15 + oy); ctx.lineTo(65 + ox, -5); ctx.lineTo(52 + ox, 12 + oy); ctx.fill();
             }
             function drawTotemStaff(ctx, x, y, angle) {
                 ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-                ctx.fillStyle = '#78350f'; ctx.fillRect(-2, -70, 5, 75);
-                // Skull totem
-                ctx.fillStyle = '#e2e8f0'; drawJoint(ctx, 1, -73, 7, '#d4d4d4');
-                ctx.fillStyle = '#1f2937'; ctx.fillRect(-3, -75, 3, 2); ctx.fillRect(3, -75, 3, 2);
-                ctx.fillRect(-1, -69, 4, 2);
-                // Green glow
-                ctx.globalAlpha = 0.4; ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(1, -73, 12, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+                // Gnarled wood
+                ctx.fillStyle = '#451a03'; ctx.fillRect(-3, -75, 6, 80);
+                // Animal Skull Totem
+                ctx.fillStyle = '#f9fafb'; drawJoint(ctx, 0, -80, 10, '#f9fafb');
+                ctx.fillStyle = '#111827'; ctx.fillRect(-4, -82, 3, 3); ctx.fillRect(1, -82, 3, 3); // Eye sockets
+                // Glowing Fel-Rune
+                ctx.shadowBlur = 8; ctx.shadowColor = '#4ade80';
+                ctx.fillStyle = '#86efac'; ctx.fillRect(-2, -73, 4, 6);
+                ctx.shadowBlur = 0;
                 ctx.restore();
             }
             sprites.eMage = createHighResAnim(
@@ -1281,10 +1335,10 @@
 
             // Initialize Bases on first frame if needed
             if (frames === 0) {
-                playerBase.x = 20; // Anchor for calculations
-                playerBase.y = canvas.height * 0.7;
-                enemyBase.x = canvas.width - 20;
-                enemyBase.y = canvas.height * 0.7;
+                playerBase.x = LayoutConfig.baseMarginX;
+                playerBase.y = canvas.height * LayoutConfig.baseRatioY;
+                enemyBase.x = canvas.width - LayoutConfig.baseMarginX;
+                enemyBase.y = canvas.height * LayoutConfig.baseRatioY;
             }
 
             let blueCount = 0;
@@ -2195,12 +2249,6 @@
                         ctx.lineTo(cx, cy);
                     }
                     ctx.stroke();
-
-                    // Burn mark on the ground
-                    ctx.fillStyle = "rgba(0,0,0,0.5)";
-                    ctx.beginPath();
-                    ctx.ellipse(l.x, l.y, EnvironmentConfig.lightningRadius * 0.8, EnvironmentConfig.lightningRadius * 0.3, 0, 0, Math.PI * 2);
-                    ctx.fill();
 
                     // Global flash overlay for the first 3 frames
                     if (l.life > l.maxLife - 3) {
