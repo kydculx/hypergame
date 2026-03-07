@@ -267,14 +267,13 @@
         const CommonConfig = {
             spawnRateSeconds: 1,         // 일반 유닛 소환 주기 (초 단위)
             spawnBatch: 1,               // 한 번 소환될 때 나오는 유닛 수
-            bossSpawnRateSeconds: 30.0,  // 보스(Enhanced) 소환 주기 (초 단위)
             unitSize: 16,                // 기본 유닛 크기 배율
             speed: 1.0,                  // 이동 속도 배율
             baseMaxHp: 5000,             // 기지 체력
-            probRanged: 0.1,            // 궁수 소환 확률 (15%)
-            probTanker: 0.05,             // 방패병 소환 확률 (10%)
-            probMage: 0.05,               // 마법사 소환 확률 (10%)
-            probHealer: 0.05,             // 힐러 소환 확률 (10%) - 나머지 55%는 근접
+            probRanged: 0.1,            // 궁수 소환 확률 (10%)
+            probTanker: 0.1,             // 방패병 소환 확률 (10%)
+            probMage: 0.1,               // 마법사 소환 확률 (10%)
+            probHealer: 0.1,             // 힐러 소환 확률 (10%) - 나머지 60%는 근접
             baseAttackRange: 175,        // 기지 대포 사거리
             baseAttackCooldown: 60,      // 기지 대포 발사 주기 (프레임)
             baseAttackDamage: 60,        // 기지 대포 데미지
@@ -339,7 +338,6 @@
         // Unit Types
         const TYPE_MELEE = 0;
         const TYPE_RANGED = 1;
-        const TYPE_ENHANCED = 2;
         const TYPE_TANKER = 3;
         const TYPE_MAGE = 4;
         const TYPE_HEALER = 5;
@@ -349,812 +347,133 @@
         let projectiles = [];
         let lightnings = [];
         let playerBase = { x: 0, y: 0, hp: PlayerConfig.baseMaxHp, team: 0, cooldown: 0 };
-        let enemyBase = { x: 0, y: 0, hp: EnemyConfig.baseMaxHp, team: 1, cooldown: 0 };
 
         // Sprite Caching
         const sprites = {};
 
-        // Helper: Generate an offscreen canvas sprite from a string array
-        function createSprite(w, h, palette, pixels) {
-            const oc = document.createElement('canvas');
-            oc.width = w; oc.height = h;
-            const octx = oc.getContext('2d');
-            for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++) {
-                    const idx = pixels[y][x];
-                    if (idx !== ' ') {
-                        octx.fillStyle = palette[idx];
-                        octx.fillRect(x, y, 1, 1);
+
+
+
+        // Background grid tile (used for fallback background pattern)
+        const bgC = document.createElement('canvas');
+        bgC.width = 8; bgC.height = 8;
+        const bgCtx = bgC.getContext('2d');
+        bgCtx.fillStyle = "#1c1917";
+        bgCtx.fillRect(0, 0, 8, 8);
+        sprites.bgGrid = bgC;
+
+        // --- High-Fidelity Canvas Battlefield Background ---
+        // --- Static High-Fidelity Background Loader & Sprite System ---
+        (function initializeAssets() {
+            // Background
+            const bgImg = new Image();
+            bgImg.src = 'background_v5.png';
+            bgImg.onload = () => { sprites.fullBg = bgImg; };
+
+            // Unified Sprite Sheet Loader
+            function loadUnitSheet(team, type, filename, nfcFilename) {
+                const img = new Image();
+                img.src = filename;
+                img.onerror = () => { if (nfcFilename) img.src = nfcFilename; };
+                img.onload = () => {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = img.width;
+                    tempCanvas.height = img.height;
+                    const tctx = tempCanvas.getContext('2d');
+                    tctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                    tctx.drawImage(img, 0, 0);
+                    const imgData = tctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    const data = imgData.data;
+                    let keyed = 0;
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i], g = data[i + 1], b = data[i + 2];
+
+                        // 1. Magenta Background Removal (Multiple shades due to compression)
+                        if ((r > 150 && b > 150 && g < 150) || (r > 200 && b > 200 && g < 180)) {
+                            data[i + 3] = 0;
+                            keyed++;
+                        }
+                        // 2. Sprite-based Shadow Recoloring ("Dark but not too dark")
+                        // Targets neutral grey (Human) and dark purple (Orc) shadow blobs
+                        else {
+                            const isGreyShadow = (Math.abs(r - 128) < 30 && Math.abs(g - 128) < 30 && Math.abs(b - 128) < 30);
+                            const isOrcPurpleShadow = (Math.abs(r - 85) < 30 && Math.abs(g - 19) < 30 && Math.abs(b - 81) < 30);
+
+                            if (isGreyShadow || isOrcPurpleShadow) {
+                                // Transform into a soft, consistent shadow
+                                data[i] = 0;
+                                data[i + 1] = 0;
+                                data[i + 2] = 0;
+                                data[i + 3] = 100; // ~40% opacity (not too dark)
+                            }
+                        }
                     }
-                }
-            }
-            return oc;
-        }
+                    tctx.putImageData(imgData, 0, 0);
 
-        const rng = (s) => { s = Math.sin(s) * 43758.5453; return s - Math.floor(s); };
-        // Generate Sprites on boot
-        function generateSprites() {
-            // Palettes
-            const pPal = {
-                '0': '#00000033', // Shadow
-                '1': '#1e3a8a', '2': '#3b82f6', '3': '#93c5fd', // Armor blue
-                '4': '#fbbf24', '5': '#d97706', // Gold trim
-                '6': '#fef08a', '7': '#78350f', // Face/Leather (Skin lighter)
-                '8': '#ffffff', '9': '#ef4444', // White / Red plume
-                // New high-fidelity colors
-                'a': '#000000', // Solid Outline
-                'b': '#ffffff', // Pure White
-                'c': '#e5e7eb', // Bright Steel
-                'd': '#9ca3af', // Mid Steel
-                'e': '#4b5563', // Dark Steel
-                'f': '#fcd34d', // Human Skin Light
-                'g': '#b45309', // Dark Leather/Wood
-                'h': '#fde047', // Bright Gold Highlight
-                'i': '#3b82f6', // Player Blue Tabard
-                'j': '#1e3a8a'  // Dark Blue Shadow
-            };
-            const ePal = {
-                '0': '#00000033', // Shadow
-                '1': '#450a0a', '2': '#991b1b', '3': '#ef4444', // Red Cloth/Armor
-                '4': '#4ade80', '5': '#bef264', // Brighter Lime/Green Skin
-                '6': '#1f2937', '7': '#4b5563', '8': '#9ca3af', // Iron/Armor/Axe
-                '9': '#ffffff', // Bone/Eye
-                // New high-fidelity colors
-                'a': '#000000', // Solid Outline
-                'b': '#ffffff', // Pure White/Teeth/Eyes
-                'c': '#e5e7eb', // Bright Steel Scrap
-                'd': '#9ca3af', // Mid Steel Scrap
-                'e': '#4b5563', // Dark Iron
-                'f': '#4ade80', // Orc Skin Light
-                'g': '#166534', // Orc Skin Dark
-                'h': '#ef4444', // Enemy Red Cloth
-                'i': '#7f1d1d', // Dark Red Shadow
-                'j': '#451a03'  // Dark Wood/Leather
-            };
-
-            // Helper to generate 3-frame animation set (spr1, spr2 for walk, sprAtk for attack)
-            const createAnim = (w, h, pal, f1, f2, fAtk) => ({
-                spr1: createSprite(w, h, pal, f1),
-                spr2: createSprite(w, h, pal, f2),
-                sprAtk: createSprite(w, h, pal, fAtk)
-            });
-
-            // === ULTRA-DETAILED 100x100 Canvas Sprites ===
-            function build100x100Sprite(drawFunc) {
-                const c = document.createElement('canvas');
-                c.width = 100; c.height = 100;
-                const ctx = c.getContext('2d');
-                drawFunc(ctx);
-                return c;
-            }
-            function createHighResAnim(d1, d2, d3) {
-                return { spr1: build100x100Sprite(d1), spr2: build100x100Sprite(d2), sprAtk: build100x100Sprite(d3) };
-            }
-            // Shared helpers
-            function drawJoint(ctx, x, y, r, c) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
-            function metalGrad(ctx, x, y, w, h) { const g = ctx.createLinearGradient(x, y, x + w, y); g.addColorStop(0, '#475569'); g.addColorStop(0.3, '#94a3b8'); g.addColorStop(0.6, '#cbd5e1'); g.addColorStop(1, '#64748b'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); }
-            function armorGrad(ctx, x, y, w, h) { const g = ctx.createLinearGradient(x, y, x + w, y); g.addColorStop(0, '#1e3a8a'); g.addColorStop(0.4, '#2563eb'); g.addColorStop(0.7, '#3b82f6'); g.addColorStop(1, '#1e40af'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); }
-            function drawBoot(ctx, x, y, flip) { ctx.fillStyle = '#78350f'; ctx.fillRect(x, y, 10, 8); ctx.fillStyle = '#92400e'; ctx.fillRect(x + (flip ? 0 : 6), y + 5, 4, 6); ctx.fillStyle = '#451a03'; ctx.fillRect(x, y + 8, 12, 4); }
-            function drawFace(ctx, x, y, s) {
-                ctx.fillStyle = '#fcd34d'; ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(x, y, s, -Math.PI, 0); ctx.fill();
-                /* eye */
-                ctx.fillStyle = '#000'; ctx.fillRect(x + s * 0.3, y - s * 0.2, s * 0.35, s * 0.25);
-                ctx.fillStyle = '#fff'; ctx.fillRect(x + s * 0.35, y - s * 0.15, s * 0.15, s * 0.1);
-            }
-
-            // --- Enhanced Orc shared helpers ---
-            function orcSkin(ctx, x, y, r) {
-                const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
-                g.addColorStop(0, '#86efac'); g.addColorStop(0.6, '#4ade80'); g.addColorStop(1, '#166534');
-                ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = 'rgba(22, 101, 52, 0.4)'; ctx.lineWidth = 1;
-                ctx.beginPath(); ctx.arc(x, y, r * 0.7, 0.2, 1.5); ctx.stroke();
-            }
-            function orcFace(ctx, x, y, s) {
-                // Head shape
-                ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(x, y, s, 0, Math.PI * 2); ctx.fill();
-                // Menacing Glowy Eyes
-                ctx.fillStyle = '#ef4444'; // Red glow
-                ctx.shadowBlur = 4; ctx.shadowColor = '#fca5a5';
-                ctx.fillRect(x + s * 0.1, y - s * 0.3, s * 0.4, s * 0.25);
-                ctx.shadowBlur = 0;
-                // Tusks (Orc characteristic)
-                ctx.fillStyle = '#f3f4f6'; // Bone color
-                ctx.beginPath(); ctx.moveTo(x + s * 0.2, y + s * 0.1); ctx.lineTo(x + s * 0.5, y - s * 0.4); ctx.lineTo(x + s * 0.6, y + s * 0.1); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(x + s * 0.7, y + s * 0.2); ctx.lineTo(x + s * 1.0, y - s * 0.2); ctx.lineTo(x + s * 1.1, y + s * 0.2); ctx.fill();
-                // War Paint (Red stripe)
-                ctx.fillStyle = 'rgba(153, 27, 27, 0.6)';
-                ctx.fillRect(x + s * 0.1, y - s * 0.8, s * 0.2, s * 1.6);
-            }
-            function orcArmorGrad(ctx, x, y, w, h) {
-                const g = ctx.createLinearGradient(x, y, x + w, y);
-                g.addColorStop(0, '#374151');   // Charcoal
-                g.addColorStop(0.5, '#4b5563'); // Dark iron
-                g.addColorStop(1, '#1f2937');   // Deep shadow
-                ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
-                // "Rust/Blood" weathering
-                ctx.fillStyle = 'rgba(127, 29, 29, 0.2)';
-                for (let i = 0; i < 3; i++) ctx.fillRect(x + Math.random() * w, y + Math.random() * h, w / 3, 2);
-            }
-            function orcBoot(ctx, x, y) {
-                ctx.fillStyle = '#2d1a01'; ctx.fillRect(x, y, 10, 6);
-                ctx.fillStyle = '#451a03'; ctx.fillRect(x - 3, y + 4, 13, 5);
-                // Metal toe cap
-                ctx.fillStyle = '#9ca3af'; ctx.fillRect(x - 4, y + 6, 4, 3);
-            }
-            // --- Humans (Blue) - Facing RIGHT ---
-
-            // ========== WARRIOR ==========
-            function drawWarriorBase(ctx, ox, oy, legOff) {
-                // Shadow
-
-                // Legs with joints
-                ctx.fillStyle = '#334155'; ctx.fillRect(40 + ox, 75 + oy + legOff, 11, 18); ctx.fillRect(55 + ox, 75 + oy - legOff, 11, 18);
-                drawJoint(ctx, 45 + ox, 75 + oy + legOff, 5, '#475569'); drawJoint(ctx, 60 + ox, 75 + oy - legOff, 5, '#475569');
-                drawBoot(ctx, 38 + ox, 91 + oy + legOff, false); drawBoot(ctx, 54 + ox, 91 + oy - legOff, true);
-                // Body armor with gradient
-                armorGrad(ctx, 35 + ox, 38 + oy, 30, 38);
-                // Shoulder pauldrons
-                drawJoint(ctx, 35 + ox, 42 + oy, 8, '#475569'); drawJoint(ctx, 65 + ox, 42 + oy, 8, '#64748b');
-                // Gold belt
-                ctx.fillStyle = '#fbbf24'; ctx.fillRect(35 + ox, 70 + oy, 30, 4);
-                ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(50 + ox, 72 + oy, 3, 0, Math.PI * 2); ctx.fill();
-                // Neck
-                ctx.fillStyle = '#fcd34d'; ctx.fillRect(48 + ox, 32 + oy, 8, 8);
-                // Helmet
-                metalGrad(ctx, 38 + ox, 10 + oy, 28, 25);
-                ctx.fillStyle = '#64748b'; ctx.beginPath(); ctx.arc(52 + ox, 22 + oy, 15, 0, Math.PI * 2); ctx.fill();
-                // Visor slit
-                ctx.fillStyle = '#0f172a'; ctx.fillRect(58 + ox, 18 + oy, 12, 4);
-                ctx.fillStyle = '#fbbf24'; ctx.fillRect(58 + ox, 17 + oy, 12, 1); ctx.fillRect(58 + ox, 22 + oy, 12, 1);
-                // Nose guard
-                ctx.fillStyle = '#94a3b8'; ctx.fillRect(66 + ox, 14 + oy, 3, 12);
-                // Red plume
-                const pg = ctx.createLinearGradient(42 + ox, 0, 42 + ox, 18 + oy); pg.addColorStop(0, '#fca5a5'); pg.addColorStop(1, '#dc2626'); ctx.fillStyle = pg;
-                ctx.beginPath(); ctx.moveTo(38 + ox, 18 + oy); ctx.quadraticCurveTo(35 + ox, 0, 55 + ox, 0); ctx.quadraticCurveTo(65 + ox, 5 + oy, 55 + ox, 18 + oy); ctx.fill();
-                // Chest emblem
-                ctx.fillStyle = '#fbbf24'; ctx.fillRect(46 + ox, 50 + oy, 3, 10); ctx.fillRect(43 + ox, 53 + oy, 9, 3);
-            }
-            function drawSword(ctx, x, y, angle) {
-                ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-                metalGrad(ctx, -3, -55, 8, 50);
-                ctx.fillStyle = '#e2e8f0'; ctx.fillRect(3, -55, 2, 50);
-                ctx.fillStyle = '#fbbf24'; ctx.fillRect(-6, -5, 14, 4);
-                ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(1, -5, 3, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#78350f'; ctx.fillRect(-2, 0, 6, 12);
-                ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(1, 12, 3, 0, Math.PI * 2); ctx.fill();
-                ctx.restore();
-            }
-            sprites.pMelee = createHighResAnim(
-                (ctx) => { drawWarriorBase(ctx, 0, 0, 0); drawSword(ctx, 72, 30, -0.1); },
-                (ctx) => { drawWarriorBase(ctx, 0, -1, 3); drawSword(ctx, 72, 28, -0.15); },
-                (ctx) => {
-                    ctx.translate(5, 3); ctx.rotate(0.12); drawWarriorBase(ctx, 0, 0, 5);
-                    // Standardized sword thrust
-                    drawSword(ctx, 72, 50, -Math.PI / 2 + 0.2);
-                    // Slash trail
-                    ctx.globalAlpha = 0.3; ctx.strokeStyle = '#bfdbfe'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(75, 50, 25, -1, 0.5); ctx.stroke(); ctx.globalAlpha = 1;
-                    ctx.resetTransform();
-                }
-            );
-
-            // ========== ARCHER ==========
-            function drawArcherBase(ctx, ox, oy, legOff) {
-
-                // Legs
-                ctx.fillStyle = '#78350f'; ctx.fillRect(35 + ox, 78 + oy + legOff, 9, 14); ctx.fillRect(48 + ox, 78 + oy - legOff, 9, 14);
-                drawJoint(ctx, 39 + ox, 78 + oy + legOff, 4, '#92400e'); drawJoint(ctx, 52 + ox, 78 + oy - legOff, 4, '#92400e');
-                drawBoot(ctx, 33 + ox, 90 + oy + legOff, false); drawBoot(ctx, 46 + ox, 90 + oy - legOff, true);
-                // Green tunic body
-                const tg = ctx.createLinearGradient(30 + ox, 35 + oy, 60 + ox, 35 + oy); tg.addColorStop(0, '#064e3b'); tg.addColorStop(0.5, '#065f46'); tg.addColorStop(1, '#047857'); ctx.fillStyle = tg;
-                ctx.beginPath(); ctx.moveTo(38 + ox, 35 + oy); ctx.lineTo(56 + ox, 35 + oy); ctx.lineTo(60 + ox, 78 + oy); ctx.lineTo(34 + ox, 78 + oy); ctx.fill();
-                // Belt & quiver strap
-                ctx.fillStyle = '#92400e'; ctx.fillRect(34 + ox, 68 + oy, 26, 3);
-                ctx.strokeStyle = '#92400e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(56 + ox, 35 + oy); ctx.lineTo(38 + ox, 68 + oy); ctx.stroke();
-                // Quiver on back
-                ctx.fillStyle = '#78350f'; ctx.fillRect(30 + ox, 30 + oy, 6, 35); ctx.fillStyle = '#fbbf24'; ctx.fillRect(30 + ox, 30 + oy, 6, 3);
-                ctx.fillStyle = '#a16207'; for (let i = 0; i < 3; i++) { ctx.fillRect(31 + ox, 31 + oy + i * 4, 1, 10); }
-                // Hood
-                const hg = ctx.createRadialGradient(45 + ox, 22 + oy, 5, 45 + ox, 22 + oy, 18); hg.addColorStop(0, '#065f46'); hg.addColorStop(1, '#064e3b'); ctx.fillStyle = hg;
-                ctx.beginPath(); ctx.arc(45 + ox, 22 + oy, 16, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(30 + ox, 22 + oy); ctx.quadraticCurveTo(28 + ox, 40 + oy, 34 + ox, 38 + oy); ctx.lineTo(38 + ox, 30 + oy); ctx.fill();
-                // Face
-                drawFace(ctx, 52 + ox, 22 + oy, 7);
-                // Arm holding bow
-                ctx.fillStyle = '#fcd34d'; drawJoint(ctx, 58 + ox, 45 + oy, 4, '#fcd34d');
-            }
-            function drawBow(ctx, x, y, pull) {
-                ctx.strokeStyle = '#78350f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 38, -Math.PI / 2.8, Math.PI / 2.8); ctx.stroke();
-                ctx.strokeStyle = '#92400e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 36, -Math.PI / 2.8, Math.PI / 2.8); ctx.stroke();
-                // Tips
-                ctx.fillStyle = '#fbbf24'; drawJoint(ctx, x + 38 * Math.cos(-Math.PI / 2.8), y + 38 * Math.sin(-Math.PI / 2.8), 3, '#fbbf24');
-                drawJoint(ctx, x + 38 * Math.cos(Math.PI / 2.8), y + 38 * Math.sin(Math.PI / 2.8), 3, '#fbbf24');
-                // String
-                const sx = x + 38 * Math.cos(-Math.PI / 2.8), sy = y + 38 * Math.sin(-Math.PI / 2.8);
-                const ex = x + 38 * Math.cos(Math.PI / 2.8), ey = y + 38 * Math.sin(Math.PI / 2.8);
-                ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.beginPath();
-                if (pull) { ctx.moveTo(sx, sy); ctx.lineTo(x - 10, y); ctx.lineTo(ex, ey); }
-                else { ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); } ctx.stroke();
-            }
-            sprites.pRanged = createHighResAnim(
-                (ctx) => { drawArcherBase(ctx, 0, 0, 0); drawBow(ctx, 50, 55, false); },
-                (ctx) => { drawArcherBase(ctx, 0, -1, 3); drawBow(ctx, 50, 56, false); },
-                (ctx) => {
-                    drawArcherBase(ctx, -5, 0, 2); drawBow(ctx, 42, 55, true);
-                    // Arrow
-                    ctx.fillStyle = '#a16207'; ctx.fillRect(32, 54, 50, 2);
-                    ctx.fillStyle = '#cbd5e1'; ctx.beginPath(); ctx.moveTo(82, 55); ctx.lineTo(90, 51); ctx.lineTo(90, 59); ctx.fill();
-                    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(32, 53); ctx.lineTo(26, 50); ctx.lineTo(26, 60); ctx.lineTo(32, 57); ctx.fill();
-                }
-            );
-
-            // ========== TANK ==========
-            function drawTankBase(ctx, ox, oy, legOff) {
-
-                // Heavy armored legs
-                metalGrad(ctx, 28 + ox, 78 + oy + legOff, 12, 14); metalGrad(ctx, 44 + ox, 78 + oy - legOff, 12, 14);
-                drawJoint(ctx, 34 + ox, 78 + oy + legOff, 6, '#64748b'); drawJoint(ctx, 50 + ox, 78 + oy - legOff, 6, '#64748b');
-                ctx.fillStyle = '#475569'; ctx.fillRect(27 + ox, 90 + oy + legOff, 14, 8); ctx.fillRect(43 + ox, 90 + oy - legOff, 14, 8);
-                // Massive body
-                const bg = ctx.createLinearGradient(22 + ox, 30 + oy, 60 + ox, 30 + oy); bg.addColorStop(0, '#334155'); bg.addColorStop(0.3, '#475569'); bg.addColorStop(0.7, '#64748b'); bg.addColorStop(1, '#334155'); ctx.fillStyle = bg;
-                ctx.fillRect(22 + ox, 30 + oy, 38, 50);
-                // Chest plate rivets
-                ctx.fillStyle = '#94a3b8'; for (let i = 0; i < 3; i++)drawJoint(ctx, 30 + ox, 40 + oy + i * 12, 2, '#94a3b8');
-                // Pauldrons (huge)
-                drawJoint(ctx, 22 + ox, 35 + oy, 10, '#64748b'); ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(22 + ox, 35 + oy, 10, Math.PI, Math.PI * 2); ctx.fill();
-                // Belt
-                ctx.fillStyle = '#78350f'; ctx.fillRect(22 + ox, 72 + oy, 38, 4);
-                // Neck
-                ctx.fillStyle = '#fcd34d'; ctx.fillRect(36 + ox, 24 + oy, 10, 8);
-                // Helmet (full face)
-                metalGrad(ctx, 28 + ox, 6 + oy, 26, 24);
-                ctx.fillStyle = '#64748b'; ctx.beginPath(); ctx.arc(41 + ox, 18 + oy, 14, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#0f172a'; ctx.fillRect(48 + ox, 14 + oy, 8, 3);
-                ctx.fillStyle = '#fbbf24'; ctx.fillRect(48 + ox, 13 + oy, 8, 1); ctx.fillRect(48 + ox, 17 + oy, 8, 1);
-                // Horns on helmet
-                ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.moveTo(30 + ox, 10 + oy); ctx.quadraticCurveTo(25 + ox, 0, 32 + ox, 4 + oy); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(52 + ox, 10 + oy); ctx.quadraticCurveTo(57 + ox, 0, 50 + ox, 4 + oy); ctx.fill();
-            }
-            function drawShield(ctx, x, y, bright) {
-                const sg = ctx.createLinearGradient(x, y, x + 30, y);
-                if (bright) { sg.addColorStop(0, '#94a3b8'); sg.addColorStop(0.5, '#e2e8f0'); sg.addColorStop(1, '#cbd5e1'); }
-                else { sg.addColorStop(0, '#64748b'); sg.addColorStop(0.5, '#94a3b8'); sg.addColorStop(1, '#64748b'); }
-                ctx.fillStyle = sg;
-                // Rounded shield shape
-                ctx.beginPath(); ctx.moveTo(x + 3, y); ctx.lineTo(x + 27, y); ctx.quadraticCurveTo(x + 32, y, x + 32, y + 5);
-                ctx.lineTo(x + 32, y + 75); ctx.quadraticCurveTo(x + 32, y + 82, x + 15, y + 85);
-                ctx.quadraticCurveTo(x, y + 82, x, y + 75); ctx.lineTo(x, y + 5); ctx.quadraticCurveTo(x, y, x + 3, y); ctx.fill();
-                // Border
-                ctx.strokeStyle = '#475569'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 3, y); ctx.lineTo(x + 27, y); ctx.quadraticCurveTo(x + 32, y, x + 32, y + 5);
-                ctx.lineTo(x + 32, y + 75); ctx.quadraticCurveTo(x + 32, y + 82, x + 15, y + 85);
-                ctx.quadraticCurveTo(x, y + 82, x, y + 75); ctx.lineTo(x, y + 5); ctx.quadraticCurveTo(x, y, x + 3, y); ctx.stroke();
-                // Cross emblem
-                ctx.fillStyle = '#fbbf24'; ctx.fillRect(x + 12, y + 20, 8, 35); ctx.fillRect(x + 6, y + 32, 20, 8);
-                // Rivets
-                for (let i = 0; i < 4; i++) { drawJoint(ctx, x + 4, y + 10 + i * 20, 2, '#e2e8f0'); drawJoint(ctx, x + 28, y + 10 + i * 20, 2, '#e2e8f0'); }
-            }
-            sprites.pTank = createHighResAnim(
-                (ctx) => { drawTankBase(ctx, 0, 0, 0); drawShield(ctx, 56, 8, false); },
-                (ctx) => { drawTankBase(ctx, 0, -1, 3); drawShield(ctx, 58, 9, false); },
-                (ctx) => {
-                    ctx.translate(12, 3); drawTankBase(ctx, -5, 0, 6); drawShield(ctx, 50, 5, true);
-                    // Impact lines
-                    ctx.globalAlpha = 0.4; ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
-                    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(84, 20 + i * 25); ctx.lineTo(94, 18 + i * 25); ctx.stroke(); }
-                    ctx.globalAlpha = 1; ctx.resetTransform();
-                }
-            );
-
-            // ========== MAGE ==========
-            function drawMageBase(ctx, ox, oy, legOff) {
-
-                // Robe (flowing triangle with gradient)
-                const rg = ctx.createLinearGradient(25 + ox, 35 + oy, 65 + ox, 95 + oy); rg.addColorStop(0, '#4c1d95'); rg.addColorStop(0.5, '#6d28d9'); rg.addColorStop(1, '#4c1d95'); ctx.fillStyle = rg;
-                ctx.beginPath(); ctx.moveTo(45 + ox, 33 + oy); ctx.quadraticCurveTo(70 + ox, 65 + oy, 68 + ox, 95 + oy); ctx.lineTo(22 + ox, 95 + oy); ctx.quadraticCurveTo(20 + ox, 65 + oy, 45 + ox, 33 + oy); ctx.fill();
-                // Robe highlight fold
-                ctx.fillStyle = 'rgba(109,40,217,0.5)'; ctx.beginPath(); ctx.moveTo(45 + ox, 33 + oy); ctx.lineTo(58 + ox, 95 + oy); ctx.lineTo(48 + ox, 95 + oy); ctx.fill();
-                // Gold trim at bottom
-                ctx.fillStyle = '#fbbf24'; ctx.fillRect(22 + ox, 91 + oy, 46, 3);
-                // Star patterns on robe
-                ctx.fillStyle = 'rgba(251,191,36,0.4)'; for (let i = 0; i < 3; i++) { drawJoint(ctx, 35 + ox + i * 10, 65 + oy + i * 8, 2, 'rgba(251,191,36,0.5)'); }
-                // Belt with gem
-                ctx.fillStyle = '#a855f7'; ctx.fillRect(35 + ox, 58 + oy, 20, 3);
-                ctx.fillStyle = '#f0abfc'; drawJoint(ctx, 45 + ox, 59 + oy, 3, '#e879f9');
-                // Wizard hat
-                const hg = ctx.createLinearGradient(45 + ox, 0, 45 + ox, 30 + oy); hg.addColorStop(0, '#7c3aed'); hg.addColorStop(1, '#4c1d95'); ctx.fillStyle = hg;
-                ctx.beginPath(); ctx.moveTo(45 + ox, -2); ctx.quadraticCurveTo(48 + ox, 15 + oy, 62 + ox, 28 + oy); ctx.lineTo(28 + ox, 28 + oy); ctx.quadraticCurveTo(42 + ox, 15 + oy, 45 + ox, -2); ctx.fill();
-                // Hat brim
-                ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.ellipse(45 + ox, 28 + oy, 22, 5, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.ellipse(45 + ox, 28 + oy, 22, 5, 0, 0, Math.PI); ctx.fill();
-                // Hat star
-                ctx.fillStyle = '#fde047'; drawJoint(ctx, 47 + ox, 12 + oy, 3, '#fde047');
-                // Face
-                drawFace(ctx, 48 + ox, 32 + oy, 7);
-                // Beard (little white)
-                ctx.fillStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(50 + ox, 37 + oy); ctx.lineTo(54 + ox, 45 + oy); ctx.lineTo(46 + ox, 45 + oy); ctx.fill();
-            }
-            function drawStaff(ctx, x, y, angle) {
-                ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-                // Wooden shaft with grain
-                const sg = ctx.createLinearGradient(-2, -80, 4, -80); sg.addColorStop(0, '#78350f'); sg.addColorStop(0.5, '#a16207'); sg.addColorStop(1, '#78350f');
-                ctx.fillStyle = sg; ctx.fillRect(-2, -80, 5, 85);
-                // Spiral wrap
-                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.moveTo(-2, -75 + i * 10); ctx.lineTo(3, -70 + i * 10); ctx.stroke(); }
-                // Orb at top
-                const og = ctx.createRadialGradient(1, -83, 2, 1, -83, 10); og.addColorStop(0, '#ffffff'); og.addColorStop(0.3, '#7dd3fc'); og.addColorStop(0.7, '#0ea5e9'); og.addColorStop(1, '#0369a1'); ctx.fillStyle = og;
-                ctx.beginPath(); ctx.arc(1, -83, 10, 0, Math.PI * 2); ctx.fill();
-                // Orb glow
-                ctx.globalAlpha = 0.3; ctx.fillStyle = '#7dd3fc'; ctx.beginPath(); ctx.arc(1, -83, 15, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-                ctx.restore();
-            }
-            sprites.pMage = createHighResAnim(
-                (ctx) => { drawMageBase(ctx, 0, 0, 0); drawStaff(ctx, 68, 93, 0.05); },
-                (ctx) => { drawMageBase(ctx, 0, 2, 0); drawStaff(ctx, 70, 95, 0.08); },
-                (ctx) => {
-                    drawMageBase(ctx, -5, 0, 0); drawStaff(ctx, 62, 85, -0.5);
-                    // Magic burst from orb
-                    const bx = 62 + 10 * Math.cos(-0.5 - Math.PI / 2), by = 85 + 10 * Math.sin(-0.5 - Math.PI / 2) - 83;
-                    ctx.globalAlpha = 0.5; ctx.fillStyle = '#7dd3fc'; ctx.beginPath(); ctx.arc(82, 15, 18, 0, Math.PI * 2); ctx.fill();
-                    ctx.globalAlpha = 0.7; ctx.fillStyle = '#bae6fd'; ctx.beginPath(); ctx.arc(82, 15, 12, 0, Math.PI * 2); ctx.fill();
-                    ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(82, 15, 6, 0, Math.PI * 2); ctx.fill();
-                    // Sparks
-                    ctx.fillStyle = '#bae6fd'; for (let i = 0; i < 5; i++) { const a = Math.PI * 2 * i / 5, r = 22 + i * 3; ctx.fillRect(82 + Math.cos(a) * r, 15 + Math.sin(a) * r, 3, 3); }
-                }
-            );
-
-            // ========== HEALER ==========
-            function drawHealerBase(ctx, ox, oy, hover) {
-
-                // Flowing white robe
-                const rg = ctx.createLinearGradient(25 + ox, 30 + oy, 65 + ox, 95 + oy); rg.addColorStop(0, '#f8fafc'); rg.addColorStop(0.5, '#e2e8f0'); rg.addColorStop(1, '#f1f5f9'); ctx.fillStyle = rg;
-                ctx.beginPath(); ctx.moveTo(45 + ox, 30 + oy - hover); ctx.quadraticCurveTo(68 + ox, 62 + oy, 65 + ox, 95 + oy); ctx.lineTo(25 + ox, 95 + oy); ctx.quadraticCurveTo(22 + ox, 62 + oy, 45 + ox, 30 + oy - hover); ctx.fill();
-                // Robe fold shadow
-                ctx.fillStyle = 'rgba(148,163,184,0.3)'; ctx.beginPath(); ctx.moveTo(45 + ox, 30 + oy - hover); ctx.lineTo(55 + ox, 95 + oy); ctx.lineTo(45 + ox, 95 + oy); ctx.fill();
-                // Gold trim
-                ctx.fillStyle = '#fbbf24'; ctx.fillRect(25 + ox, 91 + oy, 40, 3);
-                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(38 + ox, 40 + oy - hover); ctx.lineTo(30 + ox, 91 + oy); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(52 + ox, 40 + oy - hover); ctx.lineTo(60 + ox, 91 + oy); ctx.stroke();
-                // Sash
-                ctx.fillStyle = '#dc2626'; ctx.fillRect(36 + ox, 55 + oy - hover, 18, 3);
-                ctx.fillStyle = '#fbbf24'; drawJoint(ctx, 45 + ox, 56 + oy - hover, 2, '#fbbf24');
-                // Head - blonde hair
-                ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(45 + ox, 18 + oy - hover, 13, 0, Math.PI * 2); ctx.fill();
-                // Hair strands
-                ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(32 + ox, 18 + oy - hover); ctx.quadraticCurveTo(30 + ox, 30 + oy - hover, 34 + ox, 35 + oy - hover); ctx.lineTo(37 + ox, 20 + oy - hover); ctx.fill();
-                // Face
-                drawFace(ctx, 50 + ox, 19 + oy - hover, 6);
-                // Gentle smile
-                ctx.strokeStyle = '#92400e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(52 + ox, 22 + oy - hover, 3, 0, Math.PI * 0.7); ctx.stroke();
-                // Halo glow
-                ctx.globalAlpha = 0.2; ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(45 + ox, 8 + oy - hover, 14, 4, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
-            }
-            sprites.pHealer = createHighResAnim(
-                (ctx) => {
-                    drawHealerBase(ctx, 0, 0, 0);
-                    // Holy book
-                    ctx.fillStyle = '#7f1d1d'; ctx.fillRect(56, 42, 14, 18); ctx.fillStyle = '#fbbf24'; ctx.fillRect(56, 43, 3, 16);
-                    ctx.fillStyle = '#fef3c7'; ctx.fillRect(68, 43, 1, 16);
-                    ctx.fillStyle = '#fbbf24'; ctx.fillRect(56, 42, 14, 2); ctx.fillRect(56, 58, 14, 2);
-                    // Arm
-                    ctx.fillStyle = '#f8fafc'; ctx.fillRect(55, 38, 5, 20); drawJoint(ctx, 57, 38, 4, '#e2e8f0');
-                },
-                (ctx) => {
-                    drawHealerBase(ctx, 0, 0, 3);
-                    ctx.fillStyle = '#7f1d1d'; ctx.fillRect(56, 40, 14, 18); ctx.fillStyle = '#fbbf24'; ctx.fillRect(56, 41, 3, 16);
-                    ctx.fillStyle = '#fef3c7'; ctx.fillRect(68, 41, 1, 16);
-                    ctx.fillStyle = '#fbbf24'; ctx.fillRect(56, 40, 14, 2); ctx.fillRect(56, 56, 14, 2);
-                    ctx.fillStyle = '#f8fafc'; ctx.fillRect(55, 36, 5, 20); drawJoint(ctx, 57, 36, 4, '#e2e8f0');
-                },
-                (ctx) => {
-                    drawHealerBase(ctx, 0, 0, 5);
-                    // Arms raised
-                    ctx.fillStyle = '#f8fafc'; ctx.fillRect(28, 25, 8, 30); ctx.fillRect(56, 25, 8, 30);
-                    drawJoint(ctx, 32, 25, 5, '#fcd34d'); drawJoint(ctx, 60, 25, 5, '#fcd34d');
-                    // Massive holy cross above
-                    ctx.globalAlpha = 0.15; ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(45, 10, 30, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-                    ctx.globalAlpha = 0.7; const cg = ctx.createLinearGradient(45, 0, 45, 45); cg.addColorStop(0, '#fef08a'); cg.addColorStop(1, '#fbbf24'); ctx.fillStyle = cg;
-                    ctx.fillRect(39, -5, 12, 50); ctx.fillRect(25, 10, 40, 12); ctx.globalAlpha = 1;
-                    ctx.fillStyle = '#fff'; ctx.fillRect(42, -2, 6, 44); ctx.fillRect(28, 13, 34, 6);
-                    // Healing particles
-                    ctx.fillStyle = '#fde047'; for (let i = 0; i < 6; i++) { const a = Math.PI * 2 * i / 6, r = 20 + i * 3; drawJoint(ctx, 45 + Math.cos(a) * r, 30 + Math.sin(a) * r, 2, '#fde047'); }
-                }
-            );
-
-            sprites.pEnh = sprites.pTank;
-
-            // --- Enemy (Orcs) - Facing LEFT --- (100x100 Canvas)
-            // ========== ORC MELEE ==========
-            function drawOrcMeleeBase(ctx, ox, oy, legOff) {
-                // Muscular Legs
-                ctx.fillStyle = '#166534'; ctx.fillRect(42 + ox, 76 + oy + legOff, 11, 16); ctx.fillRect(55 + ox, 76 + oy - legOff, 11, 16);
-                orcBoot(ctx, 41 + ox, 90 + oy + legOff); orcBoot(ctx, 55 + ox, 90 + oy - legOff);
-                // Hunched Muscular Torso (Brutal Red Leather)
-                const bg = ctx.createLinearGradient(30 + ox, 40 + oy, 70 + ox, 40 + oy);
-                bg.addColorStop(0, '#7f1d1d'); bg.addColorStop(0.5, '#ef4444'); bg.addColorStop(1, '#991b1b');
-                ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(35 + ox, 40 + oy); ctx.lineTo(65 + ox, 35 + oy); ctx.lineTo(72 + ox, 78 + oy); ctx.lineTo(28 + ox, 78 + oy); ctx.fill();
-                // Muscular Orc Arms
-                orcSkin(ctx, 32 + ox, 50 + oy, 9); orcSkin(ctx, 68 + ox, 48 + oy, 9);
-                // Spiked Iron Pauldrons
-                orcArmorGrad(ctx, 28 + ox, 35 + oy, 14, 12); orcArmorGrad(ctx, 62 + ox, 32 + oy, 14, 12);
-                ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.moveTo(28 + ox, 35 + oy); ctx.lineTo(20 + ox, 25 + oy); ctx.lineTo(35 + ox, 35 + oy); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(76 + ox, 32 + oy); ctx.lineTo(84 + ox, 22 + oy); ctx.lineTo(62 + ox, 32 + oy); ctx.fill();
-                // Belt with Iron Buckle
-                ctx.fillStyle = '#2d1a01'; ctx.fillRect(32 + ox, 72 + oy, 38, 5);
-                ctx.fillStyle = '#374151'; ctx.fillRect(48 + ox, 71 + oy, 8, 8);
-                // Neck & Head (Hunched aggressively)
-                ctx.fillStyle = '#166534'; ctx.fillRect(42 + ox, 28 + oy, 10, 10);
-                orcFace(ctx, 45 + ox, 24 + oy, 12);
-            }
-            function drawOrcAxe(ctx, x, y, angle) {
-                ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-                // Notched Bone Handle
-                ctx.fillStyle = '#f3f4f6'; ctx.fillRect(-2, 0, 5, 45);
-                ctx.fillStyle = '#d1d5db'; for (let i = 0; i < 3; i++) ctx.fillRect(-2, 10 + i * 8, 5, 2);
-                // Heavy Rusted Iron Blade
-                ctx.fillStyle = '#374151'; ctx.beginPath(); ctx.moveTo(-15, -10); ctx.lineTo(5, -5); ctx.lineTo(5, 15); ctx.quadraticCurveTo(-22, 20, -18, -10); ctx.fill();
-                // Sharp edge
-                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-18, -10); ctx.quadraticCurveTo(-22, 20, -18, -10); ctx.stroke();
-                // Blood stains
-                ctx.fillStyle = 'rgba(127, 29, 29, 0.4)'; ctx.beginPath(); ctx.arc(-10, 5, 4, 0, Math.PI); ctx.fill();
-                ctx.restore();
-            }
-            sprites.eMelee = createHighResAnim(
-                (ctx) => { drawOrcMeleeBase(ctx, 0, 0, 0); drawOrcAxe(ctx, 28, 30, 0.2); },
-                (ctx) => { drawOrcMeleeBase(ctx, 0, -1, 3); drawOrcAxe(ctx, 28, 28, 0.15); },
-                (ctx) => {
-                    ctx.translate(-5, 3); ctx.rotate(-0.1); drawOrcMeleeBase(ctx, 0, 0, 4);
-                    drawOrcAxe(ctx, 20, 35, -0.8);
-                    ctx.globalAlpha = 0.3; ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(22, 30, 20, 0.5, 2); ctx.stroke(); ctx.globalAlpha = 1;
-                    ctx.resetTransform();
-                }
-            );
-
-            // ========== ORC RANGED ==========
-            function drawOrcRangedBase(ctx, ox, oy, legOff) {
-                // Leaner Legs
-                ctx.fillStyle = '#166534'; ctx.fillRect(42 + ox, 78 + oy + legOff, 9, 14); ctx.fillRect(55 + ox, 78 + oy - legOff, 9, 14);
-                orcBoot(ctx, 41 + ox, 90 + oy + legOff); orcBoot(ctx, 54 + ox, 90 + oy - legOff);
-                // Weathered Leather Vest
-                const lg = ctx.createLinearGradient(38 + ox, 38 + oy, 64 + ox, 38 + oy);
-                lg.addColorStop(0, '#451a03'); lg.addColorStop(1, '#78350f');
-                ctx.fillStyle = lg; ctx.fillRect(38 + ox, 38 + oy, 26, 40);
-                // Fur trim on shoulders
-                ctx.fillStyle = '#d4d4d4'; ctx.beginPath(); ctx.arc(38 + ox, 42 + oy, 5, 0, Math.PI * 2); ctx.arc(64 + ox, 42 + oy, 5, 0, Math.PI * 2); ctx.fill();
-                // Arms
-                orcSkin(ctx, 65 + ox, 50 + oy, 6);
-                // Head (Hooded Stalker)
-                ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.arc(50 + ox, 25 + oy, 14, 0, Math.PI * 2); ctx.fill();
-                orcFace(ctx, 44 + ox, 26 + oy, 8);
-                // Tattered Hood Back
-                ctx.beginPath(); ctx.moveTo(64 + ox, 25 + oy); ctx.quadraticCurveTo(72 + ox, 40 + oy, 62 + ox, 45 + oy); ctx.lineTo(58 + ox, 28 + oy); ctx.fill();
-            }
-            sprites.eRanged = createHighResAnim(
-                (ctx) => {
-                    drawOrcRangedBase(ctx, 0, 0, 0);
-                    // Crude shortbow facing left
-                    ctx.strokeStyle = '#451a03'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(55, 55, 30, Math.PI * 2 / 3, Math.PI * 4 / 3); ctx.stroke();
-                    ctx.strokeStyle = '#a3a3a3'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(40, 28); ctx.lineTo(40, 82); ctx.stroke();
-                },
-                (ctx) => {
-                    drawOrcRangedBase(ctx, 0, -1, 3);
-                    ctx.strokeStyle = '#451a03'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(55, 57, 30, Math.PI * 2 / 3, Math.PI * 4 / 3); ctx.stroke();
-                    ctx.strokeStyle = '#a3a3a3'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(40, 30); ctx.lineTo(40, 84); ctx.stroke();
-                },
-                (ctx) => {
-                    drawOrcRangedBase(ctx, 5, 0, 2);
-                    // Drawn bow
-                    ctx.strokeStyle = '#451a03'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(58, 55, 32, Math.PI * 2 / 3 + 0.1, Math.PI * 4 / 3 - 0.1); ctx.stroke();
-                    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(42, 26); ctx.lineTo(58, 55); ctx.lineTo(42, 84); ctx.stroke();
-                    // Arrow (Bone tipped)
-                    ctx.fillStyle = '#f3f4f6'; ctx.fillRect(15, 54, 43, 2);
-                    ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.moveTo(15, 55); ctx.lineTo(8, 51); ctx.lineTo(8, 59); ctx.fill();
-                    // Crimson fletching
-                    ctx.fillStyle = '#7f1d1d'; ctx.beginPath(); ctx.moveTo(56, 53); ctx.lineTo(62, 50); ctx.lineTo(62, 60); ctx.lineTo(56, 57); ctx.fill();
-                }
-            );
-
-            // ========== ORC TANK ==========
-            function drawOrcTankBase(ctx, ox, oy, legOff) {
-                // Heavy Armor Legs
-                orcArmorGrad(ctx, 38 + ox, 76 + oy + legOff, 14, 16); orcArmorGrad(ctx, 58 + ox, 76 + oy - legOff, 14, 16);
-                orcBoot(ctx, 38 + ox, 90 + oy + legOff); orcBoot(ctx, 58 + ox, 90 + oy - legOff);
-                // Massive Torso (Blood-Iron Plate)
-                const bg = ctx.createLinearGradient(25 + ox, 30 + oy, 75 + ox, 30 + oy);
-                bg.addColorStop(0, '#450a0a'); bg.addColorStop(0.5, '#7f1d1d'); bg.addColorStop(1, '#450a0a');
-                ctx.fillStyle = bg; ctx.fillRect(25 + ox, 30 + oy, 50, 50);
-                // Iron Ribs
-                ctx.fillStyle = 'rgba(156, 163, 175, 0.3)';
-                for (let i = 0; i < 3; i++) ctx.fillRect(30 + ox, 40 + oy + i * 10, 40, 2);
-                // Gargantuan Pauldrons
-                orcArmorGrad(ctx, 15 + ox, 25 + oy, 22, 18); orcArmorGrad(ctx, 63 + ox, 25 + oy, 22, 18);
-                // Pauldron Spikes
-                ctx.fillStyle = '#f3f4f6'; ctx.beginPath(); ctx.moveTo(15 + ox, 25 + oy); ctx.lineTo(5 + ox, 5 + oy); ctx.lineTo(25 + ox, 25 + oy); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(85 + ox, 25 + oy); ctx.lineTo(95 + ox, 5 + oy); ctx.lineTo(75 + ox, 25 + oy); ctx.fill();
-                // Skull Belt
-                ctx.fillStyle = '#2d1a01'; ctx.fillRect(25 + ox, 72 + oy, 50, 6);
-                ctx.fillStyle = '#f9fafb'; drawJoint(ctx, 50 + ox, 75 + oy, 5, '#f9fafb'); // Bone buckle
-                // Neck & Head (Fully Armored)
-                ctx.fillStyle = '#166534'; ctx.fillRect(44 + ox, 20 + oy, 12, 10);
-                orcFace(ctx, 50 + ox, 18 + oy, 14);
-                // Iron Top-Helm
-                ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(50 + ox, 14 + oy, 16, Math.PI, Math.PI * 2); ctx.fill();
-                // Massive Side Horns
-                ctx.fillStyle = '#fbbf24';
-                ctx.beginPath(); ctx.moveTo(35 + ox, 10 + oy); ctx.quadraticCurveTo(15 + ox, -10 + oy, 25 + ox, 5 + oy); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(65 + ox, 10 + oy); ctx.quadraticCurveTo(85 + ox, -10 + oy, 75 + ox, 5 + oy); ctx.fill();
-            }
-            function drawOrcShield(ctx, x, y) {
-                // Crude Spiked Tower Shield
-                orcArmorGrad(ctx, x, y, 35, 80);
-                ctx.strokeStyle = '#111827'; ctx.lineWidth = 2; ctx.strokeRect(x, y, 35, 80);
-                // Central Bone Cross
-                ctx.fillStyle = '#f3f4f6'; ctx.fillRect(x + 15, y + 10, 5, 60); ctx.fillRect(x + 5, y + 35, 25, 5);
-                // Reactive Spikes
-                ctx.fillStyle = '#9ca3af';
-                for (let i = 0; i < 4; i++) {
-                    ctx.beginPath(); ctx.moveTo(x, y + 10 + i * 20); ctx.lineTo(x - 10, y + 15 + i * 20); ctx.lineTo(x, y + 20 + i * 20); ctx.fill();
-                }
-            }
-            sprites.eTank = createHighResAnim(
-                (ctx) => { drawOrcTankBase(ctx, 0, 0, 0); drawOrcShield(ctx, 2, 10); },
-                (ctx) => { drawOrcTankBase(ctx, 0, -1, 3); drawOrcShield(ctx, 0, 12); },
-                (ctx) => {
-                    ctx.translate(-10, 3); drawOrcTankBase(ctx, 5, 0, 5); drawOrcShield(ctx, 0, 8);
-                    ctx.globalAlpha = 0.4; ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 2;
-                    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(2, 20 + i * 22); ctx.lineTo(-8, 22 + i * 22); ctx.stroke(); }
-                    ctx.globalAlpha = 1; ctx.resetTransform();
-                }
-            );
-            sprites.eEnh = sprites.eTank;
-
-            // ========== ORC MAGE (Shaman) ==========
-            function drawOrcShamanBase(ctx, ox, oy) {
-                // Tattered Blood Robe
-                const rg = ctx.createLinearGradient(30 + ox, 35 + oy, 70 + ox, 95 + oy);
-                rg.addColorStop(0, '#450a0a'); rg.addColorStop(0.5, '#991b1b'); rg.addColorStop(1, '#000000');
-                ctx.fillStyle = rg; ctx.beginPath(); ctx.moveTo(50 + ox, 30 + oy);
-                ctx.quadraticCurveTo(20 + ox, 60 + oy, 25 + ox, 95 + oy);
-                ctx.lineTo(75 + ox, 95 + oy);
-                ctx.quadraticCurveTo(80 + ox, 60 + oy, 50 + ox, 30 + oy); ctx.fill();
-                // Bone Ornaments
-                ctx.fillStyle = '#f3f4f6';
-                for (let i = 0; i < 4; i++) drawJoint(ctx, 35 + ox + i * 10, 85 + oy, 3, '#f3f4f6');
-                // Tattered belt
-                ctx.fillStyle = '#1a202c'; ctx.fillRect(30 + ox, 65 + oy, 40, 4);
-                // Head
-                orcFace(ctx, 50 + ox, 24 + oy, 10);
-                // Large Ritual Feathers
-                ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(45 + ox, 15 + oy); ctx.lineTo(35 + ox, -5); ctx.lineTo(48 + ox, 12 + oy); ctx.fill();
-                ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.moveTo(55 + ox, 15 + oy); ctx.lineTo(65 + ox, -5); ctx.lineTo(52 + ox, 12 + oy); ctx.fill();
-            }
-            function drawTotemStaff(ctx, x, y, angle) {
-                ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-                // Gnarled wood
-                ctx.fillStyle = '#451a03'; ctx.fillRect(-3, -75, 6, 80);
-                // Animal Skull Totem
-                ctx.fillStyle = '#f9fafb'; drawJoint(ctx, 0, -80, 10, '#f9fafb');
-                ctx.fillStyle = '#111827'; ctx.fillRect(-4, -82, 3, 3); ctx.fillRect(1, -82, 3, 3); // Eye sockets
-                // Glowing Fel-Rune
-                ctx.shadowBlur = 8; ctx.shadowColor = '#4ade80';
-                ctx.fillStyle = '#86efac'; ctx.fillRect(-2, -73, 4, 6);
-                ctx.shadowBlur = 0;
-                ctx.restore();
-            }
-            sprites.eMage = createHighResAnim(
-                (ctx) => { drawOrcShamanBase(ctx, 0, 0); drawTotemStaff(ctx, 30, 93, -0.05); },
-                (ctx) => { drawOrcShamanBase(ctx, 0, 2); drawTotemStaff(ctx, 28, 95, -0.08); },
-                (ctx) => {
-                    drawOrcShamanBase(ctx, 5, 0); drawTotemStaff(ctx, 35, 85, 0.5);
-                    // Green fire burst
-                    ctx.globalAlpha = 0.5; ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(18, 15, 16, 0, Math.PI * 2); ctx.fill();
-                    ctx.globalAlpha = 0.7; ctx.fillStyle = '#86efac'; ctx.beginPath(); ctx.arc(18, 15, 10, 0, Math.PI * 2); ctx.fill();
-                    ctx.globalAlpha = 1; ctx.fillStyle = '#dcfce7'; ctx.beginPath(); ctx.arc(18, 15, 5, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#86efac'; for (let i = 0; i < 4; i++) { const a = Math.PI * 2 * i / 4, r = 20; ctx.fillRect(18 + Math.cos(a) * r, 15 + Math.sin(a) * r, 3, 3); }
-                }
-            );
-
-            // ========== ORC HEALER (Witch Doctor) ==========
-            function drawWitchDoctorBase(ctx, ox, oy, hover) {
-                // Tattered robes
-                const rg = ctx.createLinearGradient(30 + ox, 32 + oy, 70 + ox, 95 + oy); rg.addColorStop(0, '#451a03'); rg.addColorStop(0.5, '#78350f'); rg.addColorStop(1, '#451a03'); ctx.fillStyle = rg;
-                ctx.beginPath(); ctx.moveTo(50 + ox, 32 + oy - hover); ctx.quadraticCurveTo(28 + ox, 60 + oy, 30 + ox, 95 + oy); ctx.lineTo(70 + ox, 95 + oy); ctx.quadraticCurveTo(72 + ox, 60 + oy, 50 + ox, 32 + oy - hover); ctx.fill();
-                // Bone trim
-                ctx.fillStyle = '#e2e8f0'; for (let i = 0; i < 5; i++)drawJoint(ctx, 34 + ox + i * 8, 90 + oy, 2, '#d4d4d4');
-                // Voodoo necklace
-                ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(50 + ox, 44 + oy - hover, 10, 0, Math.PI); ctx.stroke();
-                ctx.fillStyle = '#dc2626'; drawJoint(ctx, 50 + ox, 52 + oy - hover, 3, '#ef4444');
-                // Head
-                orcFace(ctx, 50 + ox, 22 + oy - hover, 10);
-                // Tribal mask/paint
-                ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(42 + ox, 18 + oy - hover); ctx.lineTo(38 + ox, 26 + oy - hover); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(58 + ox, 18 + oy - hover); ctx.lineTo(62 + ox, 26 + oy - hover); ctx.stroke();
-                // Feathers
-                ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.moveTo(47 + ox, 12 + oy - hover); ctx.lineTo(44 + ox, 0); ctx.lineTo(50 + ox, 10 + oy - hover); ctx.fill();
-                ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.moveTo(53 + ox, 12 + oy - hover); ctx.lineTo(56 + ox, 2); ctx.lineTo(56 + ox, 12 + oy - hover); ctx.fill();
-            }
-            sprites.eHealer = createHighResAnim(
-                (ctx) => {
-                    drawWitchDoctorBase(ctx, 0, 0, 0);
-                    // Voodoo doll
-                    ctx.fillStyle = '#a16207'; ctx.fillRect(30, 48, 10, 15); drawJoint(ctx, 35, 48, 4, '#ca8a04');
-                    ctx.fillStyle = '#78350f'; ctx.fillRect(28, 53, 4, 3); ctx.fillRect(38, 53, 4, 3);
-                    ctx.fillStyle = '#dc2626'; drawJoint(ctx, 35, 52, 2, '#ef4444');
-                },
-                (ctx) => {
-                    drawWitchDoctorBase(ctx, 0, 0, 3);
-                    ctx.fillStyle = '#a16207'; ctx.fillRect(30, 46, 10, 15); drawJoint(ctx, 35, 46, 4, '#ca8a04');
-                    ctx.fillStyle = '#78350f'; ctx.fillRect(28, 51, 4, 3); ctx.fillRect(38, 51, 4, 3);
-                    ctx.fillStyle = '#dc2626'; drawJoint(ctx, 35, 50, 2, '#ef4444');
-                },
-                (ctx) => {
-                    drawWitchDoctorBase(ctx, 0, 0, 5);
-                    // Arms raised with voodoo magic
-                    ctx.fillStyle = '#22c55e'; ctx.fillRect(30, 28, 7, 25); ctx.fillRect(62, 28, 7, 25);
-                    drawJoint(ctx, 33, 28, 5, '#4ade80'); drawJoint(ctx, 65, 28, 5, '#4ade80');
-                    // Dark magic circle
-                    ctx.globalAlpha = 0.3; ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(50, 12, 22, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-                    ctx.strokeStyle = '#86efac'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(50, 12, 18, 0, Math.PI * 2); ctx.stroke();
-                    // Skulls orbiting
-                    for (let i = 0; i < 3; i++) {
-                        const a = Math.PI * 2 * i / 3; drawJoint(ctx, 50 + Math.cos(a) * 16, 12 + Math.sin(a) * 16, 4, '#d4d4d4');
-                        ctx.fillStyle = '#1f2937'; ctx.fillRect(48 + Math.cos(a) * 16, 10 + Math.sin(a) * 16, 1, 2); ctx.fillRect(51 + Math.cos(a) * 16, 10 + Math.sin(a) * 16, 1, 2);
-                    }
-                }
-            );
-
-            // --- Performance: Pre-rendered Shadow ---
-            const shC = document.createElement('canvas');
-            shC.width = 64; shC.height = 64;
-            const shCtx = shC.getContext('2d');
-            shCtx.fillStyle = "rgba(0,0,0,0.5)";
-            shCtx.beginPath();
-            shCtx.ellipse(32, 32, 32, 12, 0, 0, Math.PI * 2);
-            shCtx.fill();
-            sprites.shadow = shC;
-
-            // --- Environment ---
-            const bgC = document.createElement('canvas');
-            bgC.width = 8; bgC.height = 8;
-            const bgCtx = bgC.getContext('2d');
-            bgCtx.fillStyle = "#1c1917";
-            bgCtx.fillRect(0, 0, 8, 8);
-            sprites.bgGrid = bgC;
-            // --- High-Fidelity Canvas Battlefield Background ---
-            // --- Static High-Fidelity Background Loader ---
-            (function loadStaticBackground() {
-                const bgImg = new Image();
-                bgImg.src = 'background_v5.png';
-                bgImg.onload = () => {
-                    sprites.fullBg = bgImg;
+                    const key = (team === 0 ? 'p' : 'e') + type;
+                    sprites[key + 'Sheet'] = tempCanvas;
+                    sprites[key + 'Meta'] = { frameW: 552, frameH: 752, framesPerRow: 5 };
+                    console.log(`[Sprites] Processed ${key}: Removed ${keyed} magenta pixels. (Size: ${img.width}x${img.height})`);
                 };
-            })();
-
-            // --- High-Detail Procedural Bases ---
-            const baseNoise = document.createElement('canvas');
-            baseNoise.width = 64; baseNoise.height = 64;
-            const bnx = baseNoise.getContext('2d');
-            for (let i = 0; i < 1000; i++) {
-                const v = rng(i + 99) * 255;
-                bnx.fillStyle = `rgba(${v},${v},${v},0.12)`;
-                bnx.fillRect(rng(i * 1.1) * 64, rng(i * 1.2) * 64, 1, 1);
+                img.onerror = (e) => {
+                    console.error(`[Sprites] Failed to load sprite sheet: ${filename}`, e);
+                    if (nfcFilename && img.src !== nfcFilename) {
+                        console.log(`[Sprites] Retrying with NFC filename: ${nfcFilename}`);
+                        img.src = nfcFilename;
+                    }
+                };
             }
-            const bNoisePtrn = bnx.createPattern(baseNoise, 'repeat');
 
-            // 1. HUMAN MAJESTIC CASTLE
-            (function generateHumanBase() {
-                const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+            // Load all known unit sprite sheets
+            const unitFiles = [
+                { team: 0, type: TYPE_MELEE, file: '인간전사.png', nfc: '인간전사.png' },
+                { team: 0, type: TYPE_RANGED, file: '인간궁수.png', nfc: '인간궁수.png' },
+                { team: 0, type: TYPE_TANKER, file: '인간탱커.png', nfc: '인간탱커.png' },
+                { team: 0, type: TYPE_MAGE, file: '인간법사.png', nfc: '인간법사.png' },
+                { team: 0, type: TYPE_HEALER, file: '인간사제.png', nfc: '인간사제.png' },
+                { team: 1, type: TYPE_MELEE, file: '오크전사.png', nfc: '오크전사.png' },
+                { team: 1, type: TYPE_RANGED, file: '오크궁수.png', nfc: '오크궁수.png' },
+                { team: 1, type: TYPE_TANKER, file: '오크탱커.png', nfc: '오크탱커.png' },
+                { team: 1, type: TYPE_MAGE, file: '오크법사.png', nfc: '오크법사.png' },
+                { team: 1, type: TYPE_HEALER, file: '오크사제.png', nfc: '오크사제.png' }
+            ];
+
+            unitFiles.forEach(u => loadUnitSheet(u.team, u.type, u.file, u.nfc));
+        })();
+
+        (function loadHumanBase() {
+            const img = new Image();
+            img.src = 'castle.png';
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = img.width; c.height = img.height;
                 const x = c.getContext('2d');
-
-                // Main Walls (Stone)
-                const wg = x.createLinearGradient(10, 40, 118, 120);
-                wg.addColorStop(0, '#475569'); wg.addColorStop(1, '#1e293b');
-                x.fillStyle = wg; x.fillRect(10, 50, 108, 78);
-
-                // Procedural Stone Bricks
-                x.strokeStyle = 'rgba(255,255,255,0.05)'; x.lineWidth = 1;
-                for (let r = 0; r < 10; r++) for (let col = 0; col < 8; col++) {
-                    x.strokeRect(12 + col * 14 + (r % 2) * 7, 52 + r * 7.5, 14, 7);
+                x.drawImage(img, 0, 0);
+                try {
+                    const imgData = x.getImageData(0, 0, c.width, c.height);
+                    const d = imgData.data;
+                    for (let i = 0; i < d.length; i += 4) {
+                        // Remove magenta background (high R, high B, low G)
+                        if (d[i] > 150 && d[i + 2] > 150 && d[i + 1] < 120) {
+                            d[i + 3] = 0;
+                        }
+                    }
+                    x.putImageData(imgData, 0, 0);
+                } catch (e) {
+                    console.warn('[Sprites] Canvas taint on 성.png, skipping magenta removal:', e.message);
                 }
-
-                // Towers
-                function drawTower(tx, ty, tw, th) {
-                    const tg = x.createLinearGradient(tx, ty, tx + tw, ty);
-                    tg.addColorStop(0, '#334155'); tg.addColorStop(0.5, '#64748b'); tg.addColorStop(1, '#1e293b');
-                    x.fillStyle = tg; x.fillRect(tx, ty, tw, th);
-                    // Roof (Conical Blue)
-                    x.fillStyle = '#1e3a8a';
-                    x.beginPath(); x.moveTo(tx - 4, ty); x.lineTo(tx + tw / 2, ty - 30); x.lineTo(tx + tw + 4, ty); x.fill();
-                    // Gold Finial
-                    x.fillStyle = '#fbbf24'; x.beginPath(); x.arc(tx + tw / 2, ty - 30, 2.5, 0, Math.PI * 2); x.fill();
-                    // Windows
-                    x.fillStyle = '#0f172a'; x.fillRect(tx + tw / 2 - 3, ty + 15, 6, 10);
-                    x.fillStyle = 'rgba(251,191,36,0.5)'; x.fillRect(tx + tw / 2 - 2, ty + 16, 4, 3);
-                }
-                drawTower(4, 30, 24, 98);   // Left
-                drawTower(100, 30, 24, 98); // Right
-
-                // Gate & Portcullis
-                x.fillStyle = '#020617'; x.beginPath(); x.moveTo(48, 128); x.lineTo(48, 85); x.arc(64, 85, 16, Math.PI, 0); x.lineTo(80, 128); x.fill();
-                x.strokeStyle = '#64748b'; x.lineWidth = 2;
-                for (let i = 0; i < 5; i++) { x.beginPath(); x.moveTo(52 + i * 6, 80); x.lineTo(52 + i * 6, 128); x.stroke(); }
-                for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(48, 90 + i * 10); x.lineTo(80, 90 + i * 10); x.stroke(); }
-
-                // Blue/Gold Banners
-                x.fillStyle = '#2563eb'; x.fillRect(35, 55, 12, 35);
-                x.fillStyle = '#fbbf24'; x.fillRect(39, 60, 4, 25); x.fillRect(37, 68, 8, 4);
-                x.fillStyle = '#2563eb'; x.fillRect(81, 55, 12, 35);
-                x.fillStyle = '#fbbf24'; x.fillRect(85, 60, 4, 25); x.fillRect(83, 68, 8, 4);
-
-                // Noise Overlay
-                x.globalCompositeOperation = 'overlay'; x.fillStyle = bNoisePtrn; x.fillRect(0, 0, 128, 128); x.globalCompositeOperation = 'source-over';
                 sprites.pBase = c;
-            })();
-
-            // 2. ORC SPIKED FORTRESS
-            (function generateOrcBase() {
+                console.log('[Sprites] 성.png loaded. Size:', img.width, 'x', img.height);
+            };
+            img.onerror = (e) => {
+                console.error('[Sprites] 성.png FAILED to load:', e);
                 const c = document.createElement('canvas'); c.width = 128; c.height = 128;
                 const x = c.getContext('2d');
+                x.fillStyle = '#1e3a8a'; x.fillRect(0, 0, 128, 128);
+                sprites.pBase = c;
+            };
+        })();
 
-                // Wood Wall Gradient
-                const wg = x.createLinearGradient(15, 50, 113, 128);
-                wg.addColorStop(0, '#451a03'); wg.addColorStop(0.5, '#78350f'); wg.addColorStop(1, '#2d0f02');
-                x.fillStyle = wg; x.fillRect(15, 60, 98, 68);
-
-                // Procedural Wood Grain
-                x.strokeStyle = 'rgba(0,0,0,0.2)'; x.lineWidth = 1;
-                for (let i = 0; i < 12; i++) {
-                    const yy = 65 + i * 5;
-                    x.beginPath(); x.moveTo(15, yy);
-                    for (let px = 15; px < 113; px += 5) x.lineTo(px, yy + (rng(i + px) * 4 - 2));
-                    x.stroke();
-                }
-
-                // Jagged Spikes
-                function drawSpike(sx, sy, sw, sh, ang) {
-                    x.save(); x.translate(sx, sy); x.rotate(ang);
-                    const sg = x.createLinearGradient(0, 0, 0, sh);
-                    sg.addColorStop(0, '#d1d5db'); sg.addColorStop(1, '#4b5563');
-                    x.fillStyle = sg;
-                    x.beginPath(); x.moveTo(-sw / 2, 0); x.quadraticCurveTo(0, -sh * 0.2, 0, -sh); x.quadraticCurveTo(0, -sh * 0.2, sw / 2, 0); x.fill();
-                    x.restore();
-                }
-                // Tower spikes
-                for (let i = 0; i < 3; i++) drawSpike(15 + i * 6, 60, 10, 40 + rng(i) * 15, -0.2 + rng(i) * 0.4);
-                for (let i = 0; i < 3; i++) drawSpike(113 - i * 6, 60, 10, 40 + rng(i) * 15, -0.2 + rng(i) * 0.4);
-
-                // Main Central Spike Tower
-                x.fillStyle = '#451a03'; x.fillRect(45, 30, 38, 98);
-                drawSpike(64, 30, 20, 50, 0);
-                drawSpike(54, 35, 12, 35, -0.4);
-                drawSpike(74, 35, 12, 35, 0.4);
-
-                // Maw Gate
-                x.fillStyle = '#0f172a'; x.fillRect(48, 90, 32, 38);
-                // Teeth
-                x.fillStyle = '#e2e8f0';
-                for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(50 + i * 8, 90); x.lineTo(54 + i * 8, 100); x.lineTo(58 + i * 8, 90); x.fill(); }
-                for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(50 + i * 8, 128); x.lineTo(54 + i * 8, 118); x.lineTo(58 + i * 8, 128); x.fill(); }
-
-                // Skull & Torches
-                x.fillStyle = '#d1d5db'; x.beginPath(); x.arc(64, 45, 10, 0, Math.PI * 2); x.fill();
-                x.fillStyle = '#000'; x.fillRect(59, 43, 3, 3); x.fillRect(66, 43, 3, 3); x.fillRect(62, 50, 4, 2);
-
-                function drawTorch(tx, ty) {
-                    x.fillStyle = '#451a03'; x.fillRect(tx - 2, ty, 4, 15);
-                    const fg = x.createRadialGradient(tx, ty, 0, tx, ty, 8);
-                    fg.addColorStop(0, '#fde047'); fg.addColorStop(0.6, '#f97316'); fg.addColorStop(1, 'rgba(0,0,0,0)');
-                    x.fillStyle = fg; x.beginPath(); x.arc(tx, ty, 8, 0, Math.PI * 2); x.fill();
-                }
-                drawTorch(35, 85); drawTorch(93, 85);
-
-                // Noise Overlay
-                x.globalCompositeOperation = 'overlay'; x.fillStyle = bNoisePtrn; x.fillRect(0, 0, 128, 128); x.globalCompositeOperation = 'source-over';
-                sprites.eBase = c;
-            })();
-        }
-
-        generateSprites();
 
         // Projectile for Ranged Units
         class Projectile {
@@ -1222,13 +541,6 @@
                     this.speed = conf.speed * 0.5;
                     this.cooldownMax = 40;
                     this.size = conf.unitSize * 1.5;
-                } else if (type === TYPE_ENHANCED) { // Boss unit
-                    this.maxHp = 150;
-                    this.damage = 10;
-                    this.attackRange = conf.unitSize + 5;
-                    this.cooldownMax = 40;
-                    this.speed = conf.speed * 0.4;
-                    this.size = conf.unitSize * 2;
                 } else if (type === TYPE_MAGE) {
                     this.maxHp = 6;
                     this.damage = 5;
@@ -1243,6 +555,13 @@
                     this.speed = conf.speed * 0.9;
                     this.cooldownMax = 50;
                     this.size = conf.unitSize;
+                } else if (type === TYPE_CAVALRY) {
+                    this.maxHp = 25;
+                    this.damage = 6;
+                    this.attackRange = 45;
+                    this.speed = conf.speed * 1.6;
+                    this.cooldownMax = 40;
+                    this.size = conf.unitSize * 1.3;
                 }
                 // Apply level-based scaling
                 if (level > 1) {
@@ -1333,12 +652,10 @@
         function update() {
             if (isGameOver || !isStarted) return;
 
-            // Initialize Bases on first frame if needed
+            // Initialize player base on first frame
             if (frames === 0) {
                 playerBase.x = LayoutConfig.baseMarginX;
                 playerBase.y = canvas.height * LayoutConfig.baseRatioY;
-                enemyBase.x = canvas.width - LayoutConfig.baseMarginX;
-                enemyBase.y = canvas.height * LayoutConfig.baseRatioY;
             }
 
             let blueCount = 0;
@@ -1371,8 +688,10 @@
             // 리스폰 영역 설정 (본기지 Y값 기준)
             const pSpawnMinY = playerBase.y + LayoutConfig.spawnOffsetTop;
             const pSpawnMaxY = playerBase.y + LayoutConfig.spawnOffsetBottom;
-            const eSpawnMinY = enemyBase.y + LayoutConfig.spawnOffsetTop;
-            const eSpawnMaxY = enemyBase.y + LayoutConfig.spawnOffsetBottom;
+            // Enemy spawn Y — use fixed center area (no enemy base)
+            const eSpawnCenterY = canvas.height * LayoutConfig.baseRatioY;
+            const eSpawnMinY = eSpawnCenterY + LayoutConfig.spawnOffsetTop;
+            const eSpawnMaxY = eSpawnCenterY + LayoutConfig.spawnOffsetBottom;
 
             // Helper to determine spawn type based on Config probabilities
             const getSpawnType = (conf) => {
@@ -1424,65 +743,37 @@
                 if (Math.random() > 0.5) WCGames.Audio.play([600, 200], 'square', 0.05, 0.02);
             }
 
-            // Game End Conditions
+            // Score = seconds survived
+            if (frames % 60 === 0) score++;
+
+            // Game Over: only when player base falls
             if (playerBase.hp <= 0) {
                 endGame(false);
                 return;
             }
-            if (enemyBase.hp <= 0) {
-                endGame(true);
-                return;
-            }
 
-            // Enhanced Unit Spawning
-            const pBossInterval = Math.max(1, Math.floor(PlayerConfig.bossSpawnRateSeconds * 60));
-            const eBossInterval = Math.max(1, Math.floor(EnemyConfig.bossSpawnRateSeconds * 60));
-
-            if (frames > 0 && frames % pBossInterval === 0) {
-                const psy = playerBase.y + LayoutConfig.spawnOffsetTop + Math.random() * (LayoutConfig.spawnOffsetBottom - LayoutConfig.spawnOffsetTop);
-                // Player Boss (offscreen left)
-                units.push(new Unit(-60, psy, 0, TYPE_ENHANCED));
-                WCGames.Audio.play([150, 80], 'square', 0.2, 0.2); // Boss spawn sound
-            }
-            if (frames > 0 && frames % eBossInterval === 0) {
-                const esy = enemyBase.y + LayoutConfig.spawnOffsetTop + Math.random() * (LayoutConfig.spawnOffsetBottom - LayoutConfig.spawnOffsetTop);
-                // Enemy Boss (offscreen right)
-                units.push(new Unit(canvas.width + 60, esy, 1, TYPE_ENHANCED));
-                WCGames.Audio.play([150, 80], 'square', 0.2, 0.2); // Boss spawn sound
-            }
-
-            // Base Cannons Logic
-            [playerBase, enemyBase].forEach(base => {
-                if (base.cooldown > 0) base.cooldown--;
-
-                if (base.hp > 0 && base.cooldown === 0) {
-                    const config = base.team === 0 ? PlayerConfig : EnemyConfig;
-
-                    // Find closest enemy within range
-                    let closestEnemy = null;
-                    let closestDistSq = config.baseAttackRange * config.baseAttackRange;
-
-                    for (let i = 0; i < units.length; i++) {
-                        const u = units[i];
-                        if (u.team !== base.team && u.hp > 0) {
-                            const dx = u.x - base.x;
-                            const dy = u.y - base.y;
-                            const distSq = dx * dx + dy * dy;
-                            if (distSq < closestDistSq) {
-                                closestDistSq = distSq;
-                                closestEnemy = u;
-                            }
-                        }
-                    }
-
-                    if (closestEnemy) {
-                        // Fire Cannon
-                        projectiles.push(new Projectile(base.x, base.y, closestEnemy, config.baseAttackDamage, base.team, 12, true));
-                        base.cooldown = config.baseAttackCooldown;
-                        WCGames.Audio.play([200, 100], 'square', 0.2, 0.1); // Cannon fire sound
+            // Base Cannon Logic (player base only)
+            const base = playerBase;
+            if (base.cooldown > 0) base.cooldown--;
+            if (base.hp > 0 && base.cooldown === 0) {
+                const config = PlayerConfig;
+                let closestEnemy = null;
+                let closestDistSq = config.baseAttackRange * config.baseAttackRange;
+                for (let i = 0; i < units.length; i++) {
+                    const u = units[i];
+                    if (u.team === 1 && u.hp > 0) {
+                        const dx = u.x - base.x;
+                        const dy = u.y - base.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < closestDistSq) { closestDistSq = distSq; closestEnemy = u; }
                     }
                 }
-            });
+                if (closestEnemy) {
+                    projectiles.push(new Projectile(base.x, base.y, closestEnemy, config.baseAttackDamage, 0, 12, true));
+                    base.cooldown = config.baseAttackCooldown;
+                    WCGames.Audio.play([200, 100], 'square', 0.2, 0.1);
+                }
+            }
 
             // Environmental Event: Random Lightning Strike
             const lightningInterval = Math.max(1, Math.floor(EnvironmentConfig.lightningRateSeconds * 60));
@@ -1600,10 +891,10 @@
 
                 // Base Attack Logic Check First
                 let attackingBase = false;
-                if (u.team === 0 && u.x > enemyBase.x - 80 && Math.abs(u.y - enemyBase.y) < 150) {
-                    u.attackTarget = enemyBase;
-                    u.state = 2; // ATTACKING
-                    attackingBase = true;
+                // Player units stop at right edge (no enemy base to attack)
+                if (u.team === 0 && u.x > canvas.width - 40) {
+                    u.state = 0; // idle near right edge, just defend
+                    attackingBase = false;
                 } else if (u.team === 1 && u.x < playerBase.x + 80 && Math.abs(u.y - playerBase.y) < 150) {
                     u.attackTarget = playerBase;
                     u.state = 2; // ATTACKING
@@ -1614,7 +905,7 @@
                 // Performance: Throttling targeting logic to run every 10 frames per unit
                 if (!attackingBase && (u.state === 0 || u.state === 1) && (frames + u.id) % 10 === 0) {
                     let closestEnemy = null;
-                    const aggroRange = u.type === TYPE_RANGED ? 120 : (u.type === TYPE_ENHANCED ? 100 : 80); // Aggro range
+                    const aggroRange = u.type === TYPE_RANGED ? 120 : 80; // Aggro range
                     let closestDistSq = aggroRange * aggroRange;
 
                     // Check own cell and 8 adjacent neighbors
@@ -1774,7 +1065,7 @@
                     if (u.hp <= 0) {
                         // Dead
                         if (u.team === 1 && !u.killedByLightning) {
-                            score += u.type === TYPE_ENHANCED ? 10 : (u.type === TYPE_TANKER ? 3 : 1);
+                            score += u.type === TYPE_TANKER ? 3 : 1;
                         }
                         u.selected = false; // Ensure dead units drop selection
 
@@ -1884,7 +1175,7 @@
             drawBackground();
 
             if (isStarted) {
-                // Pre-draw ground effects (Attack Ranges) before anything else
+                // // Pre - draw ground effects(Attack Ranges) before anything else
                 // ctx.lineWidth = 1;
                 // ctx.setLineDash([5, 10]);
                 // ctx.strokeStyle = "rgba(59, 130, 246, 0.3)"; // Player Base Range (Blue)
@@ -1893,11 +1184,10 @@
                 // ctx.stroke();
                 // ctx.strokeStyle = "rgba(239, 68, 68, 0.3)"; // Enemy Base Range (Red)
                 // ctx.beginPath();
-                // ctx.arc(enemyBase.x, enemyBase.y, EnemyConfig.baseAttackRange, 0, Math.PI * 2);
                 // ctx.stroke();
                 // ctx.setLineDash([]);
 
-                // // Draw Safe Zone Shading (Soot and Dust Overlay)
+                // // // Draw Safe Zone Shading (Soot and Dust Overlay)
                 // const boundaryX = playerBase.x + LayoutConfig.safeZoneWidth;
                 // ctx.fillStyle = "rgba(64, 64, 64, 0.2)"; // Dark charcoal/soot dust
                 // ctx.fillRect(0, playerBase.y + LayoutConfig.combatOffsetTop, boundaryX, LayoutConfig.combatOffsetBottom - LayoutConfig.combatOffsetTop);
@@ -1907,13 +1197,13 @@
                 // ctx.setLineDash([25, 20]); // Long, heavy spectral dashes
                 // ctx.strokeStyle = "rgba(163, 163, 163, 0.5)"; // Iron grey (Neutral-400)
 
-                // // Vertical Line
+                // // // Vertical Line
                 // ctx.beginPath();
                 // ctx.moveTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetTop);
                 // ctx.lineTo(boundaryX, playerBase.y + LayoutConfig.combatOffsetBottom);
                 // ctx.stroke();
 
-                // // Horizontal Lines (Top and Bottom of combat lane)
+                // // // Horizontal Lines (Top and Bottom of combat lane)
                 // ctx.beginPath();
                 // ctx.moveTo(0, playerBase.y + LayoutConfig.combatOffsetTop);
                 // ctx.lineTo(canvas.width, playerBase.y + LayoutConfig.combatOffsetTop);
@@ -2010,7 +1300,6 @@
                 // This guarantees that layers between factions, units, and bases are rendered perfectly.
                 const renderQueue = [];
                 renderQueue.push({ isBase: true, team: 0, obj: playerBase, y: playerBase.y });
-                renderQueue.push({ isBase: true, team: 1, obj: enemyBase, y: enemyBase.y });
 
                 for (let i = 0; i < units.length; i++) {
                     renderQueue.push({ isBase: false, team: units[i].team, obj: units[i], y: units[i].y });
@@ -2023,35 +1312,36 @@
                     const r = renderQueue[i];
 
                     if (r.isBase) {
-                        const baseScale = 0.7 + (r.obj.y / canvas.height) * 0.8;
-                        const drawW = 64 * baseScale;
-                        const drawH = 48 * baseScale;
-                        const drawY = r.obj.y - drawH; // Bottom-aligned height offset
-
                         const spr = r.team === 0 ? sprites.pBase : sprites.eBase;
-                        const bx = r.team === 0 ? 0 : canvas.width - drawW;
+                        const baseScale = 1 + (r.obj.y / canvas.height) * 1;
 
-                        ctx.imageSmoothingEnabled = false;
+                        // Use natural aspect ratio if image is loaded, otherwise fallback ratio
+                        const naturalW = spr && spr.width ? spr.width : 128;
+                        const naturalH = spr && spr.height ? spr.height : 128;
+                        const drawW = 220 * baseScale;
+                        const drawH = drawW * (naturalH / naturalW);
+                        const drawY = r.obj.y - drawH + 20;
 
-                        // Base shadow
-                        ctx.fillStyle = 'rgba(0,0,0,0.35)';
-                        ctx.beginPath();
-                        ctx.ellipse(bx + drawW / 2, r.obj.y, drawW * 0.45, drawH * 0.12, 0, 0, Math.PI * 2);
-                        ctx.fill();
+                        const bx = - drawW / 1.3;//r.team === 0 ? 0 : canvas.width - drawW;
+
+                        // ctx.imageSmoothingEnabled = true;
+                        // ctx.imageSmoothingQuality = 'low';
 
                         ctx.drawImage(spr, bx, drawY, drawW, drawH);
 
+                        ctx.imageSmoothingEnabled = false;
+
                         // Base HP Bars
-                        const hpW = drawW * 0.8;
-                        const hpH = 6 * baseScale;
-                        const hpY = drawY - hpH - 6;
+                        const hpW = canvas.width - (canvas.width * 0.1);
+                        const hpH = 6;
+                        const hpY = canvas.height - 50;
                         const maxHp = r.team === 0 ? PlayerConfig.baseMaxHp : EnemyConfig.baseMaxHp;
                         const curHp = r.obj.hp;
 
                         ctx.fillStyle = "rgba(0,0,0,0.8)";
-                        ctx.fillRect(bx + drawW / 2 - hpW / 2, hpY, hpW, hpH);
+                        ctx.fillRect(canvas.width / 2 - hpW / 2, hpY, hpW, hpH);
                         ctx.fillStyle = r.team === 0 ? "#3b82f6" : "#ef4444";
-                        ctx.fillRect(bx + drawW / 2 - hpW / 2, hpY, Math.max(0, curHp / maxHp) * hpW, hpH);
+                        ctx.fillRect(canvas.width / 2 - hpW / 2, hpY, Math.max(0, curHp / maxHp) * hpW, hpH);
                     } else {
                         const u = r.obj;
                         // Performance: Culling units outside viewport
@@ -2063,91 +1353,84 @@
                         const drawH = sz;
                         const visualOffsetY = drawH * 0.95;
 
-                        // Drop Shadow: Replaced with pre-rendered sprite for performance
-                        ctx.drawImage(sprites.shadow, u.x - drawW * 0.35, u.y - drawH * 0.02, drawW * 0.7, drawH * 0.24);
+                        // Drop Shadow removed as requested
 
-                        let sprSet = sprites.pMelee;
-                        if (u.team === 0) {
-                            if (u.type === TYPE_RANGED) sprSet = sprites.pRanged;
-                            else if (u.type === TYPE_TANKER) sprSet = sprites.pTank;
-                            else if (u.type === TYPE_ENHANCED) sprSet = sprites.pEnh;
-                            else if (u.type === TYPE_MAGE) sprSet = sprites.pMage;
-                            else if (u.type === TYPE_HEALER) sprSet = sprites.pHealer;
-                        } else {
-                            sprSet = sprites.eMelee;
-                            if (u.type === TYPE_RANGED) sprSet = sprites.eRanged;
-                            else if (u.type === TYPE_TANKER) sprSet = sprites.eTank;
-                            else if (u.type === TYPE_ENHANCED) sprSet = sprites.eEnh;
-                            else if (u.type === TYPE_MAGE) sprSet = sprites.eMage;
-                            else if (u.type === TYPE_HEALER) sprSet = sprites.eHealer;
-                        }
+                        let sprSet = null;
+                        const prefix = (u.team === 0 ? 'p' : 'e') + u.type;
+                        const isSpriteSheet = sprites[prefix + 'Sheet'] && sprites[prefix + 'Meta'];
 
-                        let spr = sprSet.spr1;
-                        let atkOffsetX = 0;
-                        let atkOffsetY = 0;
-                        let scaleX = 1;
-                        let scaleY = 1;
-                        let rotation = 0;
-
-                        const moving = Math.abs(u.vx) + Math.abs(u.vy) > 0.1;
-                        const time = Date.now();
-
-                        // 1. Idle/Move Bobbing Logic
-                        if (!moving) {
-                            // Idle breathing/bobbing
-                            const bob = Math.sin(time / 400) * 1.5;
-                            atkOffsetY = bob;
-                            scaleY = 1.0 + Math.sin(time / 400) * 0.03;
-                            scaleX = 1.0 - Math.sin(time / 400) * 0.02;
-                        } else {
-                            // Frame selection based on movement
-                            const frame = Math.floor(time / 150) % 2;
-                            spr = frame === 0 ? sprSet.spr1 : sprSet.spr2;
-                        }
-
-                        // 2. Attack Motion Logic (Overrides or adds to bobbing)
-                        if (u.state === 2 && u.attackCooldown > 0) {
-                            // t goes from 1.0 (just attacked) to 0.0 (ready to attack again)
-                            const t = u.attackCooldown / u.cooldownMax;
-                            const dir = u.team === 0 ? 1 : -1;
-
-                            // Attack Frame Trigger (Use sprAtk for the first 40% of the cooldown)
-                            if (t > 0.6) {
-                                spr = sprSet.sprAtk;
-                            }
-
-                            if (u.type === TYPE_RANGED) {
-                                // Ranged: Slight recoil (move back and squash)
-                                if (t > 0.7) {
-                                    const p = (t - 0.7) / 0.3; // 1 to 0
-                                    atkOffsetX = -p * 4 * dir;
-                                    scaleX = 0.9 + (1 - p) * 0.1;
-                                    scaleY = 1.1 - (1 - p) * 0.1;
-                                    rotation = -p * 0.15 * dir;
-                                }
+                        // Fallback sprSet for units not yet in sprite sheets (like Cavalry)
+                        if (!isSpriteSheet) {
+                            if (u.team === 0) {
+                                sprSet = sprites.pMelee;
+                                if (u.type === TYPE_RANGED) sprSet = sprites.pRanged;
+                                else if (u.type === TYPE_TANKER) sprSet = sprites.pMelee;
+                                else if (u.type === TYPE_MAGE) sprSet = sprites.pMage;
+                                else if (u.type === TYPE_HEALER) sprSet = sprites.pHealer;
+                                else if (u.type === TYPE_CAVALRY) sprSet = sprites.pCavalry;
                             } else {
-                                // Melee/Boss: Lunge (move forward and stretch)
-                                if (t > 0.5) {
-                                    const p = (t - 0.5) / 0.5; // 1 to 0
-                                    atkOffsetX = p * 12 * dir;
-                                    scaleX = 1.0 + p * 0.3;
-                                    scaleY = 1.0 - p * 0.1;
-                                    rotation = p * 0.2 * dir;
-                                }
+                                sprSet = sprites.eMelee;
+                                if (u.type === TYPE_RANGED) sprSet = sprites.eRanged;
+                                else if (u.type === TYPE_TANKER) sprSet = sprites.eMelee;
+                                else if (u.type === TYPE_MAGE) sprSet = sprites.eMage;
+                                else if (u.type === TYPE_HEALER) sprSet = sprites.eHealer;
+                                else if (u.type === TYPE_CAVALRY) sprSet = sprites.eCavalry;
                             }
                         }
 
-                        if (spr) {
-                            ctx.imageSmoothingEnabled = false;
-                            const finalW = drawW * scaleX;
-                            const finalH = drawH * scaleY;
-                            const feetY = u.y;
+                        let spr = (sprSet && sprSet.spr1) ? sprSet.spr1 : null;
+                        const time = Date.now();
+                        let frameIdx = 0;
+                        let rowIdx = 0;
+
+                        const moving = (Math.abs(u.vx) + Math.abs(u.vy)) > 0.1;
+
+                        if (!moving) {
+                            frameIdx = 0;
+                        } else {
+                            if (isSpriteSheet) {
+                                // 5-frame walk animation
+                                frameIdx = Math.floor(time / 100) % 5;
+                            } else {
+                                // Classic 2-frame canvas animation
+                                const frame = Math.floor(time / 150) % 2;
+                                spr = (sprSet && frame === 0) ? sprSet.spr1 : (sprSet ? sprSet.spr2 : null);
+                            }
+                        }
+
+                        // Attack Logic Overrides
+                        if (u.state === 2 && u.attackCooldown > 0) {
+                            const t = u.attackCooldown / u.cooldownMax;
+
+                            if (isSpriteSheet) {
+                                rowIdx = 1; // Second row is Attack
+                                frameIdx = Math.min(4, Math.floor((1 - t) * 5));
+                            } else {
+                                if (sprSet && t > 0.6) spr = sprSet.sprAtk;
+                            }
+                        }
+
+                        if (isSpriteSheet) {
+                            const sheet = sprites[prefix + 'Sheet'];
+                            const meta = sprites[prefix + 'Meta'];
+                            const sx = frameIdx * meta.frameW;
+                            const sy = rowIdx * meta.frameH;
+                            const aspectRatio = meta.frameH / meta.frameW;
+                            const sheetH = drawW * aspectRatio;
 
                             ctx.save();
-                            ctx.translate(u.x + atkOffsetX, feetY + atkOffsetY);
-                            ctx.rotate(rotation);
-                            // Draw so that the bottom center of the sprite is at the translated origin
-                            ctx.drawImage(spr, -finalW / 2, -visualOffsetY * scaleY, finalW, finalH);
+                            ctx.translate(u.x, u.y);
+                            if (u.team === 1) ctx.scale(-1, 1); // Flip Orcs back to face Left
+                            ctx.drawImage(
+                                sheet,
+                                sx, sy, meta.frameW, meta.frameH,
+                                -drawW / 2, -sheetH, drawW, sheetH
+                            );
+                            ctx.restore();
+                        } else if (spr) {
+                            ctx.save();
+                            ctx.translate(u.x, u.y);
+                            ctx.drawImage(spr, -drawW / 2, -drawH, drawW, drawH);
                             ctx.restore();
                         }
 
@@ -2158,7 +1441,7 @@
                         }
 
                         if (u.hp < u.maxHp) {
-                            const barW = (u.type === TYPE_ENHANCED || u.type === TYPE_TANKER ? 24 : 16) * scaleFactor;
+                            const barW = (u.type === TYPE_TANKER ? 24 : 16) * scaleFactor;
                             const offY = visualOffsetY + 5;
                             ctx.fillStyle = "rgba(0,0,0,0.8)";
                             ctx.fillRect(u.x - barW / 2, u.y - offY - 3, barW, 3);
@@ -2183,11 +1466,7 @@
                     const pScale = (p.y - HORIZON_Y) / (canvas.height - HORIZON_Y);
                     const pSize = 3 * pScale;
 
-                    // Ground shadow for the arrow to emphasize height
-                    ctx.fillStyle = "rgba(0,0,0,0.3)";
-                    ctx.beginPath();
-                    ctx.ellipse(p.x, p.y, pSize * 1.5, pSize * 0.5, 0, 0, Math.PI * 2);
-                    ctx.fill();
+                    // Projectile ground shadow removed as requested
 
                     // Arrow/Cannon body offset by Z
                     if (p.isCannon) {
@@ -2351,13 +1630,9 @@
             // 기지 위치 초기화 (위치 설정 변수 기반)
             playerBase.x = LayoutConfig.baseMarginX;
             playerBase.y = canvas.height * LayoutConfig.baseRatioY;
-            enemyBase.x = canvas.width - LayoutConfig.baseMarginX;
-            enemyBase.y = canvas.height * LayoutConfig.baseRatioY;
 
             playerBase.hp = PlayerConfig.baseMaxHp;
             playerBase.cooldown = 0;
-            enemyBase.hp = EnemyConfig.baseMaxHp;
-            enemyBase.cooldown = 0;
             selection.active = false;
 
             // Define Auto-Merge zone near Player Base using Layout config variables
