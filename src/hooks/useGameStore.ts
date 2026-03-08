@@ -115,6 +115,8 @@ export const useGameStore = create<GameState>()(
       setCurrentGame: (game) => set({ currentGame: game }),
 
       addScore: async (gameId, score) => {
+        const { user, userName } = useUserStore.getState();
+        const currentBest = get().personalBests[gameId];
         const game = get().games.find(g => g.id === gameId);
         const sortOrder = game?.sortOrder || 'desc';
 
