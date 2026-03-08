@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../hooks/useGameStore';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -110,15 +110,27 @@ const Player: React.FC = () => {
 
   if (!currentGame) return null;
 
+  const [searchParams] = useSearchParams();
+  const isPopup = searchParams.get('popup') === 'true';
+
   // Append session key to game URL
   const gameUrlWithKey = currentGame.gameUrl.includes('?')
     ? `${currentGame.gameUrl}&sk=${sessionKey}`
     : `${currentGame.gameUrl}?sk=${sessionKey}`;
 
+  // If it's a popup, we want it to fill the entire window without the "mobile box" styling
+  const containerClasses = isPopup
+    ? "relative w-full h-full bg-black flex flex-col"
+    : "relative w-full h-full md:h-[90vh] md:max-h-[800px] md:w-auto md:aspect-[9/16] md:max-w-[480px] bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden";
+
+  const wrapperClasses = isPopup
+    ? "fixed inset-0 bg-black flex justify-center overflow-hidden overscroll-none touch-none"
+    : "fixed inset-0 bg-[#05060f] flex justify-center md:items-center overflow-hidden overscroll-none touch-none";
+
   return (
-    <div className="fixed inset-0 bg-[#05060f] flex justify-center md:items-center overflow-hidden overscroll-none touch-none">
+    <div className={wrapperClasses}>
       <div
-        className="relative w-full h-full md:h-[90vh] md:max-h-[800px] md:w-auto md:aspect-[9/16] md:max-w-[480px] bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden"
+        className={containerClasses}
         style={{
           overscrollBehavior: 'none',
           touchAction: 'none'
@@ -139,21 +151,23 @@ const Player: React.FC = () => {
         )}
 
         {/* Absolute UI Layer for Relative Positioning within Safe Area */}
-        <div
-          className="pointer-events-none absolute inset-0 z-50 flex flex-col justify-start items-end"
-          style={{
-            paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
-            paddingRight: 'calc(env(safe-area-inset-right) + 1rem)',
-          }}
-        >
-          {/* Close Button - Now positioned relative to Safe Area */}
-          <button
-            onClick={() => navigate('/')}
-            className="pointer-events-auto p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-all backdrop-blur-sm"
+        {!isPopup && (
+          <div
+            className="pointer-events-none absolute inset-0 z-50 flex flex-col justify-start items-end"
+            style={{
+              paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
+              paddingRight: 'calc(env(safe-area-inset-right) + 1rem)',
+            }}
           >
-            <X size={24} />
-          </button>
-        </div>
+            {/* Close Button - Now positioned relative to Safe Area */}
+            <button
+              onClick={() => navigate('/')}
+              className="pointer-events-auto p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-all backdrop-blur-sm"
+            >
+              <X size={24} />
+            </button>
+          </div>
+        )}
 
         {/* Game Container - Fills the dynamic viewport completely */}
         <div className="flex-1 relative overflow-hidden bg-gray-900">

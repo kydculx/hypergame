@@ -14,8 +14,24 @@ const Home: React.FC = () => {
     const navigate = useNavigate();
 
     const handlePlay = (game: Game) => {
-        setCurrentGame(game);
-        navigate(`/play/${game.id}`);
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        if (!isMobile) {
+            // Calculate center position
+            const width = 480;
+            const height = 854; // Standard 9:16 approx
+            const left = (window.screen.width / 2) - (width / 2);
+            const top = (window.screen.height / 2) - (height / 2);
+
+            window.open(
+                `/#/play/${game.id}?popup=true`,
+                `WCGame_${game.id}`,
+                `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,resizable=no,location=no,toolbar=no`
+            );
+        } else {
+            setCurrentGame(game);
+            navigate(`/play/${game.id}`);
+        }
     };
 
     return (
