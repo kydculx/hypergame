@@ -108,10 +108,10 @@ const Player: React.FC = () => {
     return () => window.removeEventListener('message', handleMessage);
   }, [gameId, addScore, sessionKey]);
 
-  if (!currentGame) return null;
-
   const [searchParams] = useSearchParams();
   const isPopup = searchParams.get('popup') === 'true';
+
+  if (!currentGame) return null;
 
   // Append session key to game URL
   const gameUrlWithKey = currentGame.gameUrl.includes('?')
