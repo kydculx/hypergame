@@ -485,7 +485,7 @@
             });
 
             setTimeout(() => {
-                const rankingScore = win ? (1000000 - time) : 0;
+                const rankingScore = win ? time : 0;
                 WCGames.gameOver(rankingScore);
             }, 1000);
         }

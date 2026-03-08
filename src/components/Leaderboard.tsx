@@ -35,16 +35,14 @@ const Leaderboard: React.FC = () => {
 
   const renderScore = (gameId: string | undefined, score: number) => {
     if (gameId === 'minesweeper') {
-      if (score === 0) return 'FAIL';
-      const timeInSeconds = 1000000 - score;
-      if (timeInSeconds < 0 || timeInSeconds > 1000000) return '---';
+      if (score === 0) return '---';
 
-      const minutes = Math.floor(timeInSeconds / 60);
-      const seconds = timeInSeconds % 60;
+      const minutes = Math.floor(score / 60);
+      const seconds = score % 60;
       if (minutes > 0) {
         return `${minutes}m ${seconds}s`;
       }
-      return `${timeInSeconds}s`;
+      return `${score}s`;
     } else if (gameId === 'bulletdodge') {
       return (score / 100).toFixed(2) + 's';
     }

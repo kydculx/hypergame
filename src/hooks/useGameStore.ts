@@ -7,6 +7,7 @@ export interface Game {
   id: string;
   thumbnailUrl: string;
   gameUrl: string;
+  sortOrder?: 'asc' | 'desc'; // 'desc' is default (higher is better)
 }
 
 export interface ScoreEntry {
@@ -88,6 +89,7 @@ export const useGameStore = create<GameState>()(
           id: 'minesweeper',
           thumbnailUrl: 'games/minesweeper/thumb.png',
           gameUrl: 'games/minesweeper/index.html',
+          sortOrder: 'asc'
         },
         {
           id: 'bulletdodge',
@@ -118,12 +120,19 @@ export const useGameStore = create<GameState>()(
         const currentBest = get().personalBests[gameId];
 
         // 1. Check if this is a new personal best
+        const game = get().games.find(g => g.id === gameId);
+        const sortOrder = game?.sortOrder || 'desc';
+
         let isNewRecord = false;
-        if (currentBest === undefined) {
+        if (currentBest === undefined || currentBest === 0) {
           isNewRecord = true;
         } else {
-          if (score > currentBest) {
-            isNewRecord = true;
+          if (sortOrder === 'asc') {
+            // Lower is better (e.g. 10s is better than 20s)
+            if (score > 0 && score < currentBest) isNewRecord = true;
+          } else {
+            // Higher is better (default)
+            if (score > currentBest) isNewRecord = true;
           }
         }
 
@@ -150,7 +159,7 @@ export const useGameStore = create<GameState>()(
         };
 
         const updatedBoard = [...filteredBoard, newEntry]
-          .sort((a, b) => b.score - a.score)
+          .sort((a, b) => sortOrder === 'asc' ? a.score - b.score : b.score - a.score)
           .slice(0, 5);
 
         set((state) => ({
@@ -180,12 +189,15 @@ export const useGameStore = create<GameState>()(
       },
 
       fetchLeaderboard: async (gameId) => {
+        const game = get().games.find(g => g.id === gameId);
+        const sortOrder = game?.sortOrder || 'desc';
+
         try {
           const { data, error } = await supabase
             .from('scores')
             .select('*')
             .eq('game_id', gameId)
-            .order('score', { ascending: false })
+            .order('score', { ascending: sortOrder === 'asc' })
             .limit(10);
 
           if (error) {
