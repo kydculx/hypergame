@@ -31,13 +31,17 @@ const Player: React.FC = () => {
     window.addEventListener('resize', checkOrientation);
     window.addEventListener('orientationchange', checkOrientation);
 
-    // Hard-fix for popup window size
+    // Hard-fix for popup window size (snap-back)
     const enforcePopupSize = () => {
       const isPopup = new URLSearchParams(window.location.hash.split('?')[1]).get('popup') === 'true';
       if (isPopup) {
         const targetWidth = 480;
         const targetHeight = 854;
-        if (window.innerWidth !== targetWidth || window.innerHeight !== targetHeight) {
+        // Check outer size with a threshold to avoid minor rounding differences causing loops
+        const widthDiff = Math.abs(window.outerWidth - targetWidth);
+        const heightDiff = Math.abs(window.outerHeight - targetHeight);
+
+        if (widthDiff > 10 || heightDiff > 10) {
           window.resizeTo(targetWidth, targetHeight);
         }
       }
@@ -136,12 +140,13 @@ const Player: React.FC = () => {
     : `${currentGame.gameUrl}?sk=${sessionKey}`;
 
   // If it's a popup, we want it to fill the entire window without the "mobile box" styling
+  // We use a fixed width/height for the container to ensure it stays 480x854 even if the window is resized
   const containerClasses = isPopup
-    ? "relative w-full h-full bg-black flex flex-col"
+    ? "relative w-[480px] h-[854px] bg-black flex flex-col shadow-2xl ring-1 ring-white/10"
     : "relative w-full h-full md:h-[90vh] md:max-h-[800px] md:w-auto md:aspect-[9/16] md:max-w-[480px] bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden";
 
   const wrapperClasses = isPopup
-    ? "fixed inset-0 bg-black flex justify-center overflow-hidden overscroll-none touch-none"
+    ? "fixed inset-0 bg-[#05060f] flex items-center justify-center overflow-auto overscroll-none touch-none"
     : "fixed inset-0 bg-[#05060f] flex justify-center md:items-center overflow-hidden overscroll-none touch-none";
 
   return (
