@@ -166,6 +166,12 @@
         },
 
         notifyGameOver(score) {
+            // Block zero or negative scores from being registered on the platform
+            if (typeof score !== 'number' || score <= 0) {
+                if (this.debug) console.log(`[WCGames] Blocked zero-score submission for notifyGameOver: ${score}`);
+                return;
+            }
+
             window.parent.postMessage({
                 type: 'GAME_OVER',
                 payload: {
@@ -176,7 +182,11 @@
         },
 
         submitScore(score) {
-            if (typeof score !== 'number' || isNaN(score)) return;
+            if (typeof score !== 'number' || isNaN(score) || score <= 0) {
+                if (this.debug) console.log(`[WCGames] Blocked zero-score submission for submitScore: ${score}`);
+                return;
+            }
+
             window.parent.postMessage({
                 type: 'SUBMIT_SCORE',
                 payload: {

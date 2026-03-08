@@ -66,8 +66,8 @@
 
         #combo-ui {
             position: fixed;
-            top: 25px;
-            left: 15px;
+            top: 60px;
+            left: 5px;
             padding: 3px 10px;
             background: rgba(255, 0, 255, 0.2);
             border-left: 2px solid #ff00ff;
@@ -271,6 +271,10 @@
         // Input
         let lastX;
         let isDrag = false;
+
+        // FPS Throttling for 60fps
+        let lastTime = 0;
+        const fpsInterval = 1000 / 60;
 
         // Audio
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -586,8 +590,15 @@
             if (parent) parent.remove(obj);
         }
 
-        function animate() {
+        function animate(timestamp) {
             requestAnimationFrame(animate);
+
+            if (!lastTime) lastTime = timestamp;
+            const elapsed = timestamp - lastTime;
+
+            if (elapsed < fpsInterval) return;
+
+            lastTime = timestamp - (elapsed % fpsInterval);
 
             if (gameState === 'PLAYING') {
                 // Ball Physics - Constant Speed (No Acceleration)
@@ -680,9 +691,8 @@
                                     const comboEl = document.getElementById('combo-ui');
                                     comboEl.textContent = `COMBO x${comboCount}`;
                                     comboEl.classList.add('wcg-visible');
-                                    // Scale from the left since it's now left-aligned
-                                    comboEl.style.transformOrigin = 'left center';
-                                    comboEl.style.transform = `scale(${1 + comboCount * 0.05})`;
+                                    // No scaling, keep it fixed as per user request
+                                    comboEl.style.transform = `none`;
                                 }
 
                                 playTone(500 + comboCount * 100, 'sine');

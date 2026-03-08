@@ -176,6 +176,10 @@
         let currentCameraZoom = 1;
         let perfectStreak = 0;
 
+        // FPS Throttling for 60fps
+        let lastTime = 0;
+        const fpsInterval = 1000 / 60;
+
         // Particle System variables
         let particles, particleData;
 
@@ -269,7 +273,7 @@
             });
 
             // Start animation loop
-            animate();
+            requestAnimationFrame(animate);
         }
 
         function addBlock(x, y, z, width, depth, isActive, colorIndex = null) {
@@ -555,8 +559,16 @@
             particles.instanceMatrix.needsUpdate = true;
         }
 
-        function animate() {
+        function animate(timestamp) {
             requestAnimationFrame(animate);
+
+            if (!lastTime) lastTime = timestamp;
+            const elapsed = timestamp - lastTime;
+
+            if (elapsed < fpsInterval) return;
+
+            lastTime = timestamp - (elapsed % fpsInterval);
+
             updateParticles();
 
             if (gameState === 'PLAYING' && activeBlock) {

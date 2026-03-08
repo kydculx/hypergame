@@ -124,6 +124,10 @@
         let balls = [], bricks = [], particles = [], items = [], stars = [], floatingTexts = [];
         let level = 1, combo = 0, time = 0, screenShake = 0;
 
+        // FPS Throttling for 60fps
+        let lastTime = 0;
+        const fpsInterval = 1000 / 60;
+
         /* ───────────────────────────────────────────────────────────
            2. CLASSES
            ─────────────────────────────────────────────────────────── */
@@ -789,10 +793,18 @@
         /* ───────────────────────────────────────────────────────────
            6. UPDATE & DRAW CORE
            ─────────────────────────────────────────────────────────── */
-        function draw() {
+        function draw(timestamp) {
+            requestAnimationFrame(draw);
+
+            if (!lastTime) lastTime = timestamp;
+            const elapsed = timestamp - lastTime;
+
+            if (elapsed < fpsInterval) return;
+
+            lastTime = timestamp - (elapsed % fpsInterval);
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (!isStarted || isGameOver) {
-                requestAnimationFrame(draw);
                 return;
             }
 
@@ -816,8 +828,6 @@
             drawBoundaryLines();
 
             if (screenShake > 0.5) ctx.restore();
-
-            requestAnimationFrame(draw);
         }
 
         /* ───────────────────────────────────────────────────────────

@@ -485,7 +485,10 @@
             });
 
             setTimeout(() => {
-                const rankingScore = win ? time : 0;
+                // Only submit score if the player won. 
+                // Using -1 or 0 will trigger the block in WCGames.gameOver/notifyGameOver.
+                // This prevents 999900 or 0 from being registered on loss.
+                const rankingScore = win ? (parseInt(time) || 0) : -1;
                 WCGames.gameOver(rankingScore);
             }, 1000);
         }

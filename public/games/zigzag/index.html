@@ -121,6 +121,11 @@
         let scene, camera, renderer, ball, platforms = [], crystals = [], direction = 'x', score = 0, isGameOver = false, isStarted = false;
         let lastPos = { x: 0, y: 0, z: 0 };
         let clock = new THREE.Clock();
+
+        // FPS Throttling for 60fps
+        let lastTime = 0;
+        const fpsInterval = 1000 / 60;
+
         let platformCount = 0;
         let crystalGeo, crystalMat;
 
@@ -191,7 +196,7 @@
                     audio.tap();
                 }
             });
-            animate();
+            requestAnimationFrame(animate);
         }
 
         function createClouds() {
@@ -289,8 +294,16 @@
             }
         }
 
-        function animate() {
+        function animate(timestamp) {
             requestAnimationFrame(animate);
+
+            if (!lastTime) lastTime = timestamp;
+            const elapsed = timestamp - lastTime;
+
+            if (elapsed < fpsInterval) return;
+
+            lastTime = timestamp - (elapsed % fpsInterval);
+
             const delta = clock.getDelta();
 
             if (isStarted && !isGameOver) {

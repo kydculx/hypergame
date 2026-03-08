@@ -440,6 +440,10 @@
         let time = 0, beatTimer = 0, beatPulse = 0, cameraShake = 0;
         let shieldCount = 0, cameraFovOffset = 0;
 
+        // FPS Throttling for 60fps
+        let lastTime = 0;
+        const fpsInterval = 1000 / 60;
+
         /* --- 3. GEOMETRY TEMPLATES & SHARED RESOURCES --- */
         const itemGeo = new THREE.SphereGeometry(0.5, 16, 16);
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -1326,8 +1330,16 @@
         }
 
         /* --- 8. MAIN ENGINE LOOP --- */
-        function LogicMainLoop() {
+        function LogicMainLoop(timestamp) {
             requestAnimationFrame(LogicMainLoop);
+
+            if (!lastTime) lastTime = timestamp;
+            const elapsed = timestamp - lastTime;
+
+            if (elapsed < fpsInterval) return;
+
+            lastTime = timestamp - (elapsed % fpsInterval);
+
             const dt = WCGames.updateDelta();
             const frameFactor = dt / (1 / 60);
 
