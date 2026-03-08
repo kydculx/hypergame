@@ -273,15 +273,15 @@
         // 오크 진영 설정 (CommonConfig 상속 및 전용 레벨 밸런스 설정)
         const EnemyConfig = Object.assign({}, CommonConfig, {
             levelBalance: {
-                Lv2: { scoreInterval: 200, probIncrement: 0.005, maxProb: 0.7 },
-                Lv3: { scoreInterval: 500, probIncrement: 0.005, maxProb: 0.7 },
-                Lv4: { scoreInterval: 1000, probIncrement: 0.005, maxProb: 0.7 },
-                Lv5: { scoreInterval: 2000, probIncrement: 0.005, maxProb: 0.7 },
-                Lv6: { scoreInterval: 5000, probIncrement: 0.005, maxProb: 0.7 },
-                Lv7: { scoreInterval: 8000, probIncrement: 0.005, maxProb: 0.7 },
-                Lv8: { scoreInterval: 10000, probIncrement: 0.005, maxProb: 0.7 },
-                Lv9: { scoreInterval: 20000, probIncrement: 0.005, maxProb: 0.7 },
-                Lv10: { scoreInterval: 30000, probIncrement: 0.005, maxProb: 0.7 },
+                Lv2: { scoreInterval: 100, probIncrement: 0.005, maxProb: 0.7 },
+                Lv3: { scoreInterval: 300, probIncrement: 0.005, maxProb: 0.7 },
+                Lv4: { scoreInterval: 500, probIncrement: 0.005, maxProb: 0.7 },
+                Lv5: { scoreInterval: 700, probIncrement: 0.005, maxProb: 0.7 },
+                Lv6: { scoreInterval: 900, probIncrement: 0.005, maxProb: 0.7 },
+                Lv7: { scoreInterval: 1100, probIncrement: 0.005, maxProb: 0.7 },
+                Lv8: { scoreInterval: 1300, probIncrement: 0.005, maxProb: 0.7 },
+                Lv9: { scoreInterval: 1500, probIncrement: 0.005, maxProb: 0.7 },
+                Lv10: { scoreInterval: 1700, probIncrement: 0.005, maxProb: 0.7 },
             }
         });
 
@@ -1047,6 +1047,12 @@
                 const maxY = playerBase.y + LayoutConfig.combatOffsetBottom;
                 if (u.y < minY && u.hp > 0) u.y = minY;
                 if (u.y > maxY && u.hp > 0) u.y = maxY;
+
+                // X-axis clamping to keep units within screen bounds
+                if (u.hp > 0) {
+                    if (u.x < 0) u.x = 0;
+                    if (u.x > canvas.width) u.x = canvas.width;
+                }
 
                 // Basic bounds check to prevent memory leaks from wandering units or death
                 if (u.x < -150 || u.x > canvas.width + 150 || u.hp <= 0) {

@@ -4,7 +4,8 @@
     "signup": "회원가입",
     "login": "로그인",
     "profile": "프로필",
-    "logout": "로그아웃"
+    "logout": "로그아웃",
+    "live_users": "접속 중"
   },
   "board": {
     "title": "글로벌 랭킹",
@@ -23,8 +24,11 @@
     "play": "",
     "instantly": "무설치 웹 게임.",
     "zero_downloads": "바로 플레이하세요.",
-    "desc": "브라우저에서 설치 없이 바로 즐길 수 있는 최고의 무료 하이퍼 캐주얼 웹 게임들을 만나보세요.",
-    "start_playing": "게임 시작하기"
+    "desc": "설치 없이 브라우저에서 바로 즐기는 최고의 무료 하이퍼캐주얼 HTML5 게임들을 만나보세요.",
+    "start_playing": "게임 시작하기",
+    "hall_of_fame": "명예의 전당",
+    "honor_tier": "최정상 등급",
+    "top_ranker": "최고 득점자"
   },
   "footer": {
     "desc": "언제 어디서나 무료로 즐기는 WCGames.",

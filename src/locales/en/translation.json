@@ -4,7 +4,8 @@
     "signup": "Sign Up",
     "login": "Login",
     "profile": "Profile",
-    "logout": "Logout"
+    "logout": "Logout",
+    "live_users": "Live"
   },
   "board": {
     "title": "Global Rankings",
@@ -24,7 +25,10 @@
     "instantly": "Instantly.",
     "zero_downloads": "Zero Downloads.",
     "desc": "Discover and play the best free hyper-casual HTML5 games directly in your browser. No installation required.",
-    "start_playing": "Start Playing"
+    "start_playing": "Start Playing",
+    "hall_of_fame": "Hall of Fame",
+    "honor_tier": "Honor Tier",
+    "top_ranker": "Top Ranker"
   },
   "footer": {
     "desc": "Play the best web games for free.",

@@ -3,10 +3,12 @@ import { Trophy, X, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserProfile } from './UserProfile';
 import Leaderboard from '../Leaderboard';
+import { usePresence } from '../../hooks/usePresence';
 
 export const Header: React.FC = () => {
+    const { onlineCount } = usePresence();
     const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
-    const { i18n } = useTranslation();
+    const { i18n, t } = useTranslation();
 
     // Apply a scroll listener for a more dynamic header
     const [scrolled, setScrolled] = useState(false);
@@ -49,6 +51,18 @@ export const Header: React.FC = () => {
 
                     {/* Right Side Actions */}
                     <div className="flex items-center gap-2 md:gap-3 bg-white/5 border border-white/10 rounded-full p-1.5 backdrop-blur-md shadow-inner transition-colors hover:bg-white/10 hover:border-white/20">
+                        {/* CCU Indicator */}
+                        <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-full text-xs font-bold tracking-tight border border-white/5 shadow-inner">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                            </span>
+                            <span className="text-white/40 uppercase text-[10px] hidden md:inline ml-0.5">{t('header.live_users')}</span>
+                            <span className="text-cyan-400 ml-0.5">{onlineCount}</span>
+                        </div>
+
+                        <div className="w-[1px] h-6 bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
+
                         {/* Language Selector */}
                         <button
                             onClick={() => {

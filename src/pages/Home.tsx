@@ -5,6 +5,7 @@ import { Header } from '../components/layout/Header';
 import { GameGrid } from '../components/layout/GameGrid';
 import { PortalBackground } from '../components/layout/PortalBackground';
 import { useTranslation } from 'react-i18next';
+import { HallOfFame } from '../components/layout/HallOfFame';
 
 const Home: React.FC = () => {
     const { t } = useTranslation();
@@ -50,6 +51,7 @@ const Home: React.FC = () => {
                 </button>
             </section>
 
+            <HallOfFame />
             <div id="game-grid">
                 <GameGrid games={games} onGameSelect={handlePlay} />
             </div>
