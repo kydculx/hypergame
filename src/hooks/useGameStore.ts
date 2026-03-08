@@ -115,13 +115,11 @@ export const useGameStore = create<GameState>()(
       setCurrentGame: (game) => set({ currentGame: game }),
 
       addScore: async (gameId, score) => {
-        const { user, userName } = useUserStore.getState();
-
-        const currentBest = get().personalBests[gameId];
-
-        // 1. Check if this is a new personal best
         const game = get().games.find(g => g.id === gameId);
         const sortOrder = game?.sortOrder || 'desc';
+
+        // 1. Check if this is a new personal best
+        if (sortOrder === 'asc' && score <= 0) return; // Only register positive times for ASC games
 
         let isNewRecord = false;
         if (currentBest === undefined || currentBest === 0) {
@@ -129,7 +127,7 @@ export const useGameStore = create<GameState>()(
         } else {
           if (sortOrder === 'asc') {
             // Lower is better (e.g. 10s is better than 20s)
-            if (score > 0 && score < currentBest) isNewRecord = true;
+            if (score < currentBest) isNewRecord = true;
           } else {
             // Higher is better (default)
             if (score > currentBest) isNewRecord = true;
