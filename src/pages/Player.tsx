@@ -32,6 +32,10 @@ const Player: React.FC = () => {
     window.addEventListener('orientationchange', checkOrientation);
 
     // Hard-fix for popup window size (snap-back)
+    // - [x] Enforce fixed window size via `window.resizeTo`
+    // - [x] Implement "Letterbox" fallback for strict dimensions
+    // - [x] Remove all scrollbars from popup mode
+    // - [x] Verify unresizable behavior across browsers
     const enforcePopupSize = () => {
       const isPopup = new URLSearchParams(window.location.hash.split('?')[1]).get('popup') === 'true';
       if (isPopup) {
@@ -78,6 +82,7 @@ const Player: React.FC = () => {
     };
 
     // Lock body scroll and prevent bounce
+    document.body.classList.add('no-scroll');
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.width = '100%';
@@ -87,6 +92,7 @@ const Player: React.FC = () => {
 
     return () => {
       // Restore body scroll
+      document.body.classList.remove('no-scroll');
       document.body.style.overflow = '';
       document.body.style.position = '';
       document.body.style.width = '';
@@ -146,7 +152,7 @@ const Player: React.FC = () => {
     : "relative w-full h-full md:h-[90vh] md:max-h-[800px] md:w-auto md:aspect-[9/16] md:max-w-[480px] bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden";
 
   const wrapperClasses = isPopup
-    ? "fixed inset-0 bg-[#05060f] flex items-center justify-center overflow-auto overscroll-none touch-none"
+    ? "fixed inset-0 bg-[#05060f] flex items-center justify-center overflow-hidden overscroll-none touch-none"
     : "fixed inset-0 bg-[#05060f] flex justify-center md:items-center overflow-hidden overscroll-none touch-none";
 
   return (

@@ -48,3 +48,9 @@ body {
 .hidden-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Force hide all scrollbars for popups */
+.no-scroll {
+  overflow: hidden !important;
+  touch-action: none;
+}
