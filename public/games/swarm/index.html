@@ -1048,12 +1048,6 @@
                 if (u.y < minY && u.hp > 0) u.y = minY;
                 if (u.y > maxY && u.hp > 0) u.y = maxY;
 
-                // X-axis clamping to keep units within screen bounds
-                if (u.hp > 0) {
-                    if (u.x < 0) u.x = 0;
-                    if (u.x > canvas.width) u.x = canvas.width;
-                }
-
                 // Basic bounds check to prevent memory leaks from wandering units or death
                 if (u.x < -150 || u.x > canvas.width + 150 || u.hp <= 0) {
                     if (u.hp <= 0) {

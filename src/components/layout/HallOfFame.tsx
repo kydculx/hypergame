@@ -64,10 +64,22 @@ export const HallOfFame: React.FC = () => {
     };
 
     // Duplicate rankers to ensure seamless infinite scroll
-    const marqueeItems = [...topRankers, ...topRankers];
+    // Triple it to ensure it covers very wide screens even with few items
+    const marqueeItems = [...topRankers, ...topRankers, ...topRankers];
 
     return (
-        <div className="max-w-[1400px] mx-auto px-4 mb-8 select-none group/hof">
+        <div className="max-w-[1400px] mx-auto px-4 mb-8 select-none">
+            <style>{`
+                @keyframes marquee {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-33.33%); }
+                }
+                .animate-marquee {
+                    display: inline-flex;
+                    animation: marquee 40s linear infinite;
+                    will-change: transform;
+                }
+            `}</style>
             <div className="bg-black/60 border border-white/10 rounded-2xl backdrop-blur-md relative overflow-hidden flex items-stretch shadow-2xl h-16">
                 {/* Label Section - Fixed on the left */}
                 <div className="relative z-20 flex items-center px-6 bg-[#0A0B1A] border-r border-white/10 shadow-[4px_0_20px_rgba(0,0,0,0.5)] w-[180px] shrink-0">
@@ -118,20 +130,6 @@ export const HallOfFame: React.FC = () => {
                         ))}
                     </div>
                 </div>
-
-                <style>{`
-                @keyframes marquee {
-                    0% { transform: translateX(0); }
-                    100% { transform: translateX(-50%); }
-                }
-                .animate-marquee {
-                    display: inline-flex;
-                    animation: marquee 30s linear infinite;
-                }
-                .animate-marquee:hover {
-                    animation-play-state: paused;
-                }
-            `}</style>
             </div>
         </div>
     );

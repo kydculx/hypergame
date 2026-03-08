@@ -13,6 +13,7 @@ const Player: React.FC = () => {
   const addScore = useGameStore((state) => state.addScore);
   const navigate = useNavigate();
 
+  const [sessionKey] = useState(() => Math.random().toString(36).substring(2, 15));
   const [isLandscape, setIsLandscape] = useState(false);
 
   // Check orientation
@@ -78,12 +79,26 @@ const Player: React.FC = () => {
 
       // Unify the score from different game message formats
       const receivedScore = topLevelScore !== undefined ? topLevelScore : payload?.score;
+      const signature = payload?.signature;
+
+      // Verification Logic (Basic Anti-Cheat)
+      const verifySignature = (score: number, sig: string) => {
+        if (!sig) return false;
+        // Logic must match wcgames-core.js
+        const salt = "WCG_SECURE_VERIFIER_2024";
+        const expected = btoa(score.toString() + sessionKey + salt).split('').reverse().join('');
+        return sig === expected;
+      };
 
       switch (type) {
         case 'SUBMIT_SCORE':
         case 'GAME_OVER':
           if (gameId && typeof receivedScore === 'number') {
-            addScore(gameId, receivedScore);
+            if (verifySignature(receivedScore, signature)) {
+              addScore(gameId, receivedScore);
+            } else {
+              console.warn(`[Anti-Cheat] Blocked suspicious score submission for ${gameId}.`);
+            }
           }
           break;
       }
@@ -91,58 +106,65 @@ const Player: React.FC = () => {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [gameId, addScore]);
+  }, [gameId, addScore, sessionKey]);
 
   if (!currentGame) return null;
 
-  return (
-    <div
-      className="fixed inset-0 w-full bg-black overflow-hidden flex flex-col"
-      style={{
-        height: '100dvh',
-        overscrollBehavior: 'none',
-        touchAction: 'none'
-      }}
-    >
-      {/* Rotation Overlay - Shows only in mobile landscape */}
-      {isLandscape && (
-        <div className="fixed inset-0 z-[100] bg-[#0A0B1A] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-          <div className="w-20 h-20 mb-6 text-cyan-400 animate-bounce">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-              <path d="M12 18h.01" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">{t('player.rotate_title')}</h2>
-          <p className="text-gray-400">{t('player.rotate_desc')}</p>
-        </div>
-      )}
+  // Append session key to game URL
+  const gameUrlWithKey = currentGame.gameUrl.includes('?')
+    ? `${currentGame.gameUrl}&sk=${sessionKey}`
+    : `${currentGame.gameUrl}?sk=${sessionKey}`;
 
-      {/* Absolute UI Layer for Relative Positioning within Safe Area */}
+  return (
+    <div className="fixed inset-0 bg-[#05060f] flex justify-center overflow-hidden overscroll-none touch-none">
       <div
-        className="pointer-events-none absolute inset-0 z-50 flex flex-col justify-start items-end"
+        className="relative w-full h-full md:max-w-[480px] bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5"
         style={{
-          paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
-          paddingRight: 'calc(env(safe-area-inset-right) + 1rem)',
+          height: '100dvh',
+          overscrollBehavior: 'none',
+          touchAction: 'none'
         }}
       >
-        {/* Close Button - Now positioned relative to Safe Area */}
-        <button
-          onClick={() => navigate('/')}
-          className="pointer-events-auto p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-all backdrop-blur-sm"
-        >
-          <X size={24} />
-        </button>
-      </div>
+        {/* Rotation Overlay - Shows only in mobile landscape */}
+        {isLandscape && (
+          <div className="fixed inset-0 z-[100] bg-[#0A0B1A] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+            <div className="w-20 h-20 mb-6 text-cyan-400 animate-bounce">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                <path d="M12 18h.01" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">{t('player.rotate_title')}</h2>
+            <p className="text-gray-400">{t('player.rotate_desc')}</p>
+          </div>
+        )}
 
-      {/* Game Container - Fills the dynamic viewport completely */}
-      <div className="flex-1 relative overflow-hidden bg-gray-900">
-        <iframe
-          src={currentGame.gameUrl}
-          className="w-full h-full border-none"
-          title={t(`games.${currentGame.id}.title`)}
-          allow="autoplay; fullscreen"
-        />
+        {/* Absolute UI Layer for Relative Positioning within Safe Area */}
+        <div
+          className="pointer-events-none absolute inset-0 z-50 flex flex-col justify-start items-end"
+          style={{
+            paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
+            paddingRight: 'calc(env(safe-area-inset-right) + 1rem)',
+          }}
+        >
+          {/* Close Button - Now positioned relative to Safe Area */}
+          <button
+            onClick={() => navigate('/')}
+            className="pointer-events-auto p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-all backdrop-blur-sm"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Game Container - Fills the dynamic viewport completely */}
+        <div className="flex-1 relative overflow-hidden bg-gray-900">
+          <iframe
+            src={gameUrlWithKey}
+            className="w-full h-full border-none"
+            title={t(`games.${currentGame.id}.title`)}
+            allow="autoplay; fullscreen"
+          />
+        </div>
       </div>
     </div>
   );

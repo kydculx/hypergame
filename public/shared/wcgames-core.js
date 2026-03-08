@@ -13,7 +13,9 @@
 
         init(config) {
             this.config = config;
-            this.debug = new URLSearchParams(window.location.search).has('debug');
+            const params = new URLSearchParams(window.location.search);
+            this.debug = params.has('debug');
+            this.sessionKey = params.get('sk') || '';
             this.setupUI();
             this.setupListeners();
             this.setupVisibilityHandler();
@@ -100,7 +102,7 @@
         gameOver(score) {
             if (this.state === 'OVER') return;
             // Validate score
-            const finalScore = Math.max(0, parseInt(score) || 0);
+            const finalScore = parseInt(score) || 0;
 
             this.state = 'OVER';
             this.lastGameOverTime = Date.now();
@@ -158,13 +160,30 @@
             window.parent.postMessage({ type: 'GAME_READY' }, '*');
         },
 
+        _getSignature(score) {
+            const salt = "WCG_SECURE_VERIFIER_2024";
+            return btoa(score.toString() + (this.sessionKey || '') + salt).split('').reverse().join('');
+        },
+
         notifyGameOver(score) {
-            window.parent.postMessage({ type: 'GAME_OVER', payload: { score } }, '*');
+            window.parent.postMessage({
+                type: 'GAME_OVER',
+                payload: {
+                    score,
+                    signature: this._getSignature(score)
+                }
+            }, '*');
         },
 
         submitScore(score) {
             if (typeof score !== 'number' || isNaN(score)) return;
-            window.parent.postMessage({ type: 'SUBMIT_SCORE', payload: { score } }, '*');
+            window.parent.postMessage({
+                type: 'SUBMIT_SCORE',
+                payload: {
+                    score,
+                    signature: this._getSignature(score)
+                }
+            }, '*');
         },
 
         /**

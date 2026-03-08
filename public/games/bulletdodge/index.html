@@ -30,53 +30,30 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Base atmosphere: Nebulas and Vignette (Grid Removed) */
+        /* Optimized background: Static glow and simpler star animation */
         body::before {
             content: '';
             position: fixed;
             inset: 0;
             background:
-                /* Danger/Vignette overlay */
-                radial-gradient(circle at center, transparent 50%, rgba(2, 2, 5, 0.4) 100%),
-                radial-gradient(ellipse at 70% 80%, rgba(239, 68, 68, 0.04) 0%, transparent 60%),
-                /* Nebula glows */
-                radial-gradient(circle at 20% 30%, rgba(56, 189, 248, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
-            background-size: 100% 100%;
-            animation: nebulaPulse 10s ease-in-out infinite alternate;
+                radial-gradient(circle at center, transparent 60%, rgba(2, 2, 5, 0.6) 100%),
+                radial-gradient(circle at 20% 30%, rgba(56, 189, 248, 0.05) 0%, transparent 50%);
             z-index: -2;
         }
 
-        @keyframes nebulaPulse {
-            from {
-                filter: brightness(1) saturate(1);
-            }
-
-            to {
-                filter: brightness(1.2) saturate(1.1);
-            }
-        }
-
-        /* Twinkling and randomly scattered stars */
         body::after {
             content: '';
             position: fixed;
             inset: 0;
             background:
-                /* Variety of stars at different offsets and larger sizes */
-                radial-gradient(2px 2px at 20px 30px, #fff, transparent),
-                radial-gradient(3.5px 3.5px at 150px 80px, #fff, transparent),
-                radial-gradient(1.5px 1.5px at 280px 140px, #fff, transparent),
-                radial-gradient(4px 4px at 60px 250px, #fff, transparent),
-                radial-gradient(2.2px 2.2px at 210px 320px, #fff, transparent),
-                radial-gradient(3px 3px at 30px 420px, #fff, transparent),
-                radial-gradient(1.8px 1.8px at 350px 480px, #fff, transparent);
-            background-size: 500px 600px;
-            animation:
-                starScroll 35s linear infinite,
-                twinkle 4s ease-in-out infinite alternate;
+                radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 150px 80px, #fff, transparent),
+                radial-gradient(1px 1px at 280px 140px, #fff, transparent),
+                radial-gradient(2px 2px at 60px 250px, #fff, transparent);
+            background-size: 400px 400px;
+            animation: starScroll 60s linear infinite;
             z-index: -1;
-            opacity: 0.7;
+            opacity: 0.5;
             pointer-events: none;
         }
 
@@ -660,7 +637,7 @@
                 let p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.life -= 0.02;
+                p.life -= 0.04; // Faster decay for performance
                 if (p.life <= 0) particles.splice(i, 1);
             }
         }
@@ -701,10 +678,8 @@
                 ctx.beginPath();
                 ctx.arc(0, 0, r - 4, 0, Math.PI * 2);
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-                ctx.setLineDash([5, 10]);
-                ctx.lineDashOffset = (Date.now() / 20) % 1000; // Keep offset small for Safari stability
+                // Dash optimization: only set if needed, or remove for max perf
                 ctx.stroke();
-                ctx.setLineDash([]);
                 ctx.restore();
             }
 
@@ -761,7 +736,8 @@
 
             ctx.restore();
 
-            // 3. Draw Laser Bullets
+            // 3. Draw Laser Bullets (Batched by color)
+            ctx.fillStyle = '#ef4444';
             for (let b of bullets) {
                 let angle = Math.atan2(b.vy, b.vx);
                 let length = b.radius * 3;
@@ -772,20 +748,19 @@
 
                 ctx.beginPath();
                 ctx.roundRect(-length, -b.radius, length * 2, b.radius * 2, b.radius);
-                ctx.fillStyle = b.color;
-                ctx.globalAlpha = 0.3;
                 ctx.fill();
-                ctx.globalAlpha = 1;
 
+                // Inner white part
                 ctx.beginPath();
                 ctx.roundRect(-length * 0.8, -b.radius * 0.4, length * 1.6, b.radius * 0.8, b.radius * 0.4);
                 ctx.fillStyle = '#fff';
                 ctx.fill();
+                ctx.fillStyle = '#ef4444'; // Reset for next iteration
 
                 ctx.restore();
             }
 
-            // 4. Draw Items
+            // 4. Draw Items (Minimized save/restore)
             for (let it of items) {
                 ctx.save();
                 ctx.translate(it.x, it.y);
@@ -832,13 +807,21 @@
                 ctx.restore();
             }
 
-            // 5. Draw Particles
+            // 5. Draw Particles (Batched by color)
+            const particlesByColor = {};
             for (let p of particles) {
-                ctx.globalAlpha = p.life;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-                ctx.fillStyle = p.color;
-                ctx.fill();
+                if (!particlesByColor[p.color]) particlesByColor[p.color] = [];
+                particlesByColor[p.color].push(p);
+            }
+
+            for (let color in particlesByColor) {
+                ctx.fillStyle = color;
+                for (let p of particlesByColor[color]) {
+                    ctx.globalAlpha = p.life;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
             ctx.globalAlpha = 1;
 

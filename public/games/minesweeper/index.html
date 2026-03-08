@@ -485,7 +485,8 @@
             });
 
             setTimeout(() => {
-                WCGames.gameOver(win ? -time : time); // High score is lowest time
+                const rankingScore = win ? (1000000 - time) : 0;
+                WCGames.gameOver(rankingScore);
             }, 1000);
         }
 

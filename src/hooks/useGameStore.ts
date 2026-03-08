@@ -118,15 +118,10 @@ export const useGameStore = create<GameState>()(
         const currentBest = get().personalBests[gameId];
 
         // 1. Check if this is a new personal best
-        // Mine Sweeper special case: only register clears (negative scores)
-        if (gameId === 'minesweeper' && score > 0) return;
-
         let isNewRecord = false;
-        if (currentBest === undefined || (gameId === 'minesweeper' && currentBest === 0)) {
+        if (currentBest === undefined) {
           isNewRecord = true;
         } else {
-          // Both positive and negative scores work with standard > comparison for "better"
-          // Mine Sweeper: -10 > -25 -> Record (10s faster than 25s)
           if (score > currentBest) {
             isNewRecord = true;
           }
