@@ -62,5 +62,51 @@
     "games_played": "플레이한 게임",
     "total_score": "총 획득 점수",
     "highest_rank": "최고 순위"
+  },
+  "games": {
+    "2048": {
+      "title": "2048",
+      "category": "퍼즐"
+    },
+    "stack-tower": {
+      "title": "스택 타워",
+      "category": "아케이드"
+    },
+    "zigzag": {
+      "title": "지그재그",
+      "category": "아케이드"
+    },
+    "jump": {
+      "title": "점프 점프",
+      "category": "아케이드"
+    },
+    "neon-breakout": {
+      "title": "네온 브레이크아웃",
+      "category": "아케이드"
+    },
+    "helix": {
+      "title": "헬릭스 점프",
+      "category": "아케이드"
+    },
+    "speedrush": {
+      "title": "스피드 러쉬",
+      "category": "레이싱"
+    },
+    "domino": {
+      "title": "도미노 대시",
+      "category": "아케이드"
+    },
+    "minesweeper": {
+      "title": "지뢰찾기",
+      "category": "퍼즐"
+    },
+    "bulletdodge": {
+      "title": "총알 피하기",
+      "category": "아케이드"
+    },
+    "swarm": {
+      "title": "스웜 클래시",
+      "category": "전략"
+    }
   }
 }

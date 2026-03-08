@@ -49,31 +49,6 @@
             /* Flat shadow instead of glow */
         }
 
-        #ui-left {
-            position: absolute;
-            top: 75px;
-            left: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            font-family: 'Courier New', Courier, monospace;
-            text-shadow: 2px 2px 0 #000;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        #ui-right {
-            position: absolute;
-            top: 70px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            font-family: 'Courier New', Courier, monospace;
-            text-shadow: 2px 2px 0 #000;
-            pointer-events: none;
-            z-index: 10;
-        }
 
         #ui-center {
             position: absolute;
@@ -106,14 +81,6 @@
             justify-content: center;
         }
 
-        #blue-count {
-            color: #60a5fa;
-        }
-
-        #red-count {
-            color: #f87171;
-        }
-
         /* Classic UI Overrides */
         .wcg-popup {
             background: #1e1e1e !important;
@@ -126,17 +93,33 @@
             color: #3b82f6 !important;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
         }
+
+        button:disabled.loading {
+            opacity: 0.6;
+            cursor: not-allowed;
+            color: #aaa !important;
+            border-color: #555 !important;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.6;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+
+            100% {
+                opacity: 0.6;
+            }
+        }
     </style>
     <script src="/shared/wcgames-core.js"></script>
 </head>
 
 <body>
-    <div id="ui-left">
-        <div class="stat-box" style="color:#60a5fa;"><span id="blue-count">0</span></div>
-    </div>
-    <div id="ui-right">
-        <div class="stat-box" style="color:#f87171;"><span id="red-count">0</span></div>
-    </div>
     <div id="ui-center">
         <div class="stat-box"
             style="color:#fcd34d; border-color: #ca8a04; font-size: 22px; justify-content: center; gap: 15px;">
@@ -149,7 +132,7 @@
         <div class="wcg-popup">
             <h1 data-i18n="title">Swarm Clash</h1>
             <p data-i18n="instruction">Drag to select units. Tap to move.</p>
-            <button onclick="WCGames.start()" data-i18n="play">Start Battle</button>
+            <button onclick="WCGames.start()" data-i18n="play" disabled class="loading">Loading...</button>
         </div>
     </div>
 
@@ -169,6 +152,8 @@
         const ctx = canvas.getContext('2d', { alpha: false }); // Optimize rendering by disabling transparency where unneeded
 
         let frames = 0;
+        let lastTime = 0;
+        const fpsInterval = 1000 / 60;
         let score = 0;
         let isGameOver = false;
         let isStarted = false;
@@ -364,115 +349,120 @@
 
         // --- High-Fidelity Canvas Battlefield Background ---
         // --- Static High-Fidelity Background Loader & Sprite System ---
-        (function initializeAssets() {
-            // Background
-            const bgImg = new Image();
-            bgImg.src = 'background_v5.png';
-            bgImg.onload = () => { sprites.fullBg = bgImg; };
+        // Asset Preloading Logic
+        let assetsLoaded = 0;
+        const TOTAL_ASSETS = 12; // 1 Background + 1 Player Base + 10 Unit Sheets
 
-            // Unified Sprite Sheet Loader
-            function loadUnitSheet(team, type, filename, nfcFilename) {
-                const img = new Image();
-                img.src = filename;
-                img.onerror = () => { if (nfcFilename) img.src = nfcFilename; };
-                img.onload = () => {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = img.width;
-                    tempCanvas.height = img.height;
-                    const tctx = tempCanvas.getContext('2d');
-                    tctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-                    tctx.drawImage(img, 0, 0);
-                    const imgData = tctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-                    const data = imgData.data;
-                    let keyed = 0;
-                    for (let i = 0; i < data.length; i += 4) {
-                        const r = data[i], g = data[i + 1], b = data[i + 2];
-
-                        // 1. Magenta Background Removal (Multiple shades due to compression)
-                        if ((r > 150 && b > 150 && g < 150) || (r > 200 && b > 200 && g < 180)) {
-                            data[i + 3] = 0;
-                            keyed++;
-                        }
-                        // 2. Sprite-based Shadow Recoloring ("Dark but not too dark")
-                        // Targets neutral grey (Human) and dark purple (Orc) shadow blobs
-                        else {
-                            const isGreyShadow = (Math.abs(r - 128) < 30 && Math.abs(g - 128) < 30 && Math.abs(b - 128) < 30);
-                            const isOrcPurpleShadow = (Math.abs(r - 85) < 30 && Math.abs(g - 19) < 30 && Math.abs(b - 81) < 30);
-
-                            if (isGreyShadow || isOrcPurpleShadow) {
-                                // Transform into a soft, consistent shadow
-                                data[i] = 0;
-                                data[i + 1] = 0;
-                                data[i + 2] = 0;
-                                data[i + 3] = 100; // ~40% opacity (not too dark)
-                            }
-                        }
-                    }
-                    tctx.putImageData(imgData, 0, 0);
-
-                    const key = (team === 0 ? 'p' : 'e') + type;
-                    sprites[key + 'Sheet'] = tempCanvas;
-                    sprites[key + 'Meta'] = { frameW: 552, frameH: 752, framesPerRow: 5 };
-                    console.log(`[Sprites] Processed ${key}: Removed ${keyed} magenta pixels. (Size: ${img.width}x${img.height})`);
-                };
-                img.onerror = (e) => {
-                    console.error(`[Sprites] Failed to load sprite sheet: ${filename}`, e);
-                    if (nfcFilename && img.src !== nfcFilename) {
-                        console.log(`[Sprites] Retrying with NFC filename: ${nfcFilename}`);
-                        img.src = nfcFilename;
-                    }
-                };
-            }
-
-            // Load all known unit sprite sheets
-            const unitFiles = [
-                { team: 0, type: TYPE_MELEE, file: '인간전사.png', nfc: '인간전사.png' },
-                { team: 0, type: TYPE_RANGED, file: '인간궁수.png', nfc: '인간궁수.png' },
-                { team: 0, type: TYPE_TANKER, file: '인간탱커.png', nfc: '인간탱커.png' },
-                { team: 0, type: TYPE_MAGE, file: '인간법사.png', nfc: '인간법사.png' },
-                { team: 0, type: TYPE_HEALER, file: '인간사제.png', nfc: '인간사제.png' },
-                { team: 1, type: TYPE_MELEE, file: '오크전사.png', nfc: '오크전사.png' },
-                { team: 1, type: TYPE_RANGED, file: '오크궁수.png', nfc: '오크궁수.png' },
-                { team: 1, type: TYPE_TANKER, file: '오크탱커.png', nfc: '오크탱커.png' },
-                { team: 1, type: TYPE_MAGE, file: '오크법사.png', nfc: '오크법사.png' },
-                { team: 1, type: TYPE_HEALER, file: '오크사제.png', nfc: '오크사제.png' }
-            ];
-
-            unitFiles.forEach(u => loadUnitSheet(u.team, u.type, u.file, u.nfc));
-        })();
-
-        (function loadHumanBase() {
-            const img = new Image();
-            img.src = 'castle.png';
-            img.onload = () => {
-                const c = document.createElement('canvas');
-                c.width = img.width; c.height = img.height;
-                const x = c.getContext('2d');
-                x.drawImage(img, 0, 0);
-                try {
-                    const imgData = x.getImageData(0, 0, c.width, c.height);
-                    const d = imgData.data;
-                    for (let i = 0; i < d.length; i += 4) {
-                        // Remove magenta background (high R, high B, low G)
-                        if (d[i] > 150 && d[i + 2] > 150 && d[i + 1] < 120) {
-                            d[i + 3] = 0;
-                        }
-                    }
-                    x.putImageData(imgData, 0, 0);
-                } catch (e) {
-                    console.warn('[Sprites] Canvas taint on 성.png, skipping magenta removal:', e.message);
+        function checkAssetProgress() {
+            assetsLoaded++;
+            const startBtn = document.querySelector('#start-screen button');
+            if (startBtn) {
+                if (assetsLoaded < TOTAL_ASSETS) {
+                    startBtn.disabled = true;
+                    startBtn.classList.add('loading');
+                    startBtn.innerText = `Loading... (${assetsLoaded}/${TOTAL_ASSETS})`;
+                } else {
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('loading');
+                    // Use translated text if available
+                    startBtn.innerText = (window.WCGamesTranslation && window.WCGamesTranslation.play) ? window.WCGamesTranslation.play : "Start Battle";
                 }
-                sprites.pBase = c;
-                console.log('[Sprites] 성.png loaded. Size:', img.width, 'x', img.height);
+            }
+        }
+
+        // Background
+        const bgImg = new Image();
+        bgImg.src = 'background_v5.png';
+        bgImg.onload = () => { sprites.fullBg = bgImg; checkAssetProgress(); };
+        bgImg.onerror = () => { console.error('Failed to load background'); checkAssetProgress(); };
+
+        // Unified Sprite Sheet Loader
+        function loadUnitSheet(team, type, filename, nfcFilename) {
+            const img = new Image();
+            img.src = filename;
+            img.onerror = () => {
+                if (nfcFilename && img.src !== nfcFilename) {
+                    img.src = nfcFilename;
+                } else {
+                    console.error(`Failed to load unit sheet: ${filename}`);
+                    checkAssetProgress();
+                }
             };
-            img.onerror = (e) => {
-                console.error('[Sprites] 성.png FAILED to load:', e);
-                const c = document.createElement('canvas'); c.width = 128; c.height = 128;
-                const x = c.getContext('2d');
-                x.fillStyle = '#1e3a8a'; x.fillRect(0, 0, 128, 128);
-                sprites.pBase = c;
+            img.onload = () => {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+                const tctx = tempCanvas.getContext('2d');
+                tctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                tctx.drawImage(img, 0, 0);
+                const imgData = tctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const data = imgData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i], g = data[i + 1], b = data[i + 2];
+                    if ((r > 150 && b > 150 && g < 150) || (r > 200 && b > 200 && g < 180)) {
+                        data[i + 3] = 0;
+                    } else {
+                        const isGreyShadow = (Math.abs(r - 128) < 30 && Math.abs(g - 128) < 30 && Math.abs(b - 128) < 30);
+                        const isOrcPurpleShadow = (Math.abs(r - 85) < 30 && Math.abs(g - 19) < 30 && Math.abs(b - 81) < 30);
+                        if (isGreyShadow || isOrcPurpleShadow) {
+                            data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 100;
+                        }
+                    }
+                }
+                tctx.putImageData(imgData, 0, 0);
+                const key = (team === 0 ? 'p' : 'e') + type;
+                sprites[key + 'Sheet'] = tempCanvas;
+                sprites[key + 'Meta'] = { frameW: 552, frameH: 752, framesPerRow: 5 };
+                checkAssetProgress();
             };
-        })();
+        }
+
+        // Load all known unit sprite sheets
+        const unitFiles = [
+            { team: 0, type: TYPE_MELEE, file: '인간전사.png', nfc: '인간전사.png' },
+            { team: 0, type: TYPE_RANGED, file: '인간궁수.png', nfc: '인간궁수.png' },
+            { team: 0, type: TYPE_TANKER, file: '인간탱커.png', nfc: '인간탱커.png' },
+            { team: 0, type: TYPE_MAGE, file: '인간법사.png', nfc: '인간법사.png' },
+            { team: 0, type: TYPE_HEALER, file: '인간사제.png', nfc: '인간사제.png' },
+            { team: 1, type: TYPE_MELEE, file: '오크전사.png', nfc: '오크전사.png' },
+            { team: 1, type: TYPE_RANGED, file: '오크궁수.png', nfc: '오크궁수.png' },
+            { team: 1, type: TYPE_TANKER, file: '오크탱커.png', nfc: '오크탱커.png' },
+            { team: 1, type: TYPE_MAGE, file: '오크법사.png', nfc: '오크법사.png' },
+            { team: 1, type: TYPE_HEALER, file: '오크사제.png', nfc: '오크사제.png' }
+        ];
+
+        unitFiles.forEach(u => loadUnitSheet(u.team, u.type, u.file, u.nfc));
+
+        // Player Base
+        const baseImg = new Image();
+        baseImg.src = 'castle.png';
+        baseImg.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = baseImg.width; c.height = baseImg.height;
+            const x = c.getContext('2d');
+            x.drawImage(baseImg, 0, 0);
+            try {
+                const imgData = x.getImageData(0, 0, c.width, c.height);
+                const d = imgData.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    if (d[i] > 150 && d[i + 2] > 150 && d[i + 1] < 120) d[i + 3] = 0;
+                }
+                x.putImageData(imgData, 0, 0);
+            } catch (e) {
+                console.warn('[Sprites] Canvas taint on castle.png, skipping magenta removal:', e.message);
+            }
+            sprites.pBase = c;
+            checkAssetProgress();
+        };
+        baseImg.onerror = () => {
+            console.error('Failed to load castle.png');
+            const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+            const x = c.getContext('2d');
+            x.fillStyle = '#1e3a8a'; x.fillRect(0, 0, 128, 128);
+            sprites.pBase = c;
+            checkAssetProgress();
+        };
 
 
         // Projectile for Ranged Units
@@ -658,8 +648,7 @@
                 playerBase.y = canvas.height * LayoutConfig.baseRatioY;
             }
 
-            let blueCount = 0;
-            let redCount = 0;
+
 
             // Simple Spatial Grid Partitioning (Grid size: 40x40)
             const CELL_SIZE = 40;
@@ -883,8 +872,7 @@
             for (let i = units.length - 1; i >= 0; i--) {
                 const u = units[i];
 
-                if (u.team === 0) blueCount++;
-                else redCount++;
+
 
                 // Combat & Target Acquisition
                 if (u.attackCooldown > 0) u.attackCooldown--;
@@ -1065,7 +1053,7 @@
                     if (u.hp <= 0) {
                         // Dead
                         if (u.team === 1 && !u.killedByLightning) {
-                            score += u.type === TYPE_TANKER ? 3 : 1;
+                            // Kill-based score removed in favor of survival time
                         }
                         u.selected = false; // Ensure dead units drop selection
 
@@ -1163,15 +1151,24 @@
 
             // Update UI
             if (frames % 15 === 0) {
-                document.getElementById('blue-count').textContent = blueCount;
-                document.getElementById('red-count').textContent = redCount;
+                score = Math.floor(frames / 60); // Survival time in seconds
                 document.getElementById('score').textContent = score; // Added alive score tracking
             }
 
             frames++;
         }
 
-        function draw() {
+        function draw(timestamp) {
+            requestAnimationFrame(draw);
+
+            if (!lastTime) lastTime = timestamp;
+            const elapsed = timestamp - lastTime;
+
+            if (elapsed < fpsInterval) return;
+
+            // Optimization for high-refresh monitors: snap lastTime to exact interval
+            lastTime = timestamp - (elapsed % fpsInterval);
+
             drawBackground();
 
             if (isStarted) {
@@ -1331,17 +1328,40 @@
 
                         ctx.imageSmoothingEnabled = false;
 
-                        // Base HP Bars
-                        const hpW = canvas.width - (canvas.width * 0.1);
-                        const hpH = 6;
-                        const hpY = canvas.height - 50;
+                        // Base HP Bars (Polished design, lower position)
+                        const hpW = canvas.width * 0.7; // Slightly narrower for cleaner look
+                        const hpH = 10;
+                        const hpY = 100;
+                        const x = canvas.width / 2 - hpW / 2;
                         const maxHp = r.team === 0 ? PlayerConfig.baseMaxHp : EnemyConfig.baseMaxHp;
                         const curHp = r.obj.hp;
+                        const fillW = Math.max(0, curHp / maxHp) * hpW;
 
-                        ctx.fillStyle = "rgba(0,0,0,0.8)";
-                        ctx.fillRect(canvas.width / 2 - hpW / 2, hpY, hpW, hpH);
-                        ctx.fillStyle = r.team === 0 ? "#3b82f6" : "#ef4444";
-                        ctx.fillRect(canvas.width / 2 - hpW / 2, hpY, Math.max(0, curHp / maxHp) * hpW, hpH);
+                        // 1. Draw Container (Border & Background)
+                        ctx.fillStyle = "rgba(0,0,0,0.6)";
+                        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+                        ctx.lineWidth = 1;
+                        ctx.fillRect(x, hpY, hpW, hpH);
+                        ctx.strokeRect(x, hpY, hpW, hpH);
+
+                        // 2. Draw Gradient Fill
+                        const grad = ctx.createLinearGradient(x, 0, x + hpW, 0);
+                        if (r.team === 0) {
+                            grad.addColorStop(0, "#1e40af"); // Deep Blue
+                            grad.addColorStop(0.5, "#3b82f6"); // Bright Blue
+                            grad.addColorStop(1, "#60a5fa"); // Light Blue
+                        } else {
+                            grad.addColorStop(0, "#991b1b"); // Deep Red
+                            grad.addColorStop(0.5, "#ef4444"); // Bright Red
+                            grad.addColorStop(1, "#f87171"); // Light Red
+                        }
+
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(x + 1, hpY + 1, Math.max(0, fillW - 2), hpH - 2);
+
+                        // 3. Optional Gloss Shine
+                        ctx.fillStyle = "rgba(255,255,255,0.15)";
+                        ctx.fillRect(x + 1, hpY + 1, Math.max(0, fillW - 2), hpH / 2 - 1);
                     } else {
                         const u = r.obj;
                         // Performance: Culling units outside viewport
@@ -1593,7 +1613,6 @@
             }
 
             update();
-            requestAnimationFrame(draw);
         }
 
         function endGame(playerWon) {
@@ -1602,12 +1621,14 @@
 
             // Adjust Game Over Text based on win/loss
             const titleEl = document.querySelector('#game-over h1');
+            const translations = window.WCGamesTranslation || {};
+
             if (playerWon) {
-                titleEl.textContent = "VICTORY";
+                titleEl.textContent = translations.victory || "VICTORY";
                 titleEl.style.color = "#34d399";
-                score += 1000; // Bonus for winning
+                // Win bonus removed or adjusted to survival theme
             } else {
-                titleEl.textContent = "DEFEAT";
+                titleEl.textContent = translations.defeat || "DEFEAT";
                 titleEl.style.color = "#f87171";
             }
 
@@ -1648,7 +1669,7 @@
             onRestart: () => { WCGames.Audio.init(); resetGame(); }
         });
 
-        draw();
+        requestAnimationFrame(draw);
     </script>
     <script src="/shared/i18n.js"></script>
 </body>

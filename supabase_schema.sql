@@ -15,10 +15,18 @@ DROP POLICY IF EXISTS "Leaderboard is public" ON scores;
 CREATE POLICY "Leaderboard is public" ON scores FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Anyone can insert scores" ON scores;
+-- In a real production app, you might want to switch this to authenticated users only
+-- or use a service role for insertion from a secure backend.
+-- For now, we keep it as is but note the risk.
 CREATE POLICY "Anyone can insert scores" ON scores FOR INSERT WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Users can update their own scores" ON scores;
-CREATE POLICY "Users can update their own scores" ON scores FOR UPDATE USING (true);
+-- Restrict updates: only if the system matches (placeholder for more advanced auth logic)
+-- If using Supabase Auth, you would use: USING (auth.uid() = id) 
+-- Since we are currently using an anonymous setup with user_name, we should at least 
+-- ensure that updates are not globally allowed without restriction.
+CREATE POLICY "Users can update their own scores" ON scores FOR UPDATE USING (false); 
+-- Note: Setting to false effectively disables public updates until a proper auth check is added.
 
 
 -- 4. [CRITICAL] UNIQUE CONSTRAINT AND CLEANUP

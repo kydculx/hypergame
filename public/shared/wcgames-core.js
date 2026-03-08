@@ -17,6 +17,7 @@
             this.setupUI();
             this.setupListeners();
             this.setupVisibilityHandler();
+            this.setupAdSense(); // Add this line
             this.notifyReady();
 
             // Show start screen by default
@@ -198,6 +199,29 @@
 
                 osc.start();
                 osc.stop(this.ctx.currentTime + dur);
+            }
+        },
+
+        setupAdSense() {
+            const config = window.WCGamesConfig || {};
+            const clientID = config.ADSENSE_ID;
+            if (!clientID) return;
+
+            // Automatically find and initialize bottom-banner if it exists
+            const banner = document.getElementById('bottom-banner');
+            if (banner && banner.style.display !== 'none !important') {
+                const script = document.createElement('script');
+                script.async = true;
+                script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientID}`;
+                script.crossOrigin = 'anonymous';
+                banner.prepend(script);
+
+                // Push ads if ins element exists
+                const ins = banner.querySelector('ins.adsbygoogle');
+                if (ins && !ins.getAttribute('data-ad-client')) {
+                    ins.setAttribute('data-ad-client', clientID);
+                    (window.adsbygoogle = window.adsbygoogle || []).push({});
+                }
             }
         }
     };

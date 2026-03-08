@@ -62,5 +62,51 @@
     "games_played": "Games Played",
     "total_score": "Total Score",
     "highest_rank": "Highest Rank"
+  },
+  "games": {
+    "2048": {
+      "title": "2048",
+      "category": "PUZZLE"
+    },
+    "stack-tower": {
+      "title": "Stack Tower",
+      "category": "ARCADE"
+    },
+    "zigzag": {
+      "title": "ZigZag",
+      "category": "ARCADE"
+    },
+    "jump": {
+      "title": "Jump Jump",
+      "category": "ARCADE"
+    },
+    "neon-breakout": {
+      "title": "Neon Breakout",
+      "category": "ARCADE"
+    },
+    "helix": {
+      "title": "Helix Jump",
+      "category": "ARCADE"
+    },
+    "speedrush": {
+      "title": "Speed Rush",
+      "category": "RACING"
+    },
+    "domino": {
+      "title": "Domino Dash",
+      "category": "ARCADE"
+    },
+    "minesweeper": {
+      "title": "Minesweeper",
+      "category": "PUZZLE"
+    },
+    "bulletdodge": {
+      "title": "Bullet Dodge",
+      "category": "ARCADE"
+    },
+    "swarm": {
+      "title": "Swarm Clash",
+      "category": "STRATEGY"
+    }
   }
 }
