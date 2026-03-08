@@ -51,12 +51,14 @@
         #ui {
             position: fixed;
             top: 20px;
-            left: 20px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 10;
+            text-align: center;
         }
 
         #score {
-            font-size: 48px;
+            font-size: 36px;
             font-weight: 700;
             text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.4);
             letter-spacing: 2px;
@@ -64,19 +66,20 @@
 
         #combo-ui {
             position: fixed;
-            top: 80px;
-            left: 20px;
-            padding: 5px 15px;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 3px 12px;
             background: rgba(255, 0, 255, 0.2);
-            border-left: 4px solid #ff00ff;
+            border-left: 3px solid #ff00ff;
             backdrop-filter: blur(10px);
-            font-size: 18px;
+            font-size: 14px;
             font-weight: 700;
             color: #ff00ff;
-            box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
             display: none;
-            clip-path: polygon(0 0, 100% 0, 90% 100%, 0% 100%);
-            animation: pulse 1s infinite alternate;
+            clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%);
+            pointer-events: none;
         }
 
         @keyframes pulse {
@@ -672,7 +675,8 @@
                                     const comboEl = document.getElementById('combo-ui');
                                     comboEl.textContent = `COMBO x${comboCount}`;
                                     comboEl.classList.add('wcg-visible');
-                                    comboEl.style.transform = `translate(-50%, -50%) scale(${1 + comboCount * 0.05})`;
+                                    // Maintain horizontal centering from CSS and add a subtle scale
+                                    comboEl.style.transform = `translateX(-50%) scale(${1 + comboCount * 0.02})`;
                                 }
 
                                 playTone(500 + comboCount * 100, 'sine');
