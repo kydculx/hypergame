@@ -31,9 +31,26 @@ const Player: React.FC = () => {
     window.addEventListener('resize', checkOrientation);
     window.addEventListener('orientationchange', checkOrientation);
 
+    // Hard-fix for popup window size
+    const enforcePopupSize = () => {
+      const isPopup = new URLSearchParams(window.location.hash.split('?')[1]).get('popup') === 'true';
+      if (isPopup) {
+        const targetWidth = 480;
+        const targetHeight = 854;
+        if (window.innerWidth !== targetWidth || window.innerHeight !== targetHeight) {
+          window.resizeTo(targetWidth, targetHeight);
+        }
+      }
+    };
+
+    if (window.location.hash.includes('popup=true')) {
+      window.addEventListener('resize', enforcePopupSize);
+    }
+
     return () => {
       window.removeEventListener('resize', checkOrientation);
       window.removeEventListener('orientationchange', checkOrientation);
+      window.removeEventListener('resize', enforcePopupSize);
     };
   }, []);
 
