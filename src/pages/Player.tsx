@@ -118,7 +118,7 @@ const Player: React.FC = () => {
   return (
     <div className="fixed inset-0 bg-[#05060f] flex justify-center md:items-center overflow-hidden overscroll-none touch-none">
       <div
-        className="relative w-full h-full md:h-auto md:max-h-[min(90vh,800px)] md:aspect-[9/16] md:max-w-[480px] bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden"
+        className="relative w-full h-full md:h-[90vh] md:max-h-[800px] md:w-auto md:aspect-[9/16] md:max-w-[480px] bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden"
         style={{
           overscrollBehavior: 'none',
           touchAction: 'none'
