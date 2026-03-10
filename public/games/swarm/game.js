@@ -730,9 +730,23 @@ const EntityManager = {
     issueMoveCommand(x, y) {
         let count = 0;
         const offset = CONFIG.control.moveOffset;
+        
+        // 이동 가능 영역 제한 (화면 밖 비정상 타겟 방지)
+        const minY = EntityManager.playerBase.y + CONFIG.layout.combatOffset.top;
+        const maxY = EntityManager.playerBase.y + CONFIG.layout.combatOffset.bottom;
+        const minX = 0;
+        const maxX = Engine.canvas.width;
+
         this.units.forEach(u => {
             if (u.selected && u.team === 0) {
-                u.target = { x: x + (Math.random() - 0.5) * offset, y: y + (Math.random() - 0.5) * offset };
+                let tx = x + (Math.random() - 0.5) * offset;
+                let ty = y + (Math.random() - 0.5) * offset;
+                
+                // 타겟을 제한하여 무한히 멈춰있는 버그 방지
+                tx = Math.max(minX, Math.min(maxX, tx));
+                ty = Math.max(minY, Math.min(maxY, ty));
+
+                u.target = { x: tx, y: ty };
                 u.state = 1; u.selected = false; count++;
             }
         });
@@ -783,9 +797,14 @@ const CombatSystem = {
             }
         }
 
-        // 플레이어 유닛은 오른쪽 끝(적 진영 전석)에서 정지
+        // 플레이어 유닛은 오른쪽 끝(적 진영 전초선)에서 정지
         const baseBuffer = CONFIG.control.baseBuffer;
-        if (u.team === 0 && u.x > Engine.canvas.width - baseBuffer) { u.state = 0; u.vx = 0; return; }
+        if (u.team === 0 && u.x > Engine.canvas.width - baseBuffer) { 
+            u.state = 0; 
+            u.vx = 0; 
+            u.x = Engine.canvas.width - baseBuffer; // 확실히 멈추도록 x 클램프
+            return; 
+        }
 
         // 주기적 타겟팅 업데이트 (성능 최적화: 10프레임마다 실행)
         if ((Engine.frames + u.id.length) % 10 !== 0) return;
