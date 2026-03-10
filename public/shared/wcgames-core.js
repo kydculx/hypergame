@@ -201,6 +201,7 @@
          */
         Audio: {
             ctx: null,
+            lastPlayed: {}, // 오디오 스로틀링을 위한 타임스탬프 기록
             init() {
                 if (this.ctx) return;
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -208,6 +209,12 @@
             play(freq, type = 'sine', dur = 0.1, vol = 0.1) {
                 if (!this.ctx) this.init();
                 if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                // 오디오 스로틀링 (동일 주파수 연속 재생 방지)
+                const key = `${freq}_${type}`;
+                const now = Date.now();
+                if (this.lastPlayed[key] && now - this.lastPlayed[key] < 200) return;
+                this.lastPlayed[key] = now;
 
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
