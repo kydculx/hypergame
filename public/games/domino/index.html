@@ -975,6 +975,7 @@
         }
 
         function restartGame() {
+            if (animationId) cancelAnimationFrame(animationId);
             // Reset score & UI
             score = 0;
             combo = 0;
@@ -1089,19 +1090,11 @@
         // ============================================================
         // Animation Loop
         // ============================================================
-        // FPS Throttling for 60fps
-        let lastTime = 0;
-        const fpsInterval = 1000 / 60;
 
+
+        let animationId;
         function animate(timestamp) {
-            requestAnimationFrame(animate);
-
-            if (!lastTime) lastTime = timestamp;
-            const elapsed = timestamp - lastTime;
-
-            if (elapsed < fpsInterval) return;
-
-            lastTime = timestamp - (elapsed % fpsInterval);
+            animationId = requestAnimationFrame(animate);
 
             const time = Date.now() * 0.001;
 

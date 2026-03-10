@@ -1,6 +1,6 @@
 {
   "title": "ZigZag",
-  "instruction": "Tap the screen or click to change the direction of the ball. Don't fall off the edge and collect gems for extra points!",
+  "instruction": "Roll the ball on a narrow, zigzagging cliff to go as far as possible! Your goal is to collect glowing gems on the path while focusing to avoid falling into the abyss.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",

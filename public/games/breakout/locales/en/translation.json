@@ -1,6 +1,6 @@
 {
   "title": "Breakout",
-  "instruction": "Use your mouse, arrow keys, or touch to move the paddle. Bounce the ball to break all the glowing neon bricks and clear the level.",
+  "instruction": "Bounce the ball to destroy all the glowing neon bricks! Your goal is to shatter every brick and advance to the next stage without letting the ball fall.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",

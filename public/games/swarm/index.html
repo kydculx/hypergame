@@ -152,8 +152,7 @@
         const ctx = canvas.getContext('2d', { alpha: false }); // Optimize rendering by disabling transparency where unneeded
 
         let frames = 0;
-        let lastTime = 0;
-        const fpsInterval = 1000 / 60;
+
         let score = 0;
         let isGameOver = false;
         let isStarted = false;
@@ -239,7 +238,7 @@
 
             // 플레이어 합체 설정
             playerMerge: {
-                unitsRequired: 5,         // 합체에 필요한 동일 타입 & 레벨 유닛 수
+                unitsRequired: 2,         // 합체에 필요한 동일 타입 & 레벨 유닛 수
                 // 합체 보너스 (합쳐진 스탯의 몇 배가 될지 결정)
                 // 현재 LevelScalingConfig.statMultiplierPerLevel과 연동됩니다.
                 bonusScaling: 1.2   // (5배 / 5마리) -> 합체 시 레벨 5배 보수 유지
@@ -252,7 +251,6 @@
         const CommonConfig = {
             spawnRateSeconds: 1,         // 일반 유닛 소환 주기 (초 단위)
             spawnBatch: 1,               // 한 번 소환될 때 나오는 유닛 수
-            unitSize: 16,                // 기본 유닛 크기 배율
             speed: 1.0,                  // 이동 속도 배율
             baseMaxHp: 5000,             // 기지 체력
             probRanged: 0.1,            // 궁수 소환 확률 (10%)
@@ -327,6 +325,55 @@
         const TYPE_MAGE = 4;
         const TYPE_HEALER = 5;
 
+        // --- UNIT TYPE STATISTICS CONFIGURATION ---
+        const UnitTypeStats = {
+            [TYPE_MELEE]: {
+                maxHp: 15,
+                damage: 3,
+                attackRange: 19,
+                speed: 1.0,
+                cooldownMax: 30,
+                width: 15,
+                height: 23
+            },
+            [TYPE_RANGED]: {
+                maxHp: 8,
+                damage: 2,
+                attackRange: 60,
+                speed: 0.8,
+                cooldownMax: 45,
+                width: 16,
+                height: 24
+            },
+            [TYPE_TANKER]: {
+                maxHp: 50,
+                damage: 4,
+                attackRange: 21,
+                speed: 0.5,
+                cooldownMax: 40,
+                width: 17,
+                height: 24
+            },
+            [TYPE_MAGE]: {
+                maxHp: 6,
+                damage: 5,
+                attackRange: 100,
+                speed: 0.7,
+                cooldownMax: 60,
+                width: 16,
+                height: 24
+            },
+            [TYPE_HEALER]: {
+                maxHp: 8,
+                damage: -5,
+                attackRange: 120,
+                speed: 0.9,
+                cooldownMax: 50,
+                width: 16,
+                height: 24
+            }
+        };
+
         let units = [];
         let particles = [];
         let projectiles = [];
@@ -377,62 +424,69 @@
         bgImg.onerror = () => { console.error('Failed to load background'); checkAssetProgress(); };
 
         // Unified Sprite Sheet Loader
-        function loadUnitSheet(team, type, filename, nfcFilename) {
-            const img = new Image();
-            img.src = filename;
-            img.onerror = () => {
-                if (nfcFilename && img.src !== nfcFilename) {
-                    img.src = nfcFilename;
-                } else {
-                    console.error(`Failed to load unit sheet: ${filename}`);
-                    checkAssetProgress();
-                }
-            };
-            img.onload = () => {
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = img.width;
-                tempCanvas.height = img.height;
-                const tctx = tempCanvas.getContext('2d');
-                tctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-                tctx.drawImage(img, 0, 0);
-                const imgData = tctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-                const data = imgData.data;
+        async function loadUnitSheet(team, type, jsonFilename) {
+            try {
+                // Fetch using relative path to the current page
+                const response = await fetch(`./${jsonFilename}`);
+                if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+                const metadata = await response.json();
+                const imageFilename = metadata.image_path;
 
-                for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i], g = data[i + 1], b = data[i + 2];
-                    if ((r > 150 && b > 150 && g < 150) || (r > 200 && b > 200 && g < 180)) {
-                        data[i + 3] = 0;
-                    } else {
-                        const isGreyShadow = (Math.abs(r - 128) < 30 && Math.abs(g - 128) < 30 && Math.abs(b - 128) < 30);
-                        const isOrcPurpleShadow = (Math.abs(r - 85) < 30 && Math.abs(g - 19) < 30 && Math.abs(b - 81) < 30);
-                        if (isGreyShadow || isOrcPurpleShadow) {
-                            data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 100;
+                const img = new Image();
+                img.src = `./${imageFilename}`;
+                img.onerror = () => {
+                    console.error(`Failed to load unit image: ${imageFilename}`);
+                    checkAssetProgress();
+                };
+                img.onload = () => {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = img.width;
+                    tempCanvas.height = img.height;
+                    const tctx = tempCanvas.getContext('2d');
+                    tctx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                    tctx.drawImage(img, 0, 0);
+                    const imgData = tctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    const data = imgData.data;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i], g = data[i + 1], b = data[i + 2];
+                        if ((r > 150 && b > 150 && g < 150) || (r > 200 && b > 200 && g < 180)) {
+                            data[i + 3] = 0;
+                        } else {
+                            const isGreyShadow = (Math.abs(r - 128) < 30 && Math.abs(g - 128) < 30 && Math.abs(b - 128) < 30);
+                            const isOrcPurpleShadow = (Math.abs(r - 85) < 30 && Math.abs(g - 19) < 30 && Math.abs(b - 81) < 30);
+                            if (isGreyShadow || isOrcPurpleShadow) {
+                                data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 100;
+                            }
                         }
                     }
-                }
-                tctx.putImageData(imgData, 0, 0);
-                const key = (team === 0 ? 'p' : 'e') + type;
-                sprites[key + 'Sheet'] = tempCanvas;
-                sprites[key + 'Meta'] = { frameW: 552, frameH: 752, framesPerRow: 5 };
+                    tctx.putImageData(imgData, 0, 0);
+                    const key = (team === 0 ? 'p' : 'e') + type;
+                    sprites[key + 'Sheet'] = tempCanvas;
+                    sprites[key + 'Meta'] = metadata;
+                    checkAssetProgress();
+                };
+            } catch (e) {
+                console.error(`Failed to load metadata: ${jsonFilename}`, e);
                 checkAssetProgress();
-            };
+            }
         }
 
         // Load all known unit sprite sheets
         const unitFiles = [
-            { team: 0, type: TYPE_MELEE, file: '인간전사.png', nfc: '인간전사.png' },
-            { team: 0, type: TYPE_RANGED, file: '인간궁수.png', nfc: '인간궁수.png' },
-            { team: 0, type: TYPE_TANKER, file: '인간탱커.png', nfc: '인간탱커.png' },
-            { team: 0, type: TYPE_MAGE, file: '인간법사.png', nfc: '인간법사.png' },
-            { team: 0, type: TYPE_HEALER, file: '인간사제.png', nfc: '인간사제.png' },
-            { team: 1, type: TYPE_MELEE, file: '오크전사.png', nfc: '오크전사.png' },
-            { team: 1, type: TYPE_RANGED, file: '오크궁수.png', nfc: '오크궁수.png' },
-            { team: 1, type: TYPE_TANKER, file: '오크탱커.png', nfc: '오크탱커.png' },
-            { team: 1, type: TYPE_MAGE, file: '오크법사.png', nfc: '오크법사.png' },
-            { team: 1, type: TYPE_HEALER, file: '오크사제.png', nfc: '오크사제.png' }
+            { team: 0, type: TYPE_MELEE, file: 'human_melee.json' },
+            { team: 0, type: TYPE_RANGED, file: 'human_ranged.json' },
+            { team: 0, type: TYPE_TANKER, file: 'human_tanker.json' },
+            { team: 0, type: TYPE_MAGE, file: 'human_mage.json' },
+            { team: 0, type: TYPE_HEALER, file: 'human_healer.json' },
+            { team: 1, type: TYPE_MELEE, file: 'orc_melee.json' },
+            { team: 1, type: TYPE_RANGED, file: 'orc_ranged.json' },
+            { team: 1, type: TYPE_TANKER, file: 'orc_tanker.json' },
+            { team: 1, type: TYPE_MAGE, file: 'orc_mage.json' },
+            { team: 1, type: TYPE_HEALER, file: 'orc_healer.json' }
         ];
 
-        unitFiles.forEach(u => loadUnitSheet(u.team, u.type, u.file, u.nfc));
+        unitFiles.forEach(u => loadUnitSheet(u.team, u.type, u.file));
 
         // Player Base
         const baseImg = new Image();
@@ -509,50 +563,16 @@
                 this.type = type; // 0=Melee, 1=Ranged, 2=Enhanced
 
                 const conf = team === 0 ? PlayerConfig : EnemyConfig;
-                // Base stats by type
-                if (type === TYPE_MELEE) {
-                    this.maxHp = 15;
-                    this.damage = 3;
-                    this.attackRange = conf.unitSize + 3;
-                    this.speed = conf.speed;
-                    this.cooldownMax = 30; // 0.5s
-                    this.size = conf.unitSize;
-                } else if (type === TYPE_RANGED) {
-                    this.maxHp = 8;
-                    this.damage = 2;
-                    this.attackRange = 60;
-                    this.speed = conf.speed * 0.8;
-                    this.cooldownMax = 45; // 0.75s
-                    this.size = conf.unitSize;
-                } else if (type === TYPE_TANKER) {
-                    this.maxHp = 50;
-                    this.damage = 4;
-                    this.attackRange = conf.unitSize + 5;
-                    this.speed = conf.speed * 0.5;
-                    this.cooldownMax = 40;
-                    this.size = conf.unitSize * 1.5;
-                } else if (type === TYPE_MAGE) {
-                    this.maxHp = 6;
-                    this.damage = 5;
-                    this.attackRange = 100;
-                    this.speed = conf.speed * 0.7;
-                    this.cooldownMax = 60; // 1s
-                    this.size = conf.unitSize;
-                } else if (type === TYPE_HEALER) {
-                    this.maxHp = 8;
-                    this.damage = -5; // Negative damage implies healing
-                    this.attackRange = 120;
-                    this.speed = conf.speed * 0.9;
-                    this.cooldownMax = 50;
-                    this.size = conf.unitSize;
-                } else if (type === TYPE_CAVALRY) {
-                    this.maxHp = 25;
-                    this.damage = 6;
-                    this.attackRange = 45;
-                    this.speed = conf.speed * 1.6;
-                    this.cooldownMax = 40;
-                    this.size = conf.unitSize * 1.3;
-                }
+                const baseStats = UnitTypeStats[type] || UnitTypeStats[TYPE_MELEE];
+
+                // Initialize stats from UnitTypeStats
+                this.maxHp = baseStats.maxHp;
+                this.damage = baseStats.damage;
+                this.attackRange = (type === TYPE_MELEE || type === TYPE_TANKER) ? (baseStats.width + (type === TYPE_MELEE ? 3 : 5)) : baseStats.attackRange;
+                this.speed = baseStats.speed * conf.speed;
+                this.cooldownMax = baseStats.cooldownMax;
+                this.width = baseStats.width || 16;
+                this.height = baseStats.height || 16;
                 // Apply level-based scaling
                 if (level > 1) {
                     const skillMult = Math.pow(BalanceConfig.statMultiplierPerLevel, level - 1);
@@ -561,13 +581,15 @@
 
                     // 레벨별 크기 배율 적용 (BalanceConfig.sizeScales 변수 사용)
                     const sizeScale = BalanceConfig.sizeScales[Math.min(level, BalanceConfig.sizeScales.length) - 1] || 1.0;
-                    this.size = this.size * sizeScale;
+                    this.width = this.width * sizeScale;
+                    this.height = this.height * sizeScale;
                 }
 
                 if (overrideStats) {
                     if (overrideStats.maxHp !== undefined) this.maxHp = overrideStats.maxHp;
                     if (overrideStats.damage !== undefined) this.damage = overrideStats.damage;
-                    if (overrideStats.size !== undefined) this.size = overrideStats.size;
+                    if (overrideStats.width !== undefined) this.width = overrideStats.width;
+                    if (overrideStats.height !== undefined) this.height = overrideStats.height;
                     this.hp = overrideStats.hp !== undefined ? overrideStats.hp : (overrideStats.maxHp !== undefined ? overrideStats.maxHp : this.maxHp);
                 }
 
@@ -1035,7 +1057,7 @@
                         const dx = u.x - other.x;
                         const dy = u.y - other.y;
                         const distSq = dx * dx + dy * dy;
-                        if (distSq < (conf.unitSize) * (conf.unitSize)) {
+                        if (distSq < (u.width) * (u.width)) {
                             u.x += dx * 0.02; // Reduced push to allow tighter clusters
                             u.y += dy * 0.02;
                         }
@@ -1158,16 +1180,9 @@
             frames++;
         }
 
+        let animationId;
         function draw(timestamp) {
-            requestAnimationFrame(draw);
-
-            if (!lastTime) lastTime = timestamp;
-            const elapsed = timestamp - lastTime;
-
-            if (elapsed < fpsInterval) return;
-
-            // Optimization for high-refresh monitors: snap lastTime to exact interval
-            lastTime = timestamp - (elapsed % fpsInterval);
+            animationId = requestAnimationFrame(draw);
 
             drawBackground();
 
@@ -1368,89 +1383,46 @@
                         if (u.x < -100 || u.x > canvas.width + 100) continue;
 
                         const scaleFactor = 0.5 + 0.7 * ((u.y - HORIZON_Y) / (canvas.height - HORIZON_Y));
-                        const sz = u.size * 2 * scaleFactor;
-                        const drawW = sz;
-                        const drawH = sz;
+                        // Adjust visual offsets based purely on unit height/width
+                        const drawW = u.width * 2 * scaleFactor;
+                        const drawH = u.height * 2 * scaleFactor;
                         const visualOffsetY = drawH * 0.95;
 
-                        // Drop Shadow removed as requested
-
-                        let sprSet = null;
                         const prefix = (u.team === 0 ? 'p' : 'e') + u.type;
-                        const isSpriteSheet = sprites[prefix + 'Sheet'] && sprites[prefix + 'Meta'];
+                        const sheet = sprites[prefix + 'Sheet'];
+                        const meta = sprites[prefix + 'Meta'];
 
-                        // Fallback sprSet for units not yet in sprite sheets (like Cavalry)
-                        if (!isSpriteSheet) {
-                            if (u.team === 0) {
-                                sprSet = sprites.pMelee;
-                                if (u.type === TYPE_RANGED) sprSet = sprites.pRanged;
-                                else if (u.type === TYPE_TANKER) sprSet = sprites.pMelee;
-                                else if (u.type === TYPE_MAGE) sprSet = sprites.pMage;
-                                else if (u.type === TYPE_HEALER) sprSet = sprites.pHealer;
-                                else if (u.type === TYPE_CAVALRY) sprSet = sprites.pCavalry;
-                            } else {
-                                sprSet = sprites.eMelee;
-                                if (u.type === TYPE_RANGED) sprSet = sprites.eRanged;
-                                else if (u.type === TYPE_TANKER) sprSet = sprites.eMelee;
-                                else if (u.type === TYPE_MAGE) sprSet = sprites.eMage;
-                                else if (u.type === TYPE_HEALER) sprSet = sprites.eHealer;
-                                else if (u.type === TYPE_CAVALRY) sprSet = sprites.eCavalry;
-                            }
-                        }
-
-                        let spr = (sprSet && sprSet.spr1) ? sprSet.spr1 : null;
                         const time = Date.now();
-                        let frameIdx = 0;
-                        let rowIdx = 0;
 
-                        const moving = (Math.abs(u.vx) + Math.abs(u.vy)) > 0.1;
+                        if (sheet && meta) {
+                            const animName = u.state === 2 ? 'attack' : 'walk';
+                            const group = meta.groups.find(g => g.name === animName) || meta.groups[0];
+                            const animFps = group.fps || meta.fps || 10;
+                            const frameCount = group.items.length;
 
-                        if (!moving) {
-                            frameIdx = 0;
-                        } else {
-                            if (isSpriteSheet) {
-                                // 5-frame walk animation
-                                frameIdx = Math.floor(time / 100) % 5;
-                            } else {
-                                // Classic 2-frame canvas animation
-                                const frame = Math.floor(time / 150) % 2;
-                                spr = (sprSet && frame === 0) ? sprSet.spr1 : (sprSet ? sprSet.spr2 : null);
-                            }
-                        }
+                            // Calculate frame based on JSON FPS
+                            const loopIdx = Math.floor(time / (1000 / animFps)) % frameCount;
+                            const frameData = group.items[loopIdx];
+                            const [sx, sy, sw, sh] = frameData.rect;
+                            const [ax, ay] = frameData.anchor;
 
-                        // Attack Logic Overrides
-                        if (u.state === 2 && u.attackCooldown > 0) {
-                            const t = u.attackCooldown / u.cooldownMax;
-
-                            if (isSpriteSheet) {
-                                rowIdx = 1; // Second row is Attack
-                                frameIdx = Math.min(4, Math.floor((1 - t) * 5));
-                            } else {
-                                if (sprSet && t > 0.6) spr = sprSet.sprAtk;
-                            }
-                        }
-
-                        if (isSpriteSheet) {
-                            const sheet = sprites[prefix + 'Sheet'];
-                            const meta = sprites[prefix + 'Meta'];
-                            const sx = frameIdx * meta.frameW;
-                            const sy = rowIdx * meta.frameH;
-                            const aspectRatio = meta.frameH / meta.frameW;
-                            const sheetH = drawW * aspectRatio;
+                            // Scale factors: Calculate purely from configured height progression
+                            const baseHeight = UnitTypeStats[u.type] ? (UnitTypeStats[u.type].height || 16) : 16;
+                            const sizeMultiplier = u.height / baseHeight; // Expected result: 1.0, 1.2, 1.4 based purely on level
+                            const visualScale = scaleFactor * 0.5 * sizeMultiplier; // Scale with perspective AND strict level multiplier
+                            const finalW = sw * visualScale;
+                            const finalH = sh * visualScale;
+                            const offX = -ax * visualScale;
+                            const offY = -ay * visualScale;
 
                             ctx.save();
                             ctx.translate(u.x, u.y);
-                            if (u.team === 1) ctx.scale(-1, 1); // Flip Orcs back to face Left
+                            if (u.team === 1) ctx.scale(-1, 1); // Flip Orcs
                             ctx.drawImage(
                                 sheet,
-                                sx, sy, meta.frameW, meta.frameH,
-                                -drawW / 2, -sheetH, drawW, sheetH
+                                sx, sy, sw, sh,
+                                offX, offY, finalW, finalH
                             );
-                            ctx.restore();
-                        } else if (spr) {
-                            ctx.save();
-                            ctx.translate(u.x, u.y);
-                            ctx.drawImage(spr, -drawW / 2, -drawH, drawW, drawH);
                             ctx.restore();
                         }
 
@@ -1610,9 +1582,8 @@
                     ctx.strokeRect(x, y, w, h);
                     ctx.setLineDash([]);
                 }
+                update();
             }
-
-            update();
         }
 
         function endGame(playerWon) {
@@ -1637,6 +1608,8 @@
         }
 
         function resetGame() {
+            // Don't cancel frame during reset, just reset states. 
+            // Loop is started once at the bottom.
             isGameOver = false;
             isStarted = true;
             frames = 0;

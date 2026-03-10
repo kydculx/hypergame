@@ -1,6 +1,6 @@
 {
   "title": "Toy Domino",
-  "instruction": "Observe the gaps between blocks. Select and drop the appropriately sized domino to connect them and trigger a continuous fall.",
+  "instruction": "Fill the disconnected gaps with blocks of the exact length! Your goal is to trigger a perfect chain reaction, knocking down all dominoes without a single mistake.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",

@@ -1,6 +1,6 @@
 {
   "title": "Mine Sweeper",
-  "instruction": "Left-click to reveal a tile. Right-click to flag a suspected mine. The numbers indicate how many mines are adjacent to that tile.",
+  "instruction": "Logically deduce the locations of mines using the number hints on the ground! You must perfectly uncover all safe zones without touching a single hidden mine.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",

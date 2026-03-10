@@ -1,6 +1,6 @@
 {
   "title": "2048",
-  "instruction": "Use arrow keys or swipe to move all tiles. When two tiles with the same number touch, they merge into one. Reach 2048 to win!",
+  "instruction": "Merge tiles with the same number to create larger numbers! Your goal is to forge the legendary 2048 tile through careful placement and strategy.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",

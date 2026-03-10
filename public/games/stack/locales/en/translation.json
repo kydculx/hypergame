@@ -1,6 +1,6 @@
 {
   "title": "Stack",
-  "instruction": "Click or tap the screen at the exact moment the moving block aligns with the tower. Mismatched parts will be sliced off!",
+  "instruction": "Build an endlessly rising tower by stacking constantly moving blocks with perfect timing! Your goal is to challenge the highest altitude while maintaining accuracy so blocks aren't sliced off.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",

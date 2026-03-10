@@ -1,6 +1,6 @@
 {
   "title": "Helix Jump",
-  "instruction": "Click and drag (or swipe) left and right to rotate the tower. Let the ball fall through the gaps, but avoid the dangerously colored platforms!",
+  "instruction": "Find the gaps in the spiral tower and drop the ball continuously! Your goal is to reach the deepest bottom of the tower safely, avoiding the dangerous red platforms.",
   "play": "Play",
   "game_over": "Game Over",
   "final_score": "Score: ",
