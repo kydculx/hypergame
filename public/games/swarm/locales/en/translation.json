@@ -5,6 +5,7 @@
     "game_over": "GAME OVER",
     "victory": "VICTORY",
     "defeat": "DEFEAT",
+    "score": "Survived Time: ",
     "final_score": "Survived Time: ",
     "play_again": "Play Again",
     "category": "STRATEGY"

@@ -5,6 +5,7 @@
     "game_over": "게임 오버",
     "victory": "승리",
     "defeat": "패배",
+    "score": "생존 시간: ",
     "final_score": "생존 시간: ",
     "play_again": "다시 하기",
     "category": "전략"
