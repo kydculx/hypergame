@@ -58,10 +58,16 @@ const CONFIG = {
         horizonYRatio: 0.05,
         gridSize: 40 // 최적화를 위한 그리드 크기
     },
+    // 번개 설정
     environment: {
         lightningRateSeconds: 10,
         lightningDamage: 100,
         lightningRadius: 60
+    },
+    // 조작 관련 설정
+    control: {
+        moveOffset: 40,      // 이동 명령 시 분산 거리
+        baseBuffer: 40       // 기지 정지 거리 버퍼
     }
 };
 
@@ -590,10 +596,15 @@ const EntityManager = {
     },
 
     issueMoveCommand(x, y) {
-        this.units.filter(u => u.selected && u.team === 0).forEach(u => {
-            u.target = { x: x + (Math.random() - 0.5) * 40, y: y + (Math.random() - 0.5) * 40 };
-            u.state = 1; u.selected = false;
+        let count = 0;
+        const offset = CONFIG.control.moveOffset;
+        this.units.forEach(u => {
+            if (u.selected && u.team === 0) {
+                u.target = { x: x + (Math.random() - 0.5) * offset, y: y + (Math.random() - 0.5) * offset };
+                u.state = 1; u.selected = false; count++;
+            }
         });
+        if (count > 0 && Math.random() > 0.5) WCGames.Audio.play([400, 600], 'sine', 0.05, 0.05);
     },
 
     selectUnitsInBox(box) {
@@ -621,11 +632,12 @@ const CombatSystem = {
     handleTargeting(u) {
         if (u.hp <= 0) return;
 
-        // 기지 공격 우선
-        if (u.team === 1 && Math.hypot(u.x - EntityManager.playerBase.x, u.y - EntityManager.playerBase.y) < 150 && u.x < EntityManager.playerBase.x + 80) {
+        // 기지 공격 판정 (플레이어 유닛은 오른쪽 끝에서 정지)
+        const baseBuffer = CONFIG.control.baseBuffer;
+        if (u.team === 0 && u.x > Engine.canvas.width - baseBuffer) { u.state = 0; return; }
+        if (u.team === 1 && u.x < EntityManager.playerBase.x + 80 && Math.abs(u.y - EntityManager.playerBase.y) < 150) {
             u.attackTarget = EntityManager.playerBase; u.state = 2; return;
         }
-        if (u.team === 0 && u.x > Engine.canvas.width - 40) { u.state = 0; return; }
 
         // 주기적 타겟팅 업데이트 (성능 최적화)
         if ((Engine.frames + u.id.length) % 10 !== 0) return;
@@ -762,7 +774,7 @@ const Renderer = {
 
     drawMergeZone() {
         const mz = EntityManager.mergeZone;
-        if (mz.x === 0) return;
+        if (!mz || mz.w === 0) return;
         const ctx = Engine.ctx, pulse = Math.sin(Engine.frames * 0.05) * 0.2 + 0.8;
         const cx = mz.x + mz.w / 2, cy = mz.y + mz.h / 2;
         const rx = mz.w / 2, ry = rx * 0.35;

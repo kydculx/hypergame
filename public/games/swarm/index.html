@@ -39,18 +39,22 @@
 
         #ui-layer {
             position: absolute;
-            top: 20px;
-            left: 20px;
+            top: 30px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
             pointer-events: none;
             color: #fff;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             z-index: 5;
         }
 
         #score-container {
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: -0.02em;
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            font-variant-numeric: tabular-nums;
         }
 
         .wcg-popup {
@@ -132,7 +136,7 @@
 <body>
     <div id="ui-layer">
         <div id="score-container">
-            <span data-i18n="score">Score: </span><span id="score">0</span>
+            <span id="score">0</span>
         </div>
     </div>
 
