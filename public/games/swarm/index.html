@@ -230,7 +230,7 @@
         const BalanceConfig = {
             // 레벨별 크기 배율 (1레벨, 2레벨, 3레벨, 4레벨, 5레벨...)
             // 1.4는 기본 크기의 1.4배를 의미합니다.
-            sizeScales: [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0],
+            sizeScales: [0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6],
 
             // 레벨당 스탯(HP, 데미지) 증가 배율
             // 레벨 2는 레벨 1의 이 배수만큼 강해집니다.
@@ -419,7 +419,7 @@
 
         // Background
         const bgImg = new Image();
-        bgImg.src = 'background_v5.png';
+        bgImg.src = 'img/background.png';
         bgImg.onload = () => { sprites.fullBg = bgImg; checkAssetProgress(); };
         bgImg.onerror = () => { console.error('Failed to load background'); checkAssetProgress(); };
 
@@ -430,7 +430,11 @@
                 const response = await fetch(`./${jsonFilename}`);
                 if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
                 const metadata = await response.json();
-                const imageFilename = metadata.image_path;
+
+                // Extract directory from jsonFilename
+                const dirIndex = jsonFilename.lastIndexOf('/');
+                const dir = dirIndex !== -1 ? jsonFilename.substring(0, dirIndex + 1) : '';
+                const imageFilename = dir + metadata.image_path;
 
                 const img = new Image();
                 img.src = `./${imageFilename}`;
@@ -474,23 +478,23 @@
 
         // Load all known unit sprite sheets
         const unitFiles = [
-            { team: 0, type: TYPE_MELEE, file: 'human_melee.json' },
-            { team: 0, type: TYPE_RANGED, file: 'human_ranged.json' },
-            { team: 0, type: TYPE_TANKER, file: 'human_tanker.json' },
-            { team: 0, type: TYPE_MAGE, file: 'human_mage.json' },
-            { team: 0, type: TYPE_HEALER, file: 'human_healer.json' },
-            { team: 1, type: TYPE_MELEE, file: 'orc_melee.json' },
-            { team: 1, type: TYPE_RANGED, file: 'orc_ranged.json' },
-            { team: 1, type: TYPE_TANKER, file: 'orc_tanker.json' },
-            { team: 1, type: TYPE_MAGE, file: 'orc_mage.json' },
-            { team: 1, type: TYPE_HEALER, file: 'orc_healer.json' }
+            { team: 0, type: TYPE_MELEE, file: 'img/human_melee.json' },
+            { team: 0, type: TYPE_RANGED, file: 'img/human_ranged.json' },
+            { team: 0, type: TYPE_TANKER, file: 'img/human_tanker.json' },
+            { team: 0, type: TYPE_MAGE, file: 'img/human_mage.json' },
+            { team: 0, type: TYPE_HEALER, file: 'img/human_healer.json' },
+            { team: 1, type: TYPE_MELEE, file: 'img/orc_melee.json' },
+            { team: 1, type: TYPE_RANGED, file: 'img/orc_ranged.json' },
+            { team: 1, type: TYPE_TANKER, file: 'img/orc_tanker.json' },
+            { team: 1, type: TYPE_MAGE, file: 'img/orc_mage.json' },
+            { team: 1, type: TYPE_HEALER, file: 'img/orc_healer.json' }
         ];
 
         unitFiles.forEach(u => loadUnitSheet(u.team, u.type, u.file));
 
         // Player Base
         const baseImg = new Image();
-        baseImg.src = 'castle.png';
+        baseImg.src = 'img/castle.png';
         baseImg.onload = () => {
             const c = document.createElement('canvas');
             c.width = baseImg.width; c.height = baseImg.height;
@@ -504,13 +508,13 @@
                 }
                 x.putImageData(imgData, 0, 0);
             } catch (e) {
-                console.warn('[Sprites] Canvas taint on castle.png, skipping magenta removal:', e.message);
+                console.warn('[Sprites] Canvas taint on img/castle.png, skipping magenta removal:', e.message);
             }
             sprites.pBase = c;
             checkAssetProgress();
         };
         baseImg.onerror = () => {
-            console.error('Failed to load castle.png');
+            console.error('Failed to load img/castle.png');
             const c = document.createElement('canvas'); c.width = 128; c.height = 128;
             const x = c.getContext('2d');
             x.fillStyle = '#1e3a8a'; x.fillRect(0, 0, 128, 128);
@@ -571,18 +575,18 @@
                 this.attackRange = (type === TYPE_MELEE || type === TYPE_TANKER) ? (baseStats.width + (type === TYPE_MELEE ? 3 : 5)) : baseStats.attackRange;
                 this.speed = baseStats.speed * conf.speed;
                 this.cooldownMax = baseStats.cooldownMax;
-                this.width = baseStats.width || 16;
-                this.height = baseStats.height || 16;
-                // Apply level-based scaling
+                this.width = baseStats.width;
+                this.height = baseStats.height;
+                // 레벨별 크기 배율 적용 (BalanceConfig.sizeScales 변수 사용)
+                const sizeScale = BalanceConfig.sizeScales[Math.min(level, BalanceConfig.sizeScales.length) - 1];
+                this.width = this.width * sizeScale;
+                this.height = this.height * sizeScale;
+
+                // Apply level-based stat scaling
                 if (level > 1) {
                     const skillMult = Math.pow(BalanceConfig.statMultiplierPerLevel, level - 1);
                     this.maxHp = Math.ceil(this.maxHp * skillMult);
                     this.damage = Math.ceil(this.damage * skillMult);
-
-                    // 레벨별 크기 배율 적용 (BalanceConfig.sizeScales 변수 사용)
-                    const sizeScale = BalanceConfig.sizeScales[Math.min(level, BalanceConfig.sizeScales.length) - 1] || 1.0;
-                    this.width = this.width * sizeScale;
-                    this.height = this.height * sizeScale;
                 }
 
                 if (overrideStats) {
@@ -1432,23 +1436,7 @@
                             ctx.strokeRect(u.x - drawW / 2 - 2, u.y - visualOffsetY - 2, drawW + 4, drawH + 4);
                         }
 
-                        if (u.hp < u.maxHp) {
-                            const barW = (u.type === TYPE_TANKER ? 24 : 16) * scaleFactor;
-                            const offY = visualOffsetY + 5;
-                            ctx.fillStyle = "rgba(0,0,0,0.8)";
-                            ctx.fillRect(u.x - barW / 2, u.y - offY - 3, barW, 3);
-                            ctx.fillStyle = u.team === 0 ? "#86efac" : "#fb7185";
-                            // Fixing "strange graph" rendering error preventing negative width
-                            ctx.fillRect(u.x - barW / 2, u.y - offY - 3, Math.max(0, u.hp / u.maxHp) * barW, 3);
-                        }
-
-                        if (u.level > 1) {
-                            const offY = visualOffsetY + 15;
-                            ctx.fillStyle = "#fcd34d";
-                            ctx.font = "bold 12px Courier New";
-                            ctx.textAlign = "center";
-                            ctx.fillText("Lv" + u.level, u.x, u.y - offY);
-                        }
+                        // Unit HP bar and Level tags have been removed per user request
                     }
                 }
 
