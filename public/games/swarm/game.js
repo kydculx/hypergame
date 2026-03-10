@@ -135,6 +135,7 @@ const Engine = {
         titleEl.style.color = won ? "#34d399" : "#f87171";
         document.getElementById('final-score').textContent = this.score;
 
+        document.getElementById('game-over').classList.add('wcg-visible');
         if (window.WCGames) WCGames.gameOver(this.score);
     }
 };
@@ -243,6 +244,7 @@ const Assets = {
                 btn.disabled = false;
                 btn.classList.remove('loading');
                 btn.innerText = (window.WCGamesTranslation && window.WCGamesTranslation.play) || "Start Battle";
+                document.getElementById('start-screen').classList.add('wcg-visible');
             }
         }
     }
@@ -896,7 +898,7 @@ const Renderer = {
 // --- 9. GLOBAL INTERFACE ---
 window.SwarmGame = {
     start() {
-        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('start-screen').classList.remove('wcg-visible');
         Engine.isStarted = true;
         Engine.isGameOver = false;
         Engine.frames = 0;
@@ -904,7 +906,7 @@ window.SwarmGame = {
         EntityManager.reset();
     },
     restart() {
-        document.getElementById('game-over').style.display = 'none';
+        document.getElementById('game-over').classList.remove('wcg-visible');
         this.start();
     }
 };
