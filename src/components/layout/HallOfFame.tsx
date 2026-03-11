@@ -14,6 +14,7 @@ export const HallOfFame: React.FC = () => {
     const { t } = useTranslation();
     const { games } = useGameStore();
     const [topRankers, setTopRankers] = useState<TopRanker[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchTopRankers = async () => {
@@ -45,11 +46,13 @@ export const HallOfFame: React.FC = () => {
         };
 
         if (games.length > 0) {
-            fetchTopRankers();
+            fetchTopRankers().finally(() => setIsLoading(false));
+        } else {
+            setIsLoading(false);
         }
     }, [games]);
 
-    if (topRankers.length === 0) return null;
+    if (topRankers.length === 0 && !isLoading) return null;
 
     const renderScore = (gameId: string, score: number) => {
         if (gameId === 'minesweeper') {
@@ -102,34 +105,50 @@ export const HallOfFame: React.FC = () => {
                 <div className="absolute left-[180px] top-0 bottom-0 w-16 bg-gradient-to-r from-[#0A0B1A] to-transparent z-10 pointer-events-none"></div>
                 <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-[#0A0B1A] to-transparent z-10 pointer-events-none"></div>
 
-                {/* Marquee Container */}
-                <div className="flex-1 overflow-hidden h-full flex items-center py-2">
-                    <div className="flex animate-marquee whitespace-nowrap">
-                        {marqueeItems.map((item, idx) => (
-                            <div
-                                key={`${item.gameId}-${idx}`}
-                                className="inline-flex items-center gap-4 px-10 border-r border-white/5 hover:bg-white/5 transition-colors duration-300"
-                            >
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-0.5">
-                                        {t(`games.${item.gameId}.title`)}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-                                            <Trophy size={12} className="text-amber-500" />
-                                        </div>
-                                        <span className="text-sm font-bold text-slate-200">
-                                            {item.userName}
-                                        </span>
-                                        <span className="text-sm font-mono font-black text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/20 ml-1">
-                                            {renderScore(item.gameId, item.score)}
-                                        </span>
-                                    </div>
+                {/* Loading Skeleton */}
+                {isLoading ? (
+                    <div className="flex-1 overflow-hidden h-full flex items-center px-10 gap-8 opacity-50">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <div key={`skeleton-${i}`} className="flex flex-col gap-2 animate-pulse min-w-[150px]">
+                                <div className="h-2.5 w-20 bg-slate-700 rounded"></div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-slate-700"></div>
+                                    <div className="h-3 w-16 bg-slate-700 rounded"></div>
+                                    <div className="h-3 w-12 bg-slate-700 rounded"></div>
                                 </div>
                             </div>
                         ))}
                     </div>
-                </div>
+                ) : (
+                    /* Marquee Container */
+                    <div className="flex-1 overflow-hidden h-full flex items-center py-2">
+                        <div className="flex animate-marquee whitespace-nowrap">
+                            {marqueeItems.map((item, idx) => (
+                                <div
+                                    key={`${item.gameId}-${idx}`}
+                                    className="inline-flex items-center gap-4 px-10 border-r border-white/5 hover:bg-white/5 transition-colors duration-300"
+                                >
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-0.5">
+                                            {t(`games.${item.gameId}.title`)}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                                                <Trophy size={12} className="text-amber-500" />
+                                            </div>
+                                            <span className="text-sm font-bold text-slate-200">
+                                                {item.userName}
+                                            </span>
+                                            <span className="text-sm font-mono font-black text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/20 ml-1">
+                                                {renderScore(item.gameId, item.score)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
