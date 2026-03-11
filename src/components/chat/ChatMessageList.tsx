@@ -18,7 +18,8 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ messages }) => {
   return (
     <div 
       ref={scrollRef}
-      className="flex-1 overflow-y-auto p-4 hidden-scrollbar bg-black/5"
+      className="flex-1 overflow-y-auto p-4 hidden-scrollbar bg-black/5 overscroll-contain"
+      onWheel={(e) => e.stopPropagation()}
     >
       {messages.length > 0 ? (
         messages.map((msg) => (
