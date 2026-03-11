@@ -74,7 +74,7 @@
     "casual": "캐주얼 / 타이밍"
   },
   "chat": {
-    "title": "글로벌 채팅",
+    "title": "자유 채팅",
     "placeholder": "메시지를 입력하세요...",
     "login_to_chat": "로그인 후 채팅 가능",
     "no_messages": "아직 메시지가 없습니다.",
