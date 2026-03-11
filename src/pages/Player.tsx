@@ -3,6 +3,7 @@ import { useGameStore } from '../hooks/useGameStore';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { KakaoAdFit } from '../components/layout/KakaoAdFit';
 
 const Player: React.FC = () => {
   const { t } = useTranslation();
@@ -198,7 +199,7 @@ const Player: React.FC = () => {
         )}
 
         {/* Game Container - Fills the dynamic viewport completely */}
-        <div className="flex-1 relative overflow-hidden bg-gray-900">
+        <div className="flex-1 relative bg-gray-900 border-none outline-none">
           <iframe
             src={gameUrlWithKey}
             className="w-full h-full border-none"
@@ -206,6 +207,11 @@ const Player: React.FC = () => {
             allow="autoplay; fullscreen"
           />
         </div>
+        
+        {/* Mobile Kakao AdFit (320x50) at the bottom */}
+        {!isPopup && (
+          <KakaoAdFit type="mobile" />
+        )}
       </div>
     </div>
   );

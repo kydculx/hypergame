@@ -1,12 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 
-export const KakaoAdFit: React.FC = () => {
+interface KakaoAdFitProps {
+    type: 'desktop' | 'mobile';
+}
+
+export const KakaoAdFit: React.FC<KakaoAdFitProps> = ({ type }) => {
     const adRef = useRef<HTMLModElement>(null);
+    const id = type === 'desktop' ? "DAN-Z709wuZSIe2VIrdS" : "DAN-gAhn7q3JQOSPUeTo";
+    const width = type === 'desktop' ? "728" : "320";
+    const height = type === 'desktop' ? "90" : "50";
 
     useEffect(() => {
-        // adfit script가 이미 다운로드되어 실행되었을 때, 
-        // 다시 마운트되는 경우 광고를 새로 렌더링하도록 유도
-        
         let script: HTMLScriptElement | null = null;
         const initAd = () => {
             if (adRef.current && !adRef.current.hasChildNodes()) {
@@ -20,22 +24,24 @@ export const KakaoAdFit: React.FC = () => {
 
         initAd();
 
-        // 컴포넌트가 언마운트 될 때, 기존에 렌더링된 광고 요소나 스크립트를 깔끔히 정리
         return () => {
             if (adRef.current) {
                 adRef.current.innerHTML = '';
             }
         };
-    }, []);
+    }, [type]);
 
+    const wrapperDesktop = "hidden md:flex justify-center w-full my-8 z-10 relative pointer-events-auto";
+    const wrapperMobile = "flex md:hidden justify-center w-full z-10 relative pointer-events-auto bg-black border-t border-white/10 shrink-0";
+    
     return (
-        <div className="flex justify-center w-full my-8 z-10 relative pointer-events-auto">
+        <div className={type === 'desktop' ? wrapperDesktop : wrapperMobile}>
             <ins className="kakao_ad_area"
-                 style={{ display: 'none' }}
-                 data-ad-unit="DAN-Z709wuZSIe2VIrdS"
-                 data-ad-width="300"
-                 data-ad-height="250"
-                 ref={adRef}>
+                style={{ display: 'none' }}
+                data-ad-unit={id}
+                data-ad-width={width}
+                data-ad-height={height}
+                ref={adRef}>
             </ins>
         </div>
     );

@@ -19,7 +19,7 @@
             this.setupUI();
             this.setupListeners();
             this.setupVisibilityHandler();
-            this.setupAdSense(); // Add this line
+            this.setupAdSense(); 
             this.notifyReady();
 
             // Show start screen by default

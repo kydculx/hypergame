@@ -70,7 +70,7 @@ const Home: React.FC = () => {
             </section>
 
             <HallOfFame />
-            <KakaoAdFit />
+            <KakaoAdFit type="desktop" />
             <div id="game-grid">
                 <GameGrid games={games} onGameSelect={handlePlay} />
             </div>
