@@ -1,10 +1,13 @@
+import React from 'react';
 import { MessageSquare, Minus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ChatHeaderProps {
   onClose: () => void;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
+  const { t } = useTranslation();
 
   return (
     <div className="flex items-center justify-between p-3 border-b border-white/10 bg-white/5 shrink-0">
@@ -12,7 +15,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
         <div className="bg-cyan-500/20 p-1.5 rounded-lg">
           <MessageSquare size={18} className="text-cyan-400" />
         </div>
-        <h3 className="font-bold text-sm text-white tracking-tight">GLOBAL CHAT</h3>
+        <h3 className="font-bold text-sm text-white uppercase tracking-tight">
+          {t('chat.title')}
+        </h3>
       </div>
       <button 
         onClick={onClose}

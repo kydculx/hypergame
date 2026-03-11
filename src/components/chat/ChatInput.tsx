@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ChatInputProps {
   onSendMessage: (content: string) => Promise<void>;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
+  const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
 
@@ -28,7 +30,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
         type="text"
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        placeholder="Type a message..."
+        placeholder={t('chat.placeholder')}
         className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
         disabled={isSending}
       />

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import ChatMessage from './ChatMessage';
 import type { ChatMessage as ChatMessageType } from '../../hooks/useChatStore';
 
@@ -7,6 +8,7 @@ interface ChatMessageListProps {
 }
 
 const ChatMessageList: React.FC<ChatMessageListProps> = ({ messages }) => {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,8 +29,8 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ messages }) => {
         ))
       ) : (
         <div className="flex flex-col items-center justify-center h-full text-slate-600 opacity-50">
-          <p className="text-xs">No messages yet.</p>
-          <p className="text-[10px]">Be the first to say hello!</p>
+          <p className="text-xs">{t('chat.no_messages')}</p>
+          <p className="text-[10px]">{t('chat.first_hello')}</p>
         </div>
       )}
     </div>
