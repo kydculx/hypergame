@@ -7,6 +7,7 @@ export interface Game {
   id: string;
   thumbnailUrl: string;
   gameUrl: string;
+  categoryId: 'action' | 'puzzle' | 'casual';
   sortOrder?: 'asc' | 'desc'; // 'desc' is default (higher is better)
 }
 
@@ -49,57 +50,68 @@ export const useGameStore = create<GameState>()(
           id: '2048',
           thumbnailUrl: 'games/2048/thumb.svg',
           gameUrl: 'games/2048/index.html',
+          categoryId: 'puzzle',
         },
         {
           id: 'stack-tower',
           thumbnailUrl: 'games/stack/thumb.svg',
           gameUrl: 'games/stack/index.html',
+          categoryId: 'casual',
         },
         {
           id: 'zigzag',
           thumbnailUrl: 'games/zigzag/thumb.svg',
           gameUrl: 'games/zigzag/index.html',
+          categoryId: 'casual',
         },
         {
           id: 'jump',
           thumbnailUrl: 'games/jump/thumb.png',
           gameUrl: 'games/jump/index.html',
+          categoryId: 'casual',
         },
         {
           id: 'neon-breakout',
           thumbnailUrl: 'games/breakout/thumb.svg',
           gameUrl: 'games/breakout/index.html',
+          categoryId: 'action',
         },
         {
           id: 'helix',
           thumbnailUrl: 'games/helix/thumb.png',
           gameUrl: 'games/helix/index.html',
+          categoryId: 'casual',
         },
         {
           id: 'speedrush',
           thumbnailUrl: 'games/speedrush/thumb.png',
           gameUrl: 'games/speedrush/index.html',
+          categoryId: 'action',
         },
         {
           id: 'domino',
           thumbnailUrl: 'games/domino/thumb.svg',
           gameUrl: 'games/domino/index.html',
+          categoryId: 'puzzle',
         },
         {
           id: 'minesweeper',
           thumbnailUrl: 'games/minesweeper/thumb.png',
           gameUrl: 'games/minesweeper/index.html',
+          categoryId: 'puzzle',
           sortOrder: 'asc'
         },
         {
           id: 'bulletdodge',
           thumbnailUrl: 'games/bulletdodge/thumb.png',
           gameUrl: 'games/bulletdodge/index.html',
+          categoryId: 'action',
         },
         {
           id: 'swarm',
           thumbnailUrl: 'games/swarm/thumb.png',
           gameUrl: 'games/swarm/index.html',
+          categoryId: 'action',
         },
 
       ],

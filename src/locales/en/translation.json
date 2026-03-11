@@ -66,5 +66,11 @@
     "games_played": "Games Played",
     "total_score": "Total Score",
     "highest_rank": "Highest Rank"
+  },
+  "categories": {
+    "all": "All Games",
+    "action": "Action / Arcade",
+    "puzzle": "Puzzle / Board",
+    "casual": "Casual / Timing"
   }
 }

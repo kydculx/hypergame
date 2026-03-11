@@ -66,5 +66,11 @@
     "games_played": "플레이한 게임",
     "total_score": "총 획득 점수",
     "highest_rank": "최고 순위"
+  },
+  "categories": {
+    "all": "전체 게임",
+    "action": "액션 / 아케이드",
+    "puzzle": "퍼즐 / 보드",
+    "casual": "캐주얼 / 타이밍"
   }
 }
