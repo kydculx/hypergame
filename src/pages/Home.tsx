@@ -7,6 +7,7 @@ import { PortalBackground } from '../components/layout/PortalBackground';
 import { useTranslation } from 'react-i18next';
 import { HallOfFame } from '../components/layout/HallOfFame';
 import { KakaoAdFit } from '../components/layout/KakaoAdFit';
+import ChatWindow from '../components/chat/ChatWindow';
 
 
 const Home: React.FC = () => {
@@ -102,6 +103,9 @@ const Home: React.FC = () => {
                     </p>
                 </div>
             </footer>
+
+            {/* Global Chat */}
+            <ChatWindow />
         </div>
     );
 };

@@ -72,5 +72,12 @@
     "action": "Action / Arcade",
     "puzzle": "Puzzle / Board",
     "casual": "Casual / Timing"
+  },
+  "chat": {
+    "title": "Global Chat",
+    "placeholder": "Type a message...",
+    "login_to_chat": "Login to chat",
+    "no_messages": "No messages yet.",
+    "first_hello": "Be the first to say hello!"
   }
 }

@@ -72,5 +72,12 @@
     "action": "액션 / 아케이드",
     "puzzle": "퍼즐 / 보드",
     "casual": "캐주얼 / 타이밍"
+  },
+  "chat": {
+    "title": "글로벌 채팅",
+    "placeholder": "메시지를 입력하세요...",
+    "login_to_chat": "로그인 후 채팅 가능",
+    "no_messages": "아직 메시지가 없습니다.",
+    "first_hello": "첫 번째로 인사를 건네보세요!"
   }
 }
