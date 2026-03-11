@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { KakaoAdFit } from '../components/layout/KakaoAdFit';
+import { useUserStore } from '../hooks/useUserStore';
 
 const Player: React.FC = () => {
   const { t } = useTranslation();
@@ -136,15 +137,16 @@ const Player: React.FC = () => {
     return () => window.removeEventListener('message', handleMessage);
   }, [gameId, addScore, sessionKey]);
 
+  const user = useUserStore((state) => state.user);
   const [searchParams] = useSearchParams();
   const isPopup = searchParams.get('popup') === 'true';
 
   if (!currentGame) return null;
-
-  // Append session key to game URL
+  const userEmail = user?.email || '';
+  
   const gameUrlWithKey = currentGame.gameUrl.includes('?')
-    ? `${currentGame.gameUrl}&sk=${sessionKey}`
-    : `${currentGame.gameUrl}?sk=${sessionKey}`;
+    ? `${currentGame.gameUrl}&sk=${sessionKey}&u=${encodeURIComponent(userEmail)}`
+    : `${currentGame.gameUrl}?sk=${sessionKey}&u=${encodeURIComponent(userEmail)}`;
 
   // If it's a popup, we want it to fill the entire window without the "mobile box" styling
   // We use a fixed width/height for the container to ensure it stays 480x854 even if the window is resized

@@ -8,18 +8,31 @@
         config: {},
         lastGameOverTime: 0,
         debug: false,
+        isAdmin: false,
         dt: 0,
         _lastTime: 0,
+        _adminWhitelist: [
+            'kydculx@gmail.com'
+        ],
 
         init(config) {
             this.config = config;
             const params = new URLSearchParams(window.location.search);
             this.debug = params.has('debug');
             this.sessionKey = params.get('sk') || '';
+            
+            // Centralized Admin Detection
+            const userEmail = params.get('u');
+            if (userEmail && this._adminWhitelist.includes(userEmail)) {
+                this.isAdmin = true;
+                if (this.debug) console.log(`[WCGames] Admin Access Granted: ${userEmail}`);
+            }
+
             this.setupUI();
             this.setupListeners();
             this.setupVisibilityHandler();
             this.setupAdSense(); 
+            this.setupAdminUI();
             this.notifyReady();
 
             // Show start screen by default
@@ -258,6 +271,15 @@
                     ins.setAttribute('data-ad-client', clientID);
                     (window.adsbygoogle = window.adsbygoogle || []).push({});
                 }
+            }
+        },
+
+        setupAdminUI() {
+            // Automatically reveal elements with 'wcg-admin-only' class if isAdmin is true
+            if (this.isAdmin) {
+                document.querySelectorAll('.wcg-admin-only').forEach(el => {
+                    el.style.display = 'block';
+                });
             }
         }
     };

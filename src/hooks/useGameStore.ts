@@ -115,6 +115,13 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/swarm/index.html',
           categoryId: 'action',
         },
+        {
+          id: 'solitaire',
+          thumbnailUrl: 'games/solitaire/thumb.png',
+          gameUrl: 'games/solitaire/index.html',
+          categoryId: 'puzzle',
+          sortOrder: 'asc' // Lower time is better
+        },
 
       ],
 

@@ -1,0 +1,14 @@
+{
+  "title": "Solitaire",
+  "instruction": "Arrange the deck by suit from Ace to King!\nDrag and drop cards onto the tableau in descending order with alternating colors.",
+  "play": "Play",
+  "game_over": "Game Clear!",
+  "final_score": "Score: ",
+  "play_again": "Play Again",
+  "category": "PUZZLE",
+  "desc": "The classic Klondike Solitaire. Build your foundations and clear the board!",
+  "undo": "Undo",
+  "restart": "Restart",
+  "auto_play_on": "Auto Play: ON",
+  "auto_play_off": "Auto Play: OFF"
+}
