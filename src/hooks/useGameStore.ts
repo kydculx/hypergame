@@ -28,12 +28,14 @@ interface GameState {
   currentGame: Game | null;
   leaderboard: Record<string, ScoreEntry[]>;
   personalBests: Record<string, number>;
+  userRanks: Record<string, number>;
   userProfile: UserProfile;
   setCurrentGame: (game: Game | null) => void;
   addScore: (gameId: string, score: number) => Promise<void>;
   getBestScore: (gameId: string) => number;
   setNickname: (nickname: string) => void;
   fetchLeaderboard: (gameId: string) => Promise<void>;
+  fetchUserRank: (gameId: string) => Promise<void>;
   fetchUserRecords: () => Promise<void>;
 }
 
@@ -119,6 +121,7 @@ export const useGameStore = create<GameState>()(
       currentGame: null,
       leaderboard: {},
       personalBests: {},
+      userRanks: {},
       userProfile: {
         nickname: `Guest_${Math.floor(Math.random() * 9000) + 1000}`,
         avatarColor: getRandomColor(),
@@ -233,6 +236,48 @@ export const useGameStore = create<GameState>()(
           }
         } catch (e) {
           console.error('Supabase fetch exception:', e);
+        }
+      },
+      fetchUserRank: async (gameId) => {
+        const score = get().personalBests[gameId];
+        const game = get().games.find(g => g.id === gameId);
+        const sortOrder = game?.sortOrder || 'desc';
+
+        if (score === undefined || score === 0) {
+          set((state) => ({
+            userRanks: { ...state.userRanks, [gameId]: 0 }
+          }));
+          return;
+        }
+
+        try {
+          // Count users with better scores
+          const query = supabase
+            .from('scores')
+            .select('*', { count: 'exact', head: true })
+            .eq('game_id', gameId);
+
+          if (sortOrder === 'asc') {
+            query.lt('score', score);
+          } else {
+            query.gt('score', score);
+          }
+
+          const { count, error } = await query;
+
+          if (error) {
+            console.error('Error fetching user rank:', error);
+            return;
+          }
+
+          set((state) => ({
+            userRanks: {
+              ...state.userRanks,
+              [gameId]: (count || 0) + 1
+            }
+          }));
+        } catch (e) {
+          console.error('Supabase rank fetch exception:', e);
         }
       },
       fetchUserRecords: async () => {

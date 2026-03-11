@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 const Leaderboard: React.FC = () => {
   const { t } = useTranslation();
-  const { games, leaderboard, fetchLeaderboard } = useGameStore();
+  const { games, leaderboard, userRanks, fetchLeaderboard, fetchUserRank } = useGameStore();
   const { userName, user } = useUserStore();
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -19,6 +19,7 @@ const Leaderboard: React.FC = () => {
     // Fetch latest global scores for all games when leaderboard opens
     games.forEach(game => {
       fetchLeaderboard(game.id);
+      fetchUserRank(game.id);
     });
 
     if (games.length > 0 && !activeGameId) {
@@ -30,8 +31,9 @@ const Leaderboard: React.FC = () => {
   const scores = activeGame ? (leaderboard[activeGame.id] || []) : [];
 
   const userRankIndex = scores.findIndex(s => s.userId === userName);
-  const isRanked = userRankIndex !== -1;
-  const userScore = isRanked ? scores[userRankIndex].score : 0;
+  const isRankedInTop30 = userRankIndex !== -1;
+  const userGlobalRank = userRanks[activeGame?.id || ''];
+  const userScore = isRankedInTop30 ? scores[userRankIndex].score : 0;
 
   const renderScore = (gameId: string | undefined, score: number) => {
     if (gameId === 'minesweeper') {
@@ -162,11 +164,13 @@ const Leaderboard: React.FC = () => {
 
             <div className="flex items-center gap-3 relative z-10">
               <div className="w-8 flex justify-center shrink-0">
-                {isRanked ? (
+                {isRankedInTop30 ? (
                   userRankIndex === 0 ? <Trophy size={20} className="text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]" /> :
                     userRankIndex === 1 ? <Medal size={20} className="text-slate-300 drop-shadow-[0_0_5px_rgba(203,213,225,0.4)]" /> :
                       userRankIndex === 2 ? <Medal size={20} className="text-amber-700/80 drop-shadow-[0_0_5px_rgba(180,83,9,0.4)]" /> :
                         <span className="text-cyan-400 font-mono text-sm font-bold bg-cyan-950/80 border border-cyan-500/30 w-7 h-7 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(14,165,233,0.3)]">{userRankIndex + 1}</span>
+                ) : userGlobalRank > 0 ? (
+                  <span className="text-cyan-400 font-mono text-[11px] font-bold bg-cyan-950/80 border border-cyan-500/30 min-w-[28px] h-7 px-1.5 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(14,165,233,0.3)]">{userGlobalRank}</span>
                 ) : (
                   <span className="text-slate-500 font-mono text-sm font-bold bg-black/50 border border-white/10 w-7 h-7 rounded-full flex items-center justify-center">-</span>
                 )}
@@ -176,13 +180,12 @@ const Leaderboard: React.FC = () => {
                   <span className="font-bold text-sm text-cyan-300">{t('board.my_rank')}</span>
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/20">{userName}</span>
                 </div>
-                {!isRanked && <p className="text-[10px] text-slate-400 mt-0.5">{t('board.not_in_top30')}</p>}
               </div>
             </div>
 
             <div className="flex items-center gap-4 relative z-10">
-              <span className={`font-mono font-black text-lg sm:text-xl tracking-tight ${isRanked ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(14,165,233,0.6)]' : 'text-slate-500'}`}>
-                {isRanked ? renderScore(activeGame?.id, userScore) : '---'}
+              <span className={`font-mono font-black text-lg sm:text-xl tracking-tight ${isRankedInTop30 || userGlobalRank > 0 ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(14,165,233,0.6)]' : 'text-slate-500'}`}>
+                {isRankedInTop30 ? renderScore(activeGame?.id, userScore) : userGlobalRank > 0 ? renderScore(activeGame?.id, useGameStore.getState().personalBests[activeGame?.id || '']) : '---'}
               </span>
             </div>
           </div>
