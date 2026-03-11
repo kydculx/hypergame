@@ -114,26 +114,27 @@ const Leaderboard: React.FC = () => {
                     className={`flex items-center justify-between p-3 rounded-xl transition-colors ${index === 0 ? 'bg-gradient-to-r from-amber-500/20 to-amber-500/5 border border-amber-500/30 shadow-[inset_0_0_20px_rgba(245,158,11,0.1)]' : 'bg-white/5 border border-white/5 hover:bg-white/10'
                       }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 flex justify-center shrink-0">
-                        {index === 0 && <Trophy size={20} className="text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]" />}
-                        {index === 1 && <Medal size={20} className="text-slate-300 drop-shadow-[0_0_5px_rgba(203,213,225,0.4)]" />}
-                        {index === 2 && <Medal size={20} className="text-amber-700/80 drop-shadow-[0_0_5px_rgba(180,83,9,0.4)]" />}
-                        {index > 2 && <span className="text-slate-500 font-mono text-sm font-bold bg-black/30 w-6 h-6 rounded-full flex items-center justify-center">{index + 1}</span>}
+                    <div className="flex items-center gap-3 w-[55%]">
+                      <div className="w-6 sm:w-8 flex justify-center shrink-0">
+                        {index === 0 && <Trophy size={18} className="text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)] sm:w-5 sm:h-5" />}
+                        {index === 1 && <Medal size={18} className="text-slate-300 drop-shadow-[0_0_5px_rgba(203,213,225,0.4)] sm:w-5 sm:h-5" />}
+                        {index === 2 && <Medal size={18} className="text-amber-700/80 drop-shadow-[0_0_5px_rgba(180,83,9,0.4)] sm:w-5 sm:h-5" />}
+                        {index > 2 && <span className="text-slate-500 font-mono text-[10px] sm:text-sm font-bold bg-black/30 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center">{index + 1}</span>}
                       </div>
-                      <span className={`font-bold text-sm ${index === 0 ? 'text-amber-300' : 'text-slate-200'}`}>
+                      <span className={`font-bold text-xs sm:text-sm truncate w-full ${index === 0 ? 'text-amber-300' : 'text-slate-200'}`} title={entry.userId}>
                         {entry.userId}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="hidden sm:flex items-center gap-1.5 text-slate-500 bg-black/20 px-2 py-1 rounded-md">
-                        <Clock size={10} />
-                        <span className="text-[9px] font-mono tracking-wider">
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-4 shrink-0">
+                      <div className="flex items-center gap-1 sm:gap-1.5 text-slate-500 bg-black/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md mb-0.5 sm:mb-0">
+                        <Clock size={8} className="sm:hidden" />
+                        <Clock size={10} className="hidden sm:block" />
+                        <span className="text-[8px] sm:text-[9px] font-mono tracking-wider">
                           {new Date(entry.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
-                      <span className={`font-mono font-black text-lg sm:text-xl tracking-tight ${index === 0 ? 'text-amber-400' : 'text-blue-300'
+                      <span className={`font-mono font-black text-sm sm:text-xl tracking-tight ${index === 0 ? 'text-amber-400' : 'text-blue-300'
                         }`}>
                         {renderScore(activeGame?.id, entry.score)}
                       </span>
@@ -175,7 +176,7 @@ const Leaderboard: React.FC = () => {
                   <span className="font-bold text-sm text-cyan-300">{t('board.my_rank')}</span>
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/20">{userName}</span>
                 </div>
-                {!isRanked && <p className="text-[10px] text-slate-400 mt-0.5">{t('board.not_in_top10')}</p>}
+                {!isRanked && <p className="text-[10px] text-slate-400 mt-0.5">{t('board.not_in_top30')}</p>}
               </div>
             </div>
 

@@ -210,7 +210,7 @@ export const useGameStore = create<GameState>()(
             .select('*')
             .eq('game_id', gameId)
             .order('score', { ascending: sortOrder === 'asc' })
-            .limit(10);
+            .limit(30);
 
           if (error) {
             console.error('Error fetching leaderboard from Supabase:', error);

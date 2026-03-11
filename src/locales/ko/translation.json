@@ -17,7 +17,7 @@
     "empty_title": "아직 기록이 없습니다.",
     "empty_desc": "첫 번째로 1등을 차지해보세요!",
     "my_rank": "내 순위",
-    "not_in_top10": "상위 10위 진입 실패"
+    "not_in_top30": "상위 30위 진입 실패"
   },
   "home": {
     "new_games": "매주 새로운 게임 추가",
