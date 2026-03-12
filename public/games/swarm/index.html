@@ -57,6 +57,33 @@
             font-variant-numeric: tabular-nums;
         }
 
+        #kill-count-container {
+            position: absolute;
+            top: 140px;
+            left: 0px;
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 2px 12px;
+            pointer-events: none;
+            z-index: 5;
+            color: #fff;
+        }
+
+        #kill-count-container .label {
+            font-size: 12px;
+            font-weight: 700;
+            margin-right: 6px;
+            color: #f87171;
+            white-space: nowrap;
+        }
+
+        #kill-count {
+            font-size: 16px;
+            font-weight: 900;
+            color: #fff;
+        }
+
         .wcg-popup {
             background: rgba(12, 10, 9, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -112,6 +139,110 @@
             transform: none;
         }
 
+        /* Formation UI */
+        #formation-container {
+            position: absolute;
+            top: calc(70% + 175px);
+            right: 20px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-end;
+            gap: 10px;
+            z-index: 5;
+            pointer-events: auto;
+        }
+
+        .formation-btn {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .formation-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-4px);
+        }
+
+        .formation-btn:active:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        .formation-btn .icon-wrap {
+            position: relative;
+            z-index: 2;
+            width: 20px;
+            height: 20px;
+            opacity: 0.9;
+        }
+
+        .formation-btn svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .formation-btn .cooldown-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transform: rotate(-90deg);
+            z-index: 3;
+        }
+
+        .formation-btn .lock-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            display: none;
+            color: rgba(255, 255, 255, 0.4);
+            z-index: 4;
+        }
+
+        .formation-btn.locked .lock-icon {
+            display: block;
+        }
+
+        .formation-btn.locked .icon-wrap {
+            opacity: 0.1;
+            /* 잠겨있을 때는 아이콘 거의 투명하게 */
+        }
+
+        .formation-btn .cooldown-circle {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.6);
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-dasharray: 120;
+            /* 2 * PI * R (approx) */
+            stroke-dashoffset: 120;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+
+        .formation-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         /* Loading Animation */
         .loading::after {
             content: '';
@@ -139,6 +270,117 @@
             <span id="score">0</span>
         </div>
     </div>
+
+    <div id="kill-count-container">
+        <span class="label" data-i18n="kills">처치 수 :</span>
+        <span id="kill-count">0</span>
+    </div>
+
+    <div id="formation-container">
+        <button id="btn-square" class="formation-btn" onclick="FormationManager.deploy('square')" disabled>
+            <div class="icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="5" y="5" width="14" height="14" rx="2" stroke-linejoin="round" />
+                </svg>
+            </div>
+            <div class="lock-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <svg class="cooldown-svg" viewBox="0 0 40 40">
+                <circle class="cooldown-circle" cx="20" cy="20" r="19" />
+            </svg>
+        </button>
+        <button id="btn-phalanx" class="formation-btn" onclick="FormationManager.deploy('phalanx')" disabled>
+            <div class="icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="4" y1="8" x2="20" y2="8" />
+                    <line x1="4" y1="12" x2="20" y2="12" />
+                    <line x1="4" y1="16" x2="20" y2="16" />
+                </svg>
+            </div>
+            <div class="lock-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <svg class="cooldown-svg" viewBox="0 0 40 40">
+                <circle class="cooldown-circle" cx="20" cy="20" r="19" />
+            </svg>
+        </button>
+        <button id="btn-wedge" class="formation-btn" onclick="FormationManager.deploy('wedge')" disabled>
+            <div class="icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M12 4L4 20L12 16L20 20L12 4Z" stroke-linejoin="round" />
+                </svg>
+            </div>
+            <div class="lock-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <svg class="cooldown-svg" viewBox="0 0 40 40">
+                <circle class="cooldown-circle" cx="20" cy="20" r="19" />
+            </svg>
+        </button>
+        <button id="btn-diamond" class="formation-btn" onclick="FormationManager.deploy('diamond')" disabled>
+            <div class="icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M12 3L4 12L12 21L20 12L12 3Z" stroke-linejoin="round" />
+                </svg>
+            </div>
+            <div class="lock-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <svg class="cooldown-svg" viewBox="0 0 40 40">
+                <circle class="cooldown-circle" cx="20" cy="20" r="19" />
+            </svg>
+        </button>
+        <button id="btn-circle" class="formation-btn" onclick="FormationManager.deploy('circle')" disabled>
+            <div class="icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="8" />
+                    <circle cx="12" cy="12" r="4" />
+                </svg>
+            </div>
+            <div class="lock-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <svg class="cooldown-svg" viewBox="0 0 40 40">
+                <circle class="cooldown-circle" cx="20" cy="20" r="19" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- 머지 포인트(마법진) 옆 자동 강화 버튼 -->
+    <button id="btn-auto-upgrade" class="formation-btn" onclick="EntityManager.autoUpgrade()"
+        style="position: absolute; left: 175px; top: calc(70% + 175px); transform: translateY(-50%); background: rgba(255, 180, 0, 0.2); border-color: rgba(255, 180, 0, 0.4); z-index: 5;">
+        <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ffb400" stroke-width="2.5">
+                <path d="M12 20V4M12 4L7 9M12 4L17 9" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M17 17H21M19 15V19" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+            </svg>
+        </div>
+        <div class="lock-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ffb400" stroke-width="2.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+        </div>
+        <svg class="cooldown-svg" viewBox="0 0 40 40">
+            <circle class="cooldown-circle" cx="20" cy="20" r="19" style="stroke: #ffb400;" />
+        </svg>
+    </button>
 
     <div id="start-screen" class="wcg-overlay wcg-visible">
         <div class="wcg-popup">

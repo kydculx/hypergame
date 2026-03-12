@@ -8,5 +8,12 @@
     "score": "생존 시간: ",
     "final_score": "생존 시간: ",
     "play_again": "다시 하기",
-    "category": "전략"
+    "category": "전략",
+    "formation_square": "방진형",
+    "formation_phalanx": "밀집형",
+    "formation_wedge": "쐐기형",
+    "formation_diamond": "다이아몬드형",
+    "formation_circle": "원진형",
+    "auto_upgrade": "자동 강화",
+    "kills": "처치 수: "
 }

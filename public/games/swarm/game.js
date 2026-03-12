@@ -6,6 +6,9 @@
  */
 
 // --- 1. CONFIGURATION (게임 설정) ---
+// 유닛 타입 상수
+const UNIT_TYPES = { MELEE: 0, RANGED: 1, TANKER: 3, MAGE: 4, HEALER: 5 };
+
 const CONFIG = {
     // 유닛 밸런스 설정
     balance: {
@@ -14,6 +17,9 @@ const CONFIG = {
         merge: {
             unitsRequired: 2, // 합체에 필요한 유닛 수
             bonusScaling: 1.2, // 합체 시 스탯 보너스
+            maxAutoUpgradeUnits: 10, // 자동 강화 시 한 번에 이동하는 최대 유닛 수
+            autoUpgradeCooldown: 1, // 자동 강화 쿨타임 (초)
+            unlockTime: 60 * 2 // 자동 강화 해금 시간 (초)
         }
     },
     // 진영별 기본 설정
@@ -44,7 +50,8 @@ const CONFIG = {
                 { lv: 4, interval: 500, inc: 0.005, max: 0.7 },
                 { lv: 3, interval: 300, inc: 0.005, max: 0.7 },
                 { lv: 2, interval: 100, inc: 0.005, max: 0.7 }
-            ]
+            ],
+            spawnRateMultiplier: 0.9 // 적 리스폰 배율 (낮을수록 빠름)
         }
     },
     // 레이아웃 및 영역 설정
@@ -67,20 +74,71 @@ const CONFIG = {
     // 조작 관련 설정
     control: {
         moveOffset: 40,      // 이동 명령 시 분산 거리
-        baseBuffer: 40       // 기지 정지 거리 버퍼
+        baseBuffer: 10       // 기지 정지 거리 버퍼
+    },
+    // 진형 설정
+    formations: {
+        square: {
+            id: 'square',
+            cooldown: 60,
+            unlockTime: 60 * 3, // 3분후 해금
+            units: [
+                { type: UNIT_TYPES.TANKER, count: 8 },
+                { type: UNIT_TYPES.MELEE, count: 16 },
+                { type: UNIT_TYPES.RANGED, count: 8 }
+            ]
+        },
+        phalanx: {
+            id: 'phalanx',
+            cooldown: 80,
+            unlockTime: 60 * 5, // 5분후 해금
+            units: [
+                { type: UNIT_TYPES.TANKER, count: 20 },
+                { type: UNIT_TYPES.MELEE, count: 28 }
+            ]
+        },
+        wedge: {
+            id: 'wedge',
+            cooldown: 100,
+            unlockTime: 60 * 10, // 10분후 해금
+            units: [
+                { type: UNIT_TYPES.TANKER, count: 10 },
+                { type: UNIT_TYPES.MELEE, count: 25 },
+                { type: UNIT_TYPES.MAGE, count: 15 }
+            ]
+        },
+        diamond: {
+            id: 'diamond',
+            cooldown: 120,
+            unlockTime: 60 * 15, // 15분후 해금
+            units: [
+                { type: UNIT_TYPES.TANKER, count: 12 },
+                { type: UNIT_TYPES.MELEE, count: 24 },
+                { type: UNIT_TYPES.RANGED, count: 16 }
+            ]
+        },
+        circle: {
+            id: 'circle',
+            cooldown: 140,
+            unlockTime: 60 * 20, // 20분후 해금
+            units: [
+                { type: UNIT_TYPES.TANKER, count: 20 },
+                { type: UNIT_TYPES.MELEE, count: 20 },
+                { type: UNIT_TYPES.MAGE, count: 10 }
+            ]
+        }
     }
 };
 
-// 유닛 타입 상수
-const UNIT_TYPES = { MELEE: 0, RANGED: 1, TANKER: 3, MAGE: 4, HEALER: 5 };
+
 
 // 유닛 타입별 기본 스탯
 const UNIT_STATS = {
     [UNIT_TYPES.MELEE]: { hp: 15, dmg: 3, range: 20, speed: 1.0, cd: 30, w: 15, h: 23 },
-    [UNIT_TYPES.RANGED]: { hp: 8, dmg: 2, range: 80, speed: 0.8, cd: 45, w: 16, h: 24 },
-    [UNIT_TYPES.TANKER]: { hp: 50, dmg: 4, range: 25, speed: 0.5, cd: 40, w: 17, h: 24 },
-    [UNIT_TYPES.MAGE]: { hp: 6, dmg: 5, range: 100, speed: 0.7, cd: 60, w: 16, h: 24 },
-    [UNIT_TYPES.HEALER]: { hp: 8, dmg: -5, range: 120, speed: 0.9, cd: 50, w: 16, h: 24 }
+    [UNIT_TYPES.RANGED]: { hp: 8, dmg: 2, range: 80, speed: 1.0, cd: 45, w: 16, h: 24 },
+    [UNIT_TYPES.TANKER]: { hp: 50, dmg: 4, range: 25, speed: 1.0, cd: 40, w: 17, h: 24 },
+    [UNIT_TYPES.MAGE]: { hp: 6, dmg: 5, range: 100, speed: 1.0, cd: 60, w: 16, h: 24 },
+    [UNIT_TYPES.HEALER]: { hp: 8, dmg: -5, range: 120, speed: 1.0, cd: 50, w: 16, h: 24 }
 };
 
 // --- 2. GAME ENGINE (코어 엔진) ---
@@ -89,6 +147,7 @@ const Engine = {
     ctx: null,
     frames: 0,
     score: 0,
+    kills: 0, // 킬 수 추가
     isStarted: false,
     isGameOver: false,
 
@@ -100,6 +159,7 @@ const Engine = {
         document.body.classList.add('wcg-ready');
         Input.init();
         Assets.init();
+        FormationManager.init();
     },
 
     resize() {
@@ -129,6 +189,7 @@ const Engine = {
         EntityManager.update();
         CombatSystem.update();
         EffectSystem.update();
+        FormationManager.update();
     },
 
     /**
@@ -302,6 +363,8 @@ const Input = {
         window.addEventListener('contextmenu', e => e.preventDefault());
     },
 
+
+
     /**
      * 포인터 다운 (선택 시작)
      */
@@ -368,6 +431,15 @@ class Unit {
         this.selected = false;
         this.attackTarget = null;
         this.attackCooldown = 0;
+
+        // 진형 유지용 속성
+        this.isFormation = extra?.isFormation || false;
+        this.formationY = this.y;
+
+        // 유휴 상태 확인용 (끼임 방지)
+        this.idleFrames = 0;
+        this.lastX = x;
+        this.lastY = y;
     }
 
     /**
@@ -376,13 +448,22 @@ class Unit {
     update() {
         if (this.attackCooldown > 0) this.attackCooldown--;
 
+        // 진형 유닛은 행군 중에는 원근감에 따른 속도 차이를 무시하거나 최소화하여 대열을 유지
         const perspective = 0.5 + (this.y / Engine.canvas.height) * 0.7;
-        const currentSpeed = this.speed * perspective;
+        const currentSpeed = (this.isFormation ? this.speed : this.speed * perspective);
 
         if (this.state === 0) { // 자동 전진
             const dir = this.team === 0 ? 1 : -1;
             this.vx = currentSpeed * dir * 0.5;
-            this.vy = (EntityManager.playerBase.y - this.y) * 0.001;
+
+            if (this.isFormation) {
+                // 진형 유지 중에는 Y축 정렬 로직(기지로 모이기)을 무시하고 자신의 라인을 유지
+                this.vy = (this.formationY - this.y) * 0.1;
+                // 적 발견 시 진형 상태 해제
+                if (this.attackTarget) this.isFormation = false;
+            } else {
+                this.vy = (EntityManager.playerBase.y - this.y) * 0.001;
+            }
         } else if (this.state === 1 && this.target) { // 명령 이동
             const dx = this.target.x - this.x, dy = this.target.y - this.y;
             const d = Math.hypot(dx, dy);
@@ -406,13 +487,41 @@ class Unit {
                 this.vx = 0; this.vy = 0;
                 if (this.attackCooldown <= 0) this.performAttack(target);
             } else {
-                this.vx = (dx / d) * currentSpeed * 1.2;
-                this.vy = (dy / d) * currentSpeed * 1.2;
+                // 추격 시 약간의 무작위성을 주어 유닛들이 겹치지 않고 에워싸게 함
+                const jitter = (Math.random() - 0.5) * 0.1;
+                this.vx = (dx / d + jitter) * currentSpeed * 1.2;
+                this.vy = (dy / d + jitter) * currentSpeed * 1.2;
             }
         }
 
         this.x += this.vx; this.y += this.vy;
         this.applyConstraints();
+
+        // 유휴 상태 감지 (제자리에서 멈춰있는 경우 방지)
+        const dxMove = Math.abs(this.x - this.lastX);
+        const dyMove = Math.abs(this.y - this.lastY);
+
+        // 전진(0) 또는 공격(2) 상태에서 거의 움직이지 않는 경우 유휴 프레임 증가
+        if ((this.state === 0 || this.state === 2) && dxMove < 0.1 && dyMove < 0.1) {
+            this.idleFrames++;
+        } else {
+            this.idleFrames = 0;
+        }
+
+        this.lastX = this.x;
+        this.lastY = this.y;
+
+        // 약 5초(300프레임) 이상 정체되면 성 앞쪽으로 강제 이동
+        if (this.idleFrames > 300) {
+            if (this.team === 0) {
+                // 플레이어 유닛은 성 앞쪽(오른쪽)으로 강제 재배치
+                this.x = EntityManager.playerBase.x + 150 + Math.random() * 50;
+                this.idleFrames = 0;
+            } else {
+                // 적군은 자신의 기지 쪽으로 약간 밀어내거나 무작위 위치로 재배치 (필요시)
+                this.idleFrames = 0; 
+            }
+        }
     }
 
     /**
@@ -426,11 +535,38 @@ class Unit {
             const s = { [UNIT_TYPES.RANGED]: [800, 600], [UNIT_TYPES.MAGE]: [800, 1500], [UNIT_TYPES.HEALER]: [1200, 1600] }[this.type];
             if (s && Math.random() > 0.5) WCGames.Audio.play(s, this.type === UNIT_TYPES.RANGED ? 'triangle' : 'sine', 0.05, 0.05);
         } else {
-            target.hp = Math.max(0, target.hp - this.damage);
+            if (target.takeDamage) {
+                target.takeDamage(this.damage, this); 
+            } else {
+                target.hp = Math.max(0, target.hp - this.damage);
+            }
             EffectSystem.addSlash(this, target);
             if (Math.random() > 0.8) WCGames.Audio.play([150, 50], 'sawtooth', 0.05, 0.05);
         }
         this.attackCooldown = this.cooldownMax;
+    }
+
+    /**
+     * 데미지 처리 및 반격 로직 (AI 고도화)
+     * @param {number} amount - 데미지 양
+     * @param {object} attacker - 공격자 (없을 수 있음)
+     */
+    takeDamage(amount, attacker) {
+        this.hp = Math.max(0, this.hp - amount);
+        
+        // 공격자가 있고, 현재 위협이 없거나 공격자가 현재 타겟보다 훨씬 가까우면 타겟 변경 (반격)
+        if (attacker && attacker.hp > 0 && attacker.team !== this.team) {
+            if (!this.attackTarget || (this.state === 0 || this.state === 1)) {
+                this.attackTarget = attacker;
+                this.state = 2;
+            } else {
+                const curD = Math.pow(this.attackTarget.x - this.x, 2) + Math.pow(this.attackTarget.y - this.y, 2);
+                const attD = Math.pow(attacker.x - this.x, 2) + Math.pow(attacker.y - this.y, 2);
+                if (attD < curD * 0.5) { // 공격자가 기존 타겟보다 50% 이상 가까우면 전환
+                    this.attackTarget = attacker;
+                }
+            }
+        }
     }
 
     /**
@@ -448,7 +584,9 @@ class Unit {
                 const dx = this.x - other.x, dy = this.y - other.y;
                 const dSq = dx * dx + dy * dy;
                 if (dSq < this.width * this.width) {
-                    this.x += dx * 0.02; this.y += dy * 0.02;
+                    // 진형 유지 모드일 때는 분리력을 약하게 하여 대열이 깨지지 않게 함
+                    const strength = this.isFormation ? 0.005 : 0.02;
+                    this.x += dx * strength; this.y += dy * strength;
                 }
             }
         });
@@ -470,6 +608,7 @@ class Projectile {
         this.x = source.x; this.y = source.y;
         this.sx = source.x; this.sy = source.y;
         this.target = target;
+        this.source = source; // 반격 AI를 위해 발사처 저장
         this.team = source.team ?? 0; // 기지는 팀 0
         this.type = source.type ?? UNIT_TYPES.RANGED; // 기지 포탑은 기본적으로 RANGED 취급
         this.damage = source.damage || source.baseAttackDamage || 1;
@@ -525,7 +664,12 @@ class Projectile {
             target.hp = Math.min(target.maxHp, target.hp + Math.abs(this.damage));
             EffectSystem.addHealEffect(target);
         } else {
-            target.hp = Math.max(0, target.hp - this.damage);
+            // takeDamage 호출로 반격 AI 발동 유도
+            if (target.takeDamage) {
+                target.takeDamage(this.damage, this.source);
+            } else {
+                target.hp = Math.max(0, target.hp - this.damage);
+            }
             EffectSystem.addHitEffect(target, this.isCannon, this.isMagic);
         }
         this.active = false;
@@ -550,7 +694,10 @@ const EntityManager = {
             y: Engine.canvas.height * CONFIG.layout.baseRatioY,
             hp: CONFIG.factions.common.baseMaxHp,
             maxHp: CONFIG.factions.common.baseMaxHp,
-            cooldown: 0
+            cooldown: 0,
+            takeDamage(amount, attacker) {
+                this.hp = Math.max(0, this.hp - amount);
+            }
         };
         this.syncBasePositions();
         this.syncMergeZone();
@@ -615,7 +762,7 @@ const EntityManager = {
         const pInt = Math.max(1, Math.floor(getRate(CONFIG.factions.common) * 60));
         if (Engine.frames % pInt === 0) this.spawnBatch(0);
 
-        const eInt = Math.max(1, Math.floor(getRate(CONFIG.factions.common) * 60));
+        const eInt = Math.max(1, Math.floor(getRate(CONFIG.factions.common) * 60 * CONFIG.factions.enemy.spawnRateMultiplier));
         if (Engine.frames % eInt === 0) this.spawnBatch(1);
     },
 
@@ -730,7 +877,7 @@ const EntityManager = {
     issueMoveCommand(x, y) {
         let count = 0;
         const offset = CONFIG.control.moveOffset;
-        
+
         // 이동 가능 영역 제한 (화면 밖 비정상 타겟 방지)
         const minY = EntityManager.playerBase.y + CONFIG.layout.combatOffset.top;
         const maxY = EntityManager.playerBase.y + CONFIG.layout.combatOffset.bottom;
@@ -741,7 +888,7 @@ const EntityManager = {
             if (u.selected && u.team === 0) {
                 let tx = x + (Math.random() - 0.5) * offset;
                 let ty = y + (Math.random() - 0.5) * offset;
-                
+
                 // 타겟을 제한하여 무한히 멈춰있는 버그 방지
                 tx = Math.max(minX, Math.min(maxX, tx));
                 ty = Math.max(minY, Math.min(maxY, ty));
@@ -751,6 +898,97 @@ const EntityManager = {
             }
         });
         if (count > 0 && Math.random() > 0.5) WCGames.Audio.play([400, 600], 'sine', 0.05, 0.05);
+    },
+
+    autoUpgrade() {
+        // 해금 시간 전이면 실행 금지
+        const elapsedSeconds = Engine.frames / 60;
+        if (elapsedSeconds < CONFIG.balance.merge.unlockTime) return;
+
+        // 이미 쿨타임 중이면 실행 금지
+        if (FormationManager.cooldowns['auto-upgrade'] > 0) return;
+
+        const unitsRequired = CONFIG.balance.merge.unitsRequired;
+        const limit = CONFIG.balance.merge.maxAutoUpgradeUnits;
+        const centerX = this.mergeZone.x + this.mergeZone.w / 2;
+        const centerY = this.mergeZone.y + this.mergeZone.h / 2;
+        const rx = this.mergeZone.w / 2, ry = rx * 0.35;
+
+        // 1. 후보군 추출 (전투 중인 유닛 제외, 머지존에 이미 있거나 가고 있는 유닛 제외)
+        // 진형 유닛(isFormation)은 제외됩니다.
+        const candidates = this.units.filter(u =>
+            u.team === 0 && u.hp > 0 && u.state !== 2 && !u.isFormation &&
+            !((u.x - centerX) ** 2 / (rx * rx) + (u.y - centerY) ** 2 / (ry * ry) <= 1.2) &&
+            !(u.state === 1 && u.target && Math.hypot(u.target.x - centerX, u.target.y - centerY) < 50)
+        );
+
+        // 2. 타입 및 레벨별 그룹화
+        const groups = {};
+        candidates.forEach(u => {
+            const k = `${u.type}_${u.level}`;
+            if (!groups[k]) groups[k] = [];
+            groups[k].push(u);
+        });
+
+        // 3. '머지 세트' 단위로 묶기 (거리 기준)
+        const mergeSets = [];
+        for (const k in groups) {
+            const list = groups[k];
+            // 마법진에 가까운 유닛 우선 정렬
+            list.sort((a, b) => {
+                const da = Math.hypot(a.x - centerX, a.y - centerY);
+                const db = Math.hypot(b.x - centerX, b.y - centerY);
+                return da - db;
+            });
+
+            // 머지 필요 수량 단위로 세트 생성
+            for (let i = 0; i + unitsRequired <= list.length; i += unitsRequired) {
+                const set = list.slice(i, i + unitsRequired);
+                // 세트의 대표 거리는 구성원 중 가장 먼 유닛의 거리로 설정
+                const maxDist = Math.max(...set.map(u => Math.hypot(u.x - centerX, u.y - centerY)));
+                mergeSets.push({ units: set, dist: maxDist });
+            }
+        }
+
+        if (mergeSets.length === 0) return;
+
+        // 4. 모든 세트를 마법진에서 가까운 순으로 정렬
+        mergeSets.sort((a, b) => a.dist - b.dist);
+
+        // 5. 리미트(maxAutoUpgradeUnits)를 초과하지 않는 선에서 세트 선택
+        const finalSelection = [];
+        let currentCount = 0;
+        for (const mSet of mergeSets) {
+            if (currentCount + unitsRequired <= limit) {
+                finalSelection.push(...mSet.units);
+                currentCount += unitsRequired;
+            } else {
+                break;
+            }
+        }
+
+        if (finalSelection.length === 0) return;
+
+        // 6. 쿨타임 시작 및 버튼 비활성화
+        FormationManager.cooldowns['auto-upgrade'] = CONFIG.balance.merge.autoUpgradeCooldown * 60;
+        const btn = document.getElementById('btn-auto-upgrade');
+        if (btn) btn.disabled = true;
+
+        // 7. 이동 명령 실행
+        const offset = 40;
+        finalSelection.forEach((u, i) => {
+            setTimeout(() => {
+                if (u.hp <= 0) return;
+
+                u.target = {
+                    x: centerX + (Math.random() - 0.5) * offset,
+                    y: centerY + (Math.random() - 0.5) * offset
+                };
+                u.state = 1;
+            }, i * 20);
+        });
+
+        WCGames.Audio.play([600, 1000], 'sine', 0.1, 0.1);
     },
 
     selectUnitsInBox(box) {
@@ -763,8 +1001,13 @@ const EntityManager = {
 
     cleanup() {
         this.units = this.units.filter(u => {
-            if (u.hp <= 0) EffectSystem.addDeathEffect(u);
-            return u.hp > 0 && u.x > -150 && u.x < Engine.canvas.width + 150;
+            if (u.hp <= 0) {
+                EffectSystem.addDeathEffect(u);
+                // 적군(team 1)이 죽었을 경우 킬 수 증가
+                if (u.team === 1) Engine.kills++;
+            }
+            // 진형 소환 시 뒤쪽에서 생성되므로 제거 임계값을 -500으로 확장
+            return u.hp > 0 && u.x > -500 && u.x < Engine.canvas.width + 150;
         });
     }
 };
@@ -798,27 +1041,32 @@ const CombatSystem = {
         }
 
         // 플레이어 유닛은 오른쪽 끝(적 진영 전초선)에서 정지
+        // 전투 중(state 2)일 경우 적에게 닿기 위해 범위를 조금 더 허용 (화면 밖 적 대응)
         const baseBuffer = CONFIG.control.baseBuffer;
-        if (u.team === 0 && u.x > Engine.canvas.width - baseBuffer) { 
-            u.state = 0; 
-            u.vx = 0; 
-            u.x = Engine.canvas.width - baseBuffer; // 확실히 멈추도록 x 클램프
-            return; 
+        const rightLimit = u.state === 2 ? Engine.canvas.width + 60 : Engine.canvas.width - baseBuffer;
+        if (u.team === 0 && u.x > rightLimit) {
+            u.vx = Math.min(0, u.vx); // 오른쪽으로 더 못가게 속도 제한
+            u.x = rightLimit;
         }
 
         // 주기적 타겟팅 업데이트 (성능 최적화: 10프레임마다 실행)
         if ((Engine.frames + u.id.length) % 10 !== 0) return;
-        if (u.state === 2 && u.attackTarget?.hp > 0) return;
+        
+        // 명령 이동(state 1) 중이더라도 근처에 적이 있으면 싸우도록 허용 (단, 힐러는 목적지로 가거나 아군 치유)
+        if (u.state === 2 && u.attackTarget?.hp > 0) {
+            // 현재 타겟이 있지만, 더 가까운 위협이 있는지 체크 (추후 최적화 가능)
+            return;
+        }
 
-        const aggroRange = (u.type === UNIT_TYPES.RANGED ? 120 : 80);
+        const aggroRange = (u.type === UNIT_TYPES.RANGED ? 140 : 100); // 인식 범위 소폭 확대
         const grid = EntityManager.grid;
         const cx = Math.floor(u.x / CONFIG.layout.gridSize), cy = Math.floor(u.y / CONFIG.layout.gridSize);
 
         let best = null, bestDist = aggroRange * aggroRange;
 
-        // 인접 그리드 검색 (최적화)
-        for (let x = cx - 1; x <= cx + 1; x++) {
-            for (let y = cy - 1; y <= cy + 1; y++) {
+        // 인접 그리드 검색 범위 확대 (3x3 -> 5x5)
+        for (let x = cx - 2; x <= cx + 2; x++) {
+            for (let y = cy - 2; y <= cy + 2; y++) {
                 (grid[`${x},${y}`] || []).forEach(n => {
                     if (n.hp <= 0) return;
                     // 힐러는 아군 치유, 나머지는 적군 공격
@@ -832,16 +1080,19 @@ const CombatSystem = {
         }
 
         if (best) {
-            u.attackTarget = best; u.state = 2; // 타겟 발견 시 공격 상태로 전환
+            // 명령 이동 중 적 발견 시, 힐러가 아니면 전투 모드로 전환
+            if (u.state === 1 && u.type === UNIT_TYPES.HEALER) return; 
+            u.attackTarget = best; u.state = 2;
         } else if (u.state === 2) {
-            u.state = 1; // 타겟 유실 시 이동 상태로 전환
+            u.state = 0; // 타겟 유실 시 자동 전진 상태로 안전하게 복귀 (state 1로 가던 버그 수정)
+            u.attackTarget = null;
         }
     }
 };
 
 // --- 7. EFFECT SYSTEM (이펙트 및 파티클 관리) ---
 const EffectSystem = {
-    particles: [], lightnings: [],
+    particles: [], lightnings: [], shake: 0,
 
     update() {
         this.particles = this.particles.filter(p => {
@@ -977,6 +1228,283 @@ const EffectSystem = {
 };
 
 // --- 8. RENDERER (렌더링 엔진) ---
+/**
+ * 진형 관리자 (Formation Manager)
+ * 특정 대형으로 유닛들을 일괄 소환하고 쿨타임을 관리합니다.
+ */
+const FormationManager = {
+    cooldowns: {},
+
+    init() {
+        // 모든 진형의 쿨타임을 0으로 초기화
+        for (const key in CONFIG.formations) {
+            this.cooldowns[key] = 0;
+        }
+        // 자동 강화 쿨타임 초기화
+        this.cooldowns['auto-upgrade'] = 0;
+    },
+
+    /**
+     * 매 프레임 쿨타임 감소 및 UI 동기화
+     */
+    update() {
+        if (!Engine.isStarted || Engine.isGameOver) return;
+
+        for (const key in CONFIG.formations) {
+            const config = CONFIG.formations[key];
+            const btn = document.getElementById(`btn-${key}`);
+            if (!btn) continue;
+
+            const elapsedSeconds = Engine.frames / 60;
+            const isLocked = elapsedSeconds < config.unlockTime;
+
+            if (isLocked) {
+                // 해금 시간 전이면 버튼 비활성화 및 잠금 표시 처리
+                if (!btn.disabled) btn.disabled = true;
+                if (!btn.classList.contains('locked')) btn.classList.add('locked');
+
+                // 남은 해금 시간 표시 (선택 사항: 필요 시 overlay나 텍스트로 추가 가능)
+                this.updateUI(key, true); // true: 잠금 모드로 그리기
+            } else {
+                // 해금된 경우
+                if (btn.classList.contains('locked')) btn.classList.remove('locked');
+
+                if (this.cooldowns[key] > 0) {
+                    this.cooldowns[key]--;
+                    this.updateUI(key);
+                } else {
+                    if (btn.disabled) {
+                        btn.disabled = false;
+                        this.updateUI(key);
+                    }
+                }
+            }
+        }
+
+        // 자동 강화 해금 및 쿨타임 처리
+        const mergeConfig = CONFIG.balance.merge;
+        const upgradeBtn = document.getElementById('btn-auto-upgrade');
+        if (upgradeBtn) {
+            const elapsedSeconds = Engine.frames / 60;
+            const isLocked = elapsedSeconds < mergeConfig.unlockTime;
+
+            if (isLocked) {
+                if (!upgradeBtn.disabled) upgradeBtn.disabled = true;
+                if (!upgradeBtn.classList.contains('locked')) upgradeBtn.classList.add('locked');
+                this.updateAutoUpgradeUI(true); // 잠금 모드로 그리기
+            } else {
+                if (upgradeBtn.classList.contains('locked')) upgradeBtn.classList.remove('locked');
+
+                if (this.cooldowns['auto-upgrade'] > 0) {
+                    this.cooldowns['auto-upgrade']--;
+                    this.updateAutoUpgradeUI();
+                } else {
+                    if (upgradeBtn.disabled) {
+                        upgradeBtn.disabled = false;
+                        this.updateAutoUpgradeUI();
+                    }
+                }
+            }
+        }
+    },
+
+    /**
+     * 자동 강화 버튼 전용 UI 업데이트
+     */
+    updateAutoUpgradeUI(isInitialLock = false) {
+        const btn = document.getElementById('btn-auto-upgrade');
+        if (!btn) return;
+        const circle = btn.querySelector('.cooldown-circle');
+        if (circle) {
+            const circumference = 120; // Approximately 2 * PI * 19
+
+            if (isInitialLock) {
+                circle.style.strokeDashoffset = 0;
+                circle.style.stroke = 'rgba(255, 180, 0, 0.2)'; // 머지 버튼은 노란색 계열
+            } else {
+                const maxTicks = CONFIG.balance.merge.autoUpgradeCooldown * 60;
+                const progress = this.cooldowns['auto-upgrade'] / maxTicks;
+                circle.style.strokeDashoffset = circumference * progress;
+                circle.style.stroke = '#ffb400';
+            }
+        }
+    },
+
+    /**
+     * 쿨타임 오버레이 UI 업데이트
+     */
+    updateUI(key, isInitialLock = false) {
+        const btn = document.getElementById(`btn-${key}`);
+        if (!btn) return;
+        const circle = btn.querySelector('.cooldown-circle');
+        if (circle) {
+            const config = CONFIG.formations[key];
+            const circumference = 120; // Approximately 2 * PI * 19
+
+            if (isInitialLock) {
+                // 해금 대기 중일 때는 원형을 꽉 채워둠
+                circle.style.strokeDashoffset = 0;
+                circle.style.stroke = 'rgba(255, 255, 255, 0.2)'; // 더 흐리게
+            } else {
+                const maxTicks = config.cooldown * 60;
+                const progress = this.cooldowns[key] / maxTicks;
+                circle.style.strokeDashoffset = circumference * progress;
+                circle.style.stroke = ''; // 기본값 복구
+            }
+        }
+    },
+
+    /**
+     * 진형 소환 실행
+     * @param {string} type - 진형 타입 ('square', 'phalanx', 'wedge')
+     */
+    deploy(type) {
+        if (!Engine.isStarted || Engine.isGameOver) return;
+        if (this.cooldowns[type] > 0) return;
+
+        const config = CONFIG.formations[type];
+        const startX = -100; // 기지 뒤쪽(화면 밖)에서 등장하여 우르르 나오는 효과
+        const baseY = EntityManager.playerBase.y;
+
+        const positions = this.calculatePositions(type, config.units, startX, baseY);
+
+        positions.forEach((p, idx) => {
+            // isFormation: true를 전달하여 대열을 유지하며 행군하게 함
+            EntityManager.units.push(new Unit(p.x, p.y, 0, p.type, 1, { isFormation: true }));
+            if (idx % 5 === 0) EffectSystem.addMergeEffect(p.x + 100, p.y); // 효과는 기지 근처에서
+        });
+
+        // 쿨타임 설정
+        this.cooldowns[type] = config.cooldown * 60;
+        const btn = document.getElementById(`btn-${type}`);
+        if (btn) btn.disabled = true;
+
+        // 소환 효과음 (여러 번 겹쳐서 웅장하게)
+        WCGames.Audio.play([150, 300], 'square', 0.4, 0.4);
+        setTimeout(() => WCGames.Audio.play([100, 200], 'sawtooth', 0.3, 0.5), 100);
+    },
+
+    /**
+     * 진형별 좌표 계산 로직 (수정: 더 촘촘하고 웅장하게)
+     */
+    calculatePositions(type, unitsConfig, startX, baseY) {
+        const pos = [];
+
+        // 유닛들을 타입별로 분류하여 보관
+        const pool = {
+            [UNIT_TYPES.TANKER]: [],
+            [UNIT_TYPES.MELEE]: [],
+            [UNIT_TYPES.RANGED]: [],
+            [UNIT_TYPES.MAGE]: [],
+            [UNIT_TYPES.HEALER]: []
+        };
+
+        unitsConfig.forEach(u => {
+            for (let i = 0; i < u.count; i++) pool[u.type].push(u.type);
+        });
+
+        const spacingX = 16;
+        const spacingY = 17;
+
+        if (type === 'square') {
+            const cols = 8;
+            const rows = 8;
+            // 바깥쪽(특히 앞쪽)부터 탱커 -> 전사 -> 궁수 순서로 배치
+            // 여기서는 단순하게 리스트에서 순서대로 꺼내 쓰는 대신, 전략적으로 할당
+            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.RANGED], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.HEALER]];
+
+            for (let i = 0; i < sortedTypes.length; i++) {
+                const r = Math.floor(i / cols);
+                const c = i % cols;
+                pos.push({
+                    x: startX - (r * spacingX),
+                    y: baseY + (c - (cols - 1) / 2) * spacingY,
+                    type: sortedTypes[i]
+                });
+            }
+        } else if (type === 'phalanx') {
+            // 밀집형: 앞줄은 무조건 탱커, 뒷줄은 전사
+            const rows = 4;
+            const unitsPerRow = Math.ceil((pool[UNIT_TYPES.TANKER].length + pool[UNIT_TYPES.MELEE].length) / rows);
+            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE]];
+
+            for (let i = 0; i < sortedTypes.length; i++) {
+                const r = i % rows; // 줄 (깊이)
+                const c = Math.floor(i / rows); // 열 (너비)
+                pos.push({
+                    x: startX - (r * spacingX),
+                    y: baseY + (c - (unitsPerRow - 1) / 2) * spacingY,
+                    type: sortedTypes[i]
+                });
+            }
+        } else if (type === 'wedge') {
+            // 쐐기형: 선두는 탱커, 중심부는 전사, 후방은 마법사/원거리
+            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.RANGED]];
+            let row = 0;
+            let countInRow = 1;
+            let i = 0;
+            while (i < sortedTypes.length) {
+                for (let j = 0; j < countInRow && i < sortedTypes.length; j++) {
+                    pos.push({
+                        x: startX - (row * spacingX * 1.3),
+                        y: baseY + (j - (countInRow - 1) / 2) * spacingY,
+                        type: sortedTypes[i]
+                    });
+                    i++;
+                }
+                row++;
+                countInRow += 2;
+            }
+        } else if (type === 'diamond') {
+            // 다이아몬드형: 마름모 모양 배치
+            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.RANGED], ...pool[UNIT_TYPES.MAGE]];
+            const size = Math.ceil(Math.sqrt(sortedTypes.length));
+            let i = 0;
+            // 중앙으로부터의 거리 합이 일정한 점들을 배치 (Manhattan distance)
+            const maxDist = Math.floor(size * 0.8);
+            for (let d = 0; d <= maxDist * 2 && i < sortedTypes.length; d++) {
+                for (let x = 0; x <= d && i < sortedTypes.length; x++) {
+                    const y = d - x;
+                    const points = new Set([
+                        `${x},${y}`, `${-x},${y}`, `${x},${-y}`, `${-x},${-y}`
+                    ]);
+                    points.forEach(p => {
+                        if (i >= sortedTypes.length) return;
+                        const [px, py] = p.split(',').map(Number);
+                        pos.push({
+                            x: startX - px * spacingX,
+                            y: baseY + py * spacingY,
+                            type: sortedTypes[i++]
+                        });
+                    });
+                }
+            }
+        } else if (type === 'circle') {
+            // 원진형: 동심원 배치
+            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.RANGED]];
+            let i = 0;
+            let radius = 0;
+            let ringIndex = 0;
+            while (i < sortedTypes.length) {
+                const ringRadius = ringIndex * spacingX * 1.5;
+                const circumference = 2 * Math.PI * ringRadius;
+                const countInRing = ringIndex === 0 ? 1 : Math.floor(circumference / spacingY);
+
+                for (let j = 0; j < countInRing && i < sortedTypes.length; j++) {
+                    const angle = (j / countInRing) * Math.PI * 2;
+                    pos.push({
+                        x: startX - Math.cos(angle) * ringRadius - (ringIndex * 5), // 약간의 깊이 오프셋
+                        y: baseY + Math.sin(angle) * ringRadius,
+                        type: sortedTypes[i++]
+                    });
+                }
+                ringIndex++;
+            }
+        }
+        return pos;
+    }
+};
+
 const Renderer = {
     /**
      * 메인 렌더링 루프
@@ -985,6 +1513,7 @@ const Renderer = {
         const ctx = Engine.ctx;
         ctx.imageSmoothingEnabled = false;
 
+        ctx.save();
         // 배경 그리기
         if (Assets.sprites.fullBg) {
             ctx.drawImage(Assets.sprites.fullBg, 0, 0, Engine.canvas.width, Engine.canvas.height);
@@ -1007,6 +1536,8 @@ const Renderer = {
         this.drawLightnings();
         this.drawParticles();
         this.drawUI();
+
+        ctx.restore();
     },
 
     /**
@@ -1186,6 +1717,8 @@ const Renderer = {
             ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
         }
         document.getElementById('score').textContent = Engine.score;
+        const killEl = document.getElementById('kill-count');
+        if (killEl) killEl.textContent = Engine.kills;
     }
 };
 
@@ -1197,6 +1730,7 @@ window.SwarmGame = {
         Engine.isGameOver = false;
         Engine.frames = 0;
         Engine.score = 0;
+        Engine.kills = 0; // 킬 수 초기화
         EntityManager.reset();
     },
     restart() {
