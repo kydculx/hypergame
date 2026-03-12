@@ -183,7 +183,7 @@ body {
 /* 하단 컨트롤 버튼 묶음 (실행취소, 재시작, 오토플레이 등) */
 #controls-layer {
     position: absolute;
-    top: 75%; /* 공간 확보를 위해 약간 높게 배치됨 */
+    top: 85%; /* 공간 확보를 위해 약간 낮게 배치됨 */
     left: 50%;
     transform: translate(-50%, -50%);
     display: flex;
