@@ -59,8 +59,9 @@
 
         #kill-count-container {
             position: absolute;
-            top: 140px;
-            left: 0px;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
             display: flex;
             align-items: center;
             background: rgba(0, 0, 0, 0.5);
@@ -68,6 +69,7 @@
             pointer-events: none;
             z-index: 5;
             color: #fff;
+            border-radius: 4px;
         }
 
         #kill-count-container .label {
@@ -243,6 +245,17 @@
             cursor: not-allowed;
         }
 
+        /* Auto Upgrade Button specific positioning */
+        .upgrade-btn-wrap {
+            position: absolute;
+            left: 15px;
+            top: calc(70% + 60px);
+            transform: translateY(-50%);
+            background: rgba(255, 180, 0, 0.2) !important;
+            border-color: rgba(255, 180, 0, 0.4) !important;
+            z-index: 5;
+        }
+
         /* Loading Animation */
         .loading::after {
             content: '';
@@ -363,8 +376,7 @@
     </div>
 
     <!-- 머지 포인트(마법진) 옆 자동 강화 버튼 -->
-    <button id="btn-auto-upgrade" class="formation-btn" onclick="EntityManager.autoUpgrade()"
-        style="position: absolute; left: 175px; top: calc(70% + 175px); transform: translateY(-50%); background: rgba(255, 180, 0, 0.2); border-color: rgba(255, 180, 0, 0.4); z-index: 5;">
+    <button id="btn-auto-upgrade" class="formation-btn upgrade-btn-wrap" onclick="EntityManager.autoUpgrade()">
         <div class="icon-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="#ffb400" stroke-width="2.5">
                 <path d="M12 20V4M12 4L7 9M12 4L17 9" stroke-linecap="round" stroke-linejoin="round" />
