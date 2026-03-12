@@ -238,8 +238,10 @@
 
                 osc.type = type;
                 if (Array.isArray(freq)) {
-                    osc.frequency.setValueAtTime(freq[0], this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(freq[1], this.ctx.currentTime + dur);
+                    const startFreq = freq[0];
+                    const endFreq = freq.length > 1 ? freq[1] : freq[0];
+                    osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + dur);
                 } else {
                     osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
                 }

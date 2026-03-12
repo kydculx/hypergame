@@ -62,7 +62,7 @@ export const VictoryFountain = {
             this.cardIndex++;
             if (window.WCGames) {
                 // 발사될 때마다 음정이 미묘하게 상향되는 사운드 플레이
-                window.WCGames.Audio.play([200 * (1 + this.cardIndex / 50)], 'sine', 0.02, 0.05);
+                window.WCGames.Audio.play(200 * (1 + this.cardIndex / 50), 'sine', 0.02, 0.05);
             }
         }
 
