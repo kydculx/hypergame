@@ -36,7 +36,7 @@ const Leaderboard: React.FC = () => {
   const userScore = isRankedInTop30 ? scores[userRankIndex].score : 0;
 
   const renderScore = (gameId: string | undefined, score: number) => {
-    if (gameId === 'minesweeper') {
+    if (gameId === 'minesweeper' || gameId === 'solitaire') {
       if (score === 0) return '---';
 
       const minutes = Math.floor(score / 60);

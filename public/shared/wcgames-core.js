@@ -209,6 +209,10 @@
             }, '*');
         },
 
+        showLeaderboard() {
+            window.parent.postMessage({ type: 'SHOW_LEADERBOARD' }, '*');
+        },
+
         /**
          * Global AudioManager to replace duplicated code in games.
          */

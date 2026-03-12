@@ -27,7 +27,7 @@ export const HallOfFame: React.FC = () => {
                         .from('scores')
                         .select('user_name, score')
                         .eq('game_id', game.id)
-                        .order('score', { ascending: false })
+                        .order('score', { ascending: game.sortOrder === 'asc' })
                         .limit(1);
 
                     if (data && data.length > 0) {

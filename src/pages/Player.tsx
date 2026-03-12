@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { KakaoAdFit } from '../components/layout/KakaoAdFit';
 import { useUserStore } from '../hooks/useUserStore';
+import Leaderboard from '../components/Leaderboard';
 
 const Player: React.FC = () => {
   const { t } = useTranslation();
@@ -17,6 +18,7 @@ const Player: React.FC = () => {
 
   const [sessionKey] = useState(() => Math.random().toString(36).substring(2, 15));
   const [isLandscape, setIsLandscape] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   // Check orientation
   useEffect(() => {
@@ -130,6 +132,9 @@ const Player: React.FC = () => {
             }
           }
           break;
+        case 'SHOW_LEADERBOARD':
+          setIsLeaderboardOpen(true);
+          break;
       }
     };
 
@@ -215,6 +220,28 @@ const Player: React.FC = () => {
           <KakaoAdFit type="mobile" />
         )}
       </div>
+
+      {/* Leaderboard Modal */}
+      {isLeaderboardOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsLeaderboardOpen(false)}
+          ></div>
+
+          {/* Modal Content */}
+          <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto hidden-scrollbar rounded-2xl animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setIsLeaderboardOpen(false)}
+              className="absolute top-4 right-4 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors backdrop-blur-md"
+            >
+              <X size={24} />
+            </button>
+            <Leaderboard />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
