@@ -398,6 +398,9 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xfff5ee);
 
+        const dominoGroup = new THREE.Group();
+        scene.add(dominoGroup);
+
 
         const REF_ASPECT = 16 / 9;
         const aspect = window.innerWidth / window.innerHeight;
@@ -738,10 +741,10 @@
                 this.trackMesh.receiveShadow = true;
 
                 if (!isGapTarget) {
-                    scene.add(this.trackMesh);
+                    dominoGroup.add(this.trackMesh);
                 }
 
-                scene.add(this.mesh);
+                dominoGroup.add(this.mesh);
             }
 
             place(playerChosenSize) {
@@ -770,7 +773,7 @@
                 this.wasGapTarget = true;
                 this.isActive = true;
 
-                scene.add(this.trackMesh);
+                dominoGroup.add(this.trackMesh);
 
                 audio.playPlace();
                 return true;
@@ -837,8 +840,8 @@
             }
 
             dispose() {
-                scene.remove(this.mesh);
-                if (this.trackMesh) scene.remove(this.trackMesh);
+                dominoGroup.remove(this.mesh);
+                if (this.trackMesh) dominoGroup.remove(this.trackMesh);
                 this.mesh.traverse(child => {
                     if (child.geometry) child.geometry.dispose();
                     if (child.material) child.material.dispose();
@@ -863,8 +866,18 @@
         let totalGenerated = 0;
 
         function generateLevel(paramLength = 100) {
+            // Clear all dominoes from the group and array
             dominos.forEach(d => d.dispose());
             dominos.length = 0;
+
+            // Deep clean the dominoGroup to ensure no orphans (from splice) remain
+            while (dominoGroup.children.length > 0) {
+                const child = dominoGroup.children[0];
+                dominoGroup.remove(child);
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            }
+
             lastX = 0;
             lastZ = 0;
             lastYaw = 0;
@@ -975,35 +988,9 @@
         }
 
         function restartGame() {
-            if (animationId) cancelAnimationFrame(animationId);
-            // Reset score & UI
-            score = 0;
-            combo = 0;
-            currentFocusIndex = 0;
-            document.getElementById('score').textContent = score;
-
-            // Reset Audio Combo
-            audio.resetCombo();
-
-            // Generate new level
-            generateLevel(100);
-
-            // Instantly snap camera to start
-            if (dominos.length > 0) {
-                const firstD = dominos[0];
-                cameraLookAtX = firstD.x;
-                cameraLookAtZ = firstD.z;
-                cameraYaw = firstD.yaw;
-                camera.position.set(cameraLookAtX + CAMERA_OFFSET.x, CAMERA_OFFSET.y, cameraLookAtZ + CAMERA_OFFSET.z);
-                camera.lookAt(cameraLookAtX, 2, cameraLookAtZ);
-
-                // Start falling
-                setTimeout(() => {
-                    if (dominos.length > 0) dominos[0].triggerFall();
-                }, 500);
-            }
-
-            gameState = 'PLAYING';
+            // WCGames.restart() logic calls onRestart then onStart.
+            // We'll let startGame handle the actual resetting to avoid double-work.
+            gameState = 'START'; 
         }
 
         // ============================================================
