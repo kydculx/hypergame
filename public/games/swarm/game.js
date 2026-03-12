@@ -27,7 +27,6 @@ const CONFIG = {
         common: {
             spawnRateSeconds: 1,
             spawnBatch: 1,
-            speed: 1.0,
             baseMaxHp: 10000,
             baseAttackRange: 175,
             baseAttackCooldown: 60,
@@ -35,6 +34,8 @@ const CONFIG = {
             minSpawnRateSeconds: 0.1,
             reductionInterval: 30, // 이 점수마다 스폰 속도 증가
             reductionAmount: 0.05,
+            commandSpeedMultiplier: 1.5, // 명령 이동/구출 시 속도 배율
+            chaseSpeedMultiplier: 1.2,   // 적 추격 시 속도 배율
             // 유닛 타입별 확률 (이외는 전부 근접유닛)
             probs: { ranged: 0.1, tanker: 0.1, mage: 0.05, healer: 0.05 }
         },
@@ -74,7 +75,8 @@ const CONFIG = {
     // 조작 관련 설정
     control: {
         moveOffset: 40,      // 이동 명령 시 분산 거리
-        baseBuffer: 10       // 기지 정지 거리 버퍼
+        baseBuffer: 100,      // 기지 정지 거리 버퍼
+        returnOffset: 50     // 전투 후 복귀 시 무작위 분산 범위 (자연스러운 배치용)
     },
     // 진형 설정
     formations: {
@@ -134,11 +136,11 @@ const CONFIG = {
 
 // 유닛 타입별 기본 스탯
 const UNIT_STATS = {
-    [UNIT_TYPES.MELEE]: { hp: 15, dmg: 3, range: 20, speed: 1.0, cd: 30, w: 15, h: 23 },
-    [UNIT_TYPES.RANGED]: { hp: 8, dmg: 2, range: 80, speed: 1.0, cd: 45, w: 16, h: 24 },
-    [UNIT_TYPES.TANKER]: { hp: 50, dmg: 4, range: 25, speed: 1.0, cd: 40, w: 17, h: 24 },
-    [UNIT_TYPES.MAGE]: { hp: 6, dmg: 5, range: 100, speed: 1.0, cd: 60, w: 16, h: 24 },
-    [UNIT_TYPES.HEALER]: { hp: 8, dmg: -5, range: 120, speed: 1.0, cd: 50, w: 16, h: 24 }
+    [UNIT_TYPES.MELEE]: { hp: 15, dmg: 3, range: 20, speed: 0.7, cd: 30, w: 15, h: 23 },
+    [UNIT_TYPES.RANGED]: { hp: 8, dmg: 2, range: 80, speed: 0.9, cd: 45, w: 16, h: 24 },
+    [UNIT_TYPES.TANKER]: { hp: 50, dmg: 4, range: 25, speed: 0.5, cd: 40, w: 17, h: 24 },
+    [UNIT_TYPES.MAGE]: { hp: 6, dmg: 5, range: 100, speed: 0.6, cd: 60, w: 16, h: 24 },
+    [UNIT_TYPES.HEALER]: { hp: 8, dmg: -5, range: 120, speed: 0.6, cd: 50, w: 16, h: 24 }
 };
 
 // --- 2. GAME ENGINE (코어 엔진) ---
@@ -220,7 +222,7 @@ const Engine = {
 const Assets = {
     sprites: {},
     loadedCount: 0,
-    totalToLoad: 12, // 전체 로드해야 할 에셋 수
+    totalToLoad: 13, // 전체 로드해야 할 에셋 수
 
     /**
      * 초기 에셋 로드 시작
@@ -228,6 +230,7 @@ const Assets = {
     init() {
         this.loadImg('fullBg', 'img/background.png');
         this.loadImg('pBase', 'img/castle.png', true);
+        this.loadImg('upgradeZone', 'img/upgrade.png');
 
         // 로드할 유닛 목록
         const units = [
@@ -411,7 +414,7 @@ class Unit {
 
         this.maxHp = extra?.maxHp || stats.hp;
         this.damage = extra?.damage || stats.dmg;
-        this.speed = stats.speed * CONFIG.factions.common.speed;
+        this.speed = stats.speed;
         this.range = (type === UNIT_TYPES.MELEE || type === UNIT_TYPES.TANKER) ? (stats.w * scale + 5) : stats.range;
         this.cooldownMax = stats.cd;
         this.width = stats.w * scale;
@@ -471,8 +474,8 @@ class Unit {
                 this.x = this.target.x; this.y = this.target.y;
                 this.state = 0; this.target = null;
             } else {
-                this.vx = (dx / d) * currentSpeed * 1.5;
-                this.vy = (dy / d) * currentSpeed * 1.5;
+                this.vx = (dx / d) * currentSpeed * CONFIG.factions.common.commandSpeedMultiplier;
+                this.vy = (dy / d) * currentSpeed * CONFIG.factions.common.commandSpeedMultiplier;
             }
         } else if (this.state === 2 && this.attackTarget) { // 공격 상태
             const target = this.attackTarget;
@@ -489,9 +492,16 @@ class Unit {
             } else {
                 // 추격 시 약간의 무작위성을 주어 유닛들이 겹치지 않고 에워싸게 함
                 const jitter = (Math.random() - 0.5) * 0.1;
-                this.vx = (dx / d + jitter) * currentSpeed * 1.2;
-                this.vy = (dy / d + jitter) * currentSpeed * 1.2;
+                this.vx = (dx / d + jitter) * currentSpeed * CONFIG.factions.common.chaseSpeedMultiplier;
+                this.vy = (dy / d + jitter) * currentSpeed * CONFIG.factions.common.chaseSpeedMultiplier;
             }
+        }
+
+        // 소프트 경계선 적용: 자동 전진(state 0) 상태인 경우에만 화면 끝에서 멈춰 서게 함
+        // 이를 통해 반격(state 2)이나 명령 이동(state 1) 시에는 자유로운 움직임을 보장하여 순간이동을 방지
+        const rightLimit = Engine.canvas.width - CONFIG.control.baseBuffer;
+        if (this.team === 0 && this.state === 0 && this.x >= rightLimit && this.vx > 0) {
+            this.vx = 0;
         }
 
         this.x += this.vx; this.y += this.vy;
@@ -501,8 +511,9 @@ class Unit {
         const dxMove = Math.abs(this.x - this.lastX);
         const dyMove = Math.abs(this.y - this.lastY);
 
-        // 전진(0) 또는 공격(2) 상태에서 거의 움직이지 않는 경우 유휴 프레임 증가
-        if ((this.state === 0 || this.state === 2) && dxMove < 0.1 && dyMove < 0.1) {
+        // 전진(0) 상태에서 거의 움직이지 않는 경우(벽이나 아군에 막힘) 유휴 프레임 증가
+        // 공격 중(state 2)일 때는 제자리에 멈춰있어도 구출 대상에서 제외
+        if (this.state === 0 && dxMove < 0.1 && dyMove < 0.1) {
             this.idleFrames++;
         } else {
             this.idleFrames = 0;
@@ -511,15 +522,18 @@ class Unit {
         this.lastX = this.x;
         this.lastY = this.y;
 
-        // 약 5초(300프레임) 이상 정체되면 성 앞쪽으로 강제 이동
+        // 약 5초(300프레임) 이상 정체되면 성 앞쪽으로 강제 이동 (기존 이동 로직 활용)
         if (this.idleFrames > 300) {
             if (this.team === 0) {
-                // 플레이어 유닛은 성 앞쪽(오른쪽)으로 강제 재배치
-                this.x = EntityManager.playerBase.x + 150 + Math.random() * 50;
+                // 플레이어 유닛은 성 앞쪽(오른쪽)을 타겟으로 설정하여 걸어서 이동하게 함
+                this.target = {
+                    x: EntityManager.playerBase.x + 150 + Math.random() * 50,
+                    y: this.y
+                };
+                this.state = 1; // 명령 이동 상태로 전환
                 this.idleFrames = 0;
             } else {
-                // 적군은 자신의 기지 쪽으로 약간 밀어내거나 무작위 위치로 재배치 (필요시)
-                this.idleFrames = 0; 
+                this.idleFrames = 0;
             }
         }
     }
@@ -536,7 +550,7 @@ class Unit {
             if (s && Math.random() > 0.5) WCGames.Audio.play(s, this.type === UNIT_TYPES.RANGED ? 'triangle' : 'sine', 0.05, 0.05);
         } else {
             if (target.takeDamage) {
-                target.takeDamage(this.damage, this); 
+                target.takeDamage(this.damage, this);
             } else {
                 target.hp = Math.max(0, target.hp - this.damage);
             }
@@ -553,7 +567,7 @@ class Unit {
      */
     takeDamage(amount, attacker) {
         this.hp = Math.max(0, this.hp - amount);
-        
+
         // 공격자가 있고, 현재 위협이 없거나 공격자가 현재 타겟보다 훨씬 가까우면 타겟 변경 (반격)
         if (attacker && attacker.hp > 0 && attacker.team !== this.team) {
             if (!this.attackTarget || (this.state === 0 || this.state === 1)) {
@@ -1040,38 +1054,49 @@ const CombatSystem = {
             }
         }
 
-        // 플레이어 유닛은 오른쪽 끝(적 진영 전초선)에서 정지
-        // 전투 중(state 2)일 경우 적에게 닿기 위해 범위를 조금 더 허용 (화면 밖 적 대응)
+        // 플레이어 유닛 경계선 설정
         const baseBuffer = CONFIG.control.baseBuffer;
-        const rightLimit = u.state === 2 ? Engine.canvas.width + 60 : Engine.canvas.width - baseBuffer;
-        if (u.team === 0 && u.x > rightLimit) {
-            u.vx = Math.min(0, u.vx); // 오른쪽으로 더 못가게 속도 제한
-            u.x = rightLimit;
+        const rightLimit = Engine.canvas.width - baseBuffer;
+
+        // 적 처치 및 타겟 유실 시 상태 전환은 매 프레임 체크 (반응성 향상)
+        if (u.state === 2) {
+            if (!u.attackTarget || u.attackTarget.hp <= 0) {
+                // 타겟 유실 시 처리
+                if (u.team === 0 && u.x > rightLimit) {
+                    // 경계선 밖에 나가 있는 상태라면 부드럽게 걸어서 복귀하도록 명령 이동(state 1) 설정
+                    const offset = (Math.random() - 0.5) * CONFIG.control.returnOffset;
+                    u.target = { x: rightLimit + offset, y: u.y };
+                    u.state = 1;
+                } else {
+                    u.state = 0; // 화면 안이라면 일반 자동 전진 상태로 복귀
+                }
+                u.attackTarget = null;
+            } else {
+                // 현재 싸우는 중이면 더 가까운 적 탐색은 10프레임 게이트 안에서 수행 (최적화)
+            }
         }
 
         // 주기적 타겟팅 업데이트 (성능 최적화: 10프레임마다 실행)
         if ((Engine.frames + u.id.length) % 10 !== 0) return;
-        
-        // 명령 이동(state 1) 중이더라도 근처에 적이 있으면 싸우도록 허용 (단, 힐러는 목적지로 가거나 아군 치유)
-        if (u.state === 2 && u.attackTarget?.hp > 0) {
-            // 현재 타겟이 있지만, 더 가까운 위협이 있는지 체크 (추후 최적화 가능)
-            return;
-        }
 
-        const aggroRange = (u.type === UNIT_TYPES.RANGED ? 140 : 100); // 인식 범위 소폭 확대
+        // 이미 싸우는 중이면 타겟 재탐색을 건너뜀 (Retargeting 필요 시 여기서 조건 수정 가능)
+        if (u.state === 2 && u.attackTarget?.hp > 0) return;
+
+        const aggroRange = (u.type === UNIT_TYPES.RANGED ? 140 : 100);
         const grid = EntityManager.grid;
         const cx = Math.floor(u.x / CONFIG.layout.gridSize), cy = Math.floor(u.y / CONFIG.layout.gridSize);
 
         let best = null, bestDist = aggroRange * aggroRange;
 
-        // 인접 그리드 검색 범위 확대 (3x3 -> 5x5)
+        // 인접 그리드 검색
         for (let x = cx - 2; x <= cx + 2; x++) {
             for (let y = cy - 2; y <= cy + 2; y++) {
                 (grid[`${x},${y}`] || []).forEach(n => {
                     if (n.hp <= 0) return;
-                    // 힐러는 아군 치유, 나머지는 적군 공격
                     const isTarget = u.type === UNIT_TYPES.HEALER ? (n.team === u.team && n.hp < n.maxHp && n !== u) : (n.team !== u.team);
-                    if (isTarget) {
+                    const isVisible = n.x >= 0 && n.x <= Engine.canvas.width;
+
+                    if (isTarget && isVisible) {
                         const d = Math.pow(n.x - u.x, 2) + Math.pow(n.y - u.y, 2);
                         if (d < bestDist) { bestDist = d; best = n; }
                     }
@@ -1080,12 +1105,8 @@ const CombatSystem = {
         }
 
         if (best) {
-            // 명령 이동 중 적 발견 시, 힐러가 아니면 전투 모드로 전환
-            if (u.state === 1 && u.type === UNIT_TYPES.HEALER) return; 
+            if (u.state === 1 && u.type === UNIT_TYPES.HEALER) return;
             u.attackTarget = best; u.state = 2;
-        } else if (u.state === 2) {
-            u.state = 0; // 타겟 유실 시 자동 전진 상태로 안전하게 복귀 (state 1로 가던 버그 수정)
-            u.attackTarget = null;
         }
     }
 };
@@ -1528,6 +1549,13 @@ const Renderer = {
 
         // 뎁스 소팅 (Y축 기준 정렬하여 위아래 레이어 처리)
         const q = [{ isBase: true, obj: EntityManager.playerBase, y: EntityManager.playerBase.y }];
+
+        // 업그레이드 건물(마법진 건물)도 정렬에 포함하여 캐릭터와의 앞뒤 관계를 처리
+        const mz = EntityManager.mergeZone;
+        if (mz && mz.w > 0) {
+            q.push({ isUpgrade: true, obj: mz, y: mz.y + mz.h });
+        }
+
         EntityManager.units.forEach(u => q.push({ isBase: false, obj: u, y: u.y }));
         q.sort((a, b) => a.y - b.y).forEach(r => this.drawObject(r));
 
@@ -1551,6 +1579,8 @@ const Renderer = {
         const rx = mz.w / 2, ry = rx * 0.35;
 
         ctx.save();
+
+
         ctx.shadowBlur = 10; ctx.shadowColor = "rgba(251,191,36,0.5)";
         ctx.strokeStyle = `rgba(251,191,36,${0.5 * pulse})`;
         ctx.lineWidth = 2;
@@ -1564,6 +1594,7 @@ const Renderer = {
             ctx.fillStyle = `rgba(251,191,36,${0.3 * pulse})`;
             ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
         }
+
         ctx.restore();
     },
 
@@ -1585,6 +1616,19 @@ const Renderer = {
                 ctx.drawImage(spr, -w / 1.3, b.y - h + 20, w, h);
             }
             this.drawBaseHp(b);
+        } else if (r.isUpgrade) {
+            // 업그레이드 건물 이미지 그리기 (정렬된 순서에 따라 출력)
+            const mz = r.obj;
+            const spr = Assets.sprites.upgradeZone;
+            if (spr) {
+                const cx = mz.x + mz.w / 2, cy = mz.y + mz.h / 2;
+                const rx = mz.w / 2, ry = rx * 0.35;
+                ctx.save();
+                ctx.globalAlpha = 0.8;
+                // 사용자가 수동 조정한 오프셋과 크기 유지
+                ctx.drawImage(spr, cx - (rx / 2), cy - (ry * 3), rx, ry * 4);
+                ctx.restore();
+            }
         } else {
             // 유닛 및 애니메이션 그리기
             const u = r.obj;
