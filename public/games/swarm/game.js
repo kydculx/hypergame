@@ -136,13 +136,13 @@ const CONFIG = {
             id: 'arrow-rain',
             damage: 3,          // 데미지
             count: 100,         // 최대 보유 화살 수 (Ammo Capacity)
-            unlockTime: 60 * 3,      // 3분후 해금
+            unlockTime: 60 * 0,      // 3분후 해금
             minRangeRatio: 0.3, // 가로발사 최소범위
             maxRangeRatio: 0.85,    // 가로발사 최대범위
             minYRatio: 0.3,     // 세로발사 최소범위
             maxYRatio: 0.7,     // 세로발사 최대범위
             interval: 50,       // 발사 간격
-            rechargeRate: 1.0,   // 초당 충전되는 화살 수 (상승 조정)
+            rechargeRate: 10.0,   // 초당 충전되는 화살 수 (상승 조정)
             minLaunchAmmo: 1,    // 발사를 위해 필요한 최소 화살 수
             accuracy: 0.9        // 적군 조준 확률 (0.9 = 90%)
         }
@@ -649,7 +649,7 @@ class Projectile {
         this.isHeal = this.type === UNIT_TYPES.HEALER;
         this.isMagic = this.type === UNIT_TYPES.MAGE;
         this.isCannon = source.isCannon || (source === EntityManager.playerBase); // 기지 포탄은 캐논 처리
-        
+
         // 타겟 유실 대비용 마지막 위치 저장
         this.lastTargetX = target.x;
         this.lastTargetY = target.y;
@@ -660,11 +660,11 @@ class Projectile {
     update() {
         // 타겟이 유효한지 확인
         const isTargetValid = this.target && this.target.hp > 0;
-        
+
         // 타겟이 유효하면 마지막 위치 갱신, 아니면 마지막 위치 사용
         const tx = isTargetValid ? this.target.x : this.lastTargetX;
         const ty = isTargetValid ? this.target.y : this.lastTargetY;
-        
+
         if (isTargetValid) {
             this.lastTargetX = tx;
             this.lastTargetY = ty;
@@ -724,7 +724,7 @@ class Projectile {
             }
             // 이펙트는 타겟이 죽었어도 해당 위치에서 발생
             EffectSystem.addHitEffect({ x: this.x, y: this.y, team: this.team }, this.isCannon, this.isMagic);
-            
+
             // 화살비 전용 추가 충격 이펙트
             if (this.isArrowRain) {
                 for (let i = 0; i < 5; i++) {
@@ -1578,9 +1578,9 @@ const FormationManager = {
 
                 // 투사체 발사 (성의 타워에서 날아가는 느낌으로 위치 조정)
                 // 좌우 타워와 성벽 위치를 고려하여 랜덤 오프셋 부여
-                const startX = base.x + (Math.random() > 0.5 ? -40 : 60);
-                const startY = base.y - 80 + (Math.random() - 0.5) * 30;
-                const startZ = 150 + Math.random() * 50; // 성벽/타워 높이
+                const startX = base.x - 30; // + (Math.random() > 0.5 ? -40 : 60);
+                const startY = base.y - 20; // - 80 + (Math.random() - 0.5) * 30;
+                const startZ = 180 + Math.random() * 50; // 성벽/타워 높이
 
                 const arrow = new Projectile({
                     x: startX,
@@ -1592,10 +1592,10 @@ const FormationManager = {
                 }, dummyTarget);
 
                 arrow.isArrowRain = true;
-                arrow.speed = 10 + Math.random() * 5; // 낙하 속도 증가
+                arrow.speed = 10;// + Math.random() * 5; // 낙하 속도 증가
                 EntityManager.projectiles.push(arrow);
 
-                // 발사음 제거됨
+                // 발사음 제거됨1
             }, i * config.interval);
         }
     },
@@ -1919,23 +1919,45 @@ const Renderer = {
                 ctx.rotate(p.visualAngle);
 
                 if (p.isArrowRain) {
-                    // 화살비 전용 연출: 더 길고 잔상이 남는 듯한 효과 (Motion Blur)
-                    const length = 15 + Math.random() * 5;
-                    const gradient = ctx.createLinearGradient(-length, 0, length, 0);
-                    gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
-                    gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.8)");
-                    gradient.addColorStop(1, "#fff");
+                    // 화살비 전용 사실적 렌더링
+                    const len = 20; // 화살 전체 길이
                     
-                    ctx.strokeStyle = gradient;
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(-length, 0); ctx.lineTo(length, 0);
-                    ctx.stroke();
+                    // 1. 공기 저항/속도 잔상 (은은한 효과)
+                    const grad = ctx.createLinearGradient(-len * 1.5, 0, 0, 0);
+                    grad.addColorStop(0, "rgba(255, 255, 255, 0)");
+                    grad.addColorStop(1, "rgba(255, 255, 255, 0.3)");
+                    ctx.strokeStyle = grad;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(-len * 1.5, 0); ctx.lineTo(0, 0); ctx.stroke();
 
-                    // 화살촉에 약간의 빛
-                    ctx.shadowColor = "#fff"; ctx.shadowBlur = 5;
+                    // 2. 화살대 (나무 느낌)
+                    ctx.strokeStyle = "#78350f"; // Brown
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.moveTo(-len/2, 0); ctx.lineTo(len/2, 0); ctx.stroke();
+
+                    // 3. 깃털 (Fletching - 하얀색/회색)
+                    ctx.fillStyle = "#f8fafc";
+                    ctx.beginPath();
+                    ctx.moveTo(-len/2, 0);
+                    ctx.lineTo(-len/2 - 4, -2);
+                    ctx.lineTo(-len/2 - 2, 0);
+                    ctx.lineTo(-len/2 - 4, 2);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // 4. 화살촉 (금속 느낌)
+                    ctx.fillStyle = "#94a3b8"; // Steel
+                    ctx.beginPath();
+                    ctx.moveTo(len/2, 0);
+                    ctx.lineTo(len/2 - 4, -2);
+                    ctx.lineTo(len/2 + 2, 0);
+                    ctx.lineTo(len/2 - 4, 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 화살촉 포인트 광택
                     ctx.fillStyle = "#fff";
-                    ctx.fillRect(length - 2, -1.5, 4, 3);
+                    ctx.fillRect(len/2, -0.5, 1, 1);
                 } else {
                     // 일반 화살 (오크는 더 눈에 띄는 주황색 계열 적용)
                     ctx.strokeStyle = p.team === 0 ? "#e5e7eb" : "#fb923c";
