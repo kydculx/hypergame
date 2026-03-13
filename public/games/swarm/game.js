@@ -85,48 +85,48 @@ const CONFIG = {
             cooldown: 60,
             unlockTime: 60 * 3, // 3분후 해금
             units: [
-                { type: UNIT_TYPES.TANKER, count: 8 },
-                { type: UNIT_TYPES.MELEE, count: 16 },
-                { type: UNIT_TYPES.RANGED, count: 8 }
+                { type: UNIT_TYPES.TANKER, count: 8, level: 2 },
+                { type: UNIT_TYPES.MELEE, count: 16, level: 2 },
+                { type: UNIT_TYPES.RANGED, count: 8, level: 2 }
             ]
         },
         phalanx: {
             id: 'phalanx',
-            cooldown: 80,
+            cooldown: 120,
             unlockTime: 60 * 5, // 5분후 해금
             units: [
-                { type: UNIT_TYPES.TANKER, count: 20 },
-                { type: UNIT_TYPES.MELEE, count: 28 }
+                { type: UNIT_TYPES.TANKER, count: 20, level: 3 },
+                { type: UNIT_TYPES.MELEE, count: 28, level: 3 }
             ]
         },
         wedge: {
             id: 'wedge',
-            cooldown: 100,
+            cooldown: 180,
             unlockTime: 60 * 10, // 10분후 해금
             units: [
-                { type: UNIT_TYPES.TANKER, count: 10 },
-                { type: UNIT_TYPES.MELEE, count: 25 },
-                { type: UNIT_TYPES.MAGE, count: 15 }
+                { type: UNIT_TYPES.TANKER, count: 10, level: 4 },
+                { type: UNIT_TYPES.MELEE, count: 25, level: 4 },
+                { type: UNIT_TYPES.MAGE, count: 15, level: 4 }
             ]
         },
         diamond: {
             id: 'diamond',
-            cooldown: 120,
+            cooldown: 240,
             unlockTime: 60 * 15, // 15분후 해금
             units: [
-                { type: UNIT_TYPES.TANKER, count: 12 },
-                { type: UNIT_TYPES.MELEE, count: 24 },
-                { type: UNIT_TYPES.RANGED, count: 16 }
+                { type: UNIT_TYPES.TANKER, count: 12, level: 5 },
+                { type: UNIT_TYPES.MELEE, count: 24, level: 5 },
+                { type: UNIT_TYPES.RANGED, count: 16, level: 5 }
             ]
         },
         circle: {
             id: 'circle',
-            cooldown: 140,
+            cooldown: 300,
             unlockTime: 60 * 20, // 20분후 해금
             units: [
-                { type: UNIT_TYPES.TANKER, count: 20 },
-                { type: UNIT_TYPES.MELEE, count: 20 },
-                { type: UNIT_TYPES.MAGE, count: 10 }
+                { type: UNIT_TYPES.TANKER, count: 20, level: 6 },
+                { type: UNIT_TYPES.MELEE, count: 20, level: 6 },
+                { type: UNIT_TYPES.MAGE, count: 10, level: 6 }
             ]
         }
         // 스킬 설정
@@ -136,7 +136,7 @@ const CONFIG = {
             id: 'arrow-rain',
             damage: 3,          // 데미지
             count: 100,         // 최대 보유 화살 수 (Ammo Capacity)
-            unlockTime: 60 * 3,      // 해금 시간
+            unlockTime: 60 * 3,      // 3분후 해금
             minRangeRatio: 0.3, // 가로발사 최소범위
             maxRangeRatio: 0.85,    // 가로발사 최대범위
             minYRatio: 0.3,     // 세로발사 최소범위
@@ -144,7 +144,7 @@ const CONFIG = {
             interval: 50,       // 발사 간격
             rechargeRate: 1.0,   // 초당 충전되는 화살 수 (상승 조정)
             minLaunchAmmo: 1,    // 발사를 위해 필요한 최소 화살 수
-            accuracy: 0.9        // 적군 조준 확률 (0.7 = 70%)
+            accuracy: 0.9        // 적군 조준 확률 (0.9 = 90%)
         }
     }
 };
@@ -563,8 +563,10 @@ class Unit {
         if ([UNIT_TYPES.RANGED, UNIT_TYPES.MAGE, UNIT_TYPES.HEALER].includes(this.type)) {
             EntityManager.projectiles.push(new Projectile(this, target));
             // 타입별 공격 사운드
-            const s = { [UNIT_TYPES.RANGED]: [800, 600], [UNIT_TYPES.MAGE]: [800, 1500], [UNIT_TYPES.HEALER]: [1200, 1600] }[this.type];
-            if (s && Math.random() > 0.5) WCGames.Audio.play(s, this.type === UNIT_TYPES.RANGED ? 'triangle' : 'sine', 0.05, 0.05);
+            if (this.type === UNIT_TYPES.RANGED) {
+                const s = [800, 600];
+                if (Math.random() > 0.5) WCGames.Audio.play(s, 'triangle', 0.05, 0.05);
+            }
         } else {
             if (target.takeDamage) {
                 target.takeDamage(this.damage, this);
@@ -572,7 +574,7 @@ class Unit {
                 target.hp = Math.max(0, target.hp - this.damage);
             }
             EffectSystem.addSlash(this, target);
-            if (Math.random() > 0.8) WCGames.Audio.play([150, 50], 'sawtooth', 0.05, 0.05);
+            // 전사 근접 공격 사운드 제거됨
         }
         this.attackCooldown = this.cooldownMax;
     }
@@ -853,8 +855,7 @@ const EntityManager = {
                 shot.speed = 12;
                 this.projectiles.push(shot);
                 this.playerBase.cooldown = CONFIG.factions.common.baseAttackCooldown;
-                // 성 대포의 묵직한 발사음 (Sawtooth, 낮고 굵은 Frequency로 쾅 하는 폭발음 연출)
-                WCGames.Audio.play([150, 40], 'sawtooth', 0.3, 0.15);
+                // 성 대포 발사음 제거됨
             }
         }
         // 기지 체력이 0 이하가 되면 게임 오버 (패배)
@@ -1076,7 +1077,7 @@ const CombatSystem = {
 
         // 적 처치 및 타겟 유실 시 상태 전환은 매 프레임 체크 (반응성 향상)
         if (u.state === 2) {
-            if (!u.attackTarget || u.attackTarget.hp <= 0) {
+            if (!u.attackTarget || u.attackTarget.hp <= 0 || (u.type === UNIT_TYPES.HEALER && u.attackTarget.hp >= u.attackTarget.maxHp)) {
                 // 타겟 유실 시 처리
                 if (u.team === 0 && u.x > rightLimit) {
                     // 경계선 밖에 나가 있는 상태라면 부드럽게 걸어서 복귀하도록 명령 이동(state 1) 설정
@@ -1183,8 +1184,8 @@ const EffectSystem = {
      * @param {object} t - 치유 대상 유닛
      */
     addHealEffect(t) {
-        // 더 섬세하고 수직으로 반짝이며 올라가는 힐 이펙트
-        for (let i = 0; i < 10; i++) {
+        // 더 섬세하고 수직으로 반짝이며 올라가는 힐 이펙트 (빈도 50% 감소)
+        for (let i = 0; i < 5; i++) {
             const rx = (Math.random() - 0.5) * (t.width || 20);
             const ry = Math.random() * -20;
             const vy = -0.5 - Math.random() * 1.5;
@@ -1240,7 +1241,6 @@ const EffectSystem = {
     addDeathEffect(u) {
         const color = u.team === 0 ? "#3b82f6" : "#ef4444";
         for (let i = 0; i < 10; i++) this.addParticle(u.x, u.y, color);
-        if (Math.random() > 0.8) WCGames.Audio.play([100, 30], 'square', 0.05, 0.1);
     },
 
     /**
@@ -1348,6 +1348,11 @@ const FormationManager = {
                     this.skillAmmo[config.id] = Math.min(config.count, currentAmmo + config.rechargeRate / 60);
                 }
 
+                // 패시브: 화살수가 최대(100)에 도달하면 자동으로 한 발씩 발사
+                if (this.skillAmmo[config.id] >= config.count) {
+                    this.triggerPassiveArrow();
+                }
+
                 if (this.cooldowns[config.id] > 0) {
                     this.cooldowns[config.id]--;
                     this.updateUI(config.id);
@@ -1453,6 +1458,9 @@ const FormationManager = {
             const container = btn.parentElement;
             const ammoDisplay = container ? container.querySelector('.ammo-count') : null;
             if (ammoDisplay) {
+                // 해금 안 된 상태에서는 잔탄수 숨김
+                const isSkillLocked = Engine.frames / 60 < CONFIG.skills.arrowRain.unlockTime;
+                ammoDisplay.style.display = isSkillLocked ? 'none' : 'block';
                 ammoDisplay.textContent = Math.floor(this.skillAmmo[key] || 0);
             }
         }
@@ -1478,8 +1486,27 @@ const FormationManager = {
         const launchCount = availableAmmo;
         this.skillAmmo[config.id] = 0;
 
-        // 화살 퍼붓기 효과
-        for (let i = 0; i < launchCount; i++) {
+        this.fireBarrage(launchCount);
+    },
+
+    /**
+     * 패시브용 화살 한 발 발사
+     */
+    triggerPassiveArrow() {
+        const config = CONFIG.skills.arrowRain;
+        // 화살 1개 소모
+        this.skillAmmo[config.id] = Math.max(0, this.skillAmmo[config.id] - 1);
+        this.fireBarrage(1);
+    },
+
+    /**
+     * 실제 화살들을 생성하여 발사
+     */
+    fireBarrage(count) {
+        const config = CONFIG.skills.arrowRain;
+        const base = EntityManager.playerBase;
+
+        for (let i = 0; i < count; i++) {
             setTimeout(() => {
                 if (!Engine.isStarted || Engine.isGameOver) return;
 
@@ -1530,8 +1557,7 @@ const FormationManager = {
                 arrow.speed = 8 + Math.random() * 4;
                 EntityManager.projectiles.push(arrow);
 
-                // 발사음
-                if (i % 5 === 0) WCGames.Audio.play([800, 1200], 'sine', 0.05, 0.05);
+                // 발사음 제거됨
             }, i * config.interval);
         }
     },
@@ -1552,7 +1578,8 @@ const FormationManager = {
 
         positions.forEach((p, idx) => {
             // isFormation: true를 전달하여 대열을 유지하며 행군하게 함
-            EntityManager.units.push(new Unit(p.x, p.y, 0, p.type, 1, { isFormation: true }));
+            // p.level을 사용하여 소환될 유닛의 레벨 지정
+            EntityManager.units.push(new Unit(p.x, p.y, 0, p.type, p.level || 1, { isFormation: true }));
             if (idx % 5 === 0) EffectSystem.addMergeEffect(p.x + 100, p.y); // 효과는 기지 근처에서
         });
 
@@ -1582,7 +1609,9 @@ const FormationManager = {
         };
 
         unitsConfig.forEach(u => {
-            for (let i = 0; i < u.count; i++) pool[u.type].push(u.type);
+            for (let i = 0; i < u.count; i++) {
+                pool[u.type].push({ type: u.type, level: u.level || 1 });
+            }
         });
 
         const spacingX = 16;
@@ -1592,45 +1621,45 @@ const FormationManager = {
             const cols = 8;
             const rows = 8;
             // 바깥쪽(특히 앞쪽)부터 탱커 -> 전사 -> 궁수 순서로 배치
-            // 여기서는 단순하게 리스트에서 순서대로 꺼내 쓰는 대신, 전략적으로 할당
-            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.RANGED], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.HEALER]];
-
-            for (let i = 0; i < sortedTypes.length; i++) {
+            const sortedUnits = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.RANGED], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.HEALER]];
+            for (let i = 0; i < sortedUnits.length; i++) {
                 const r = Math.floor(i / cols);
                 const c = i % cols;
                 pos.push({
                     x: startX - (r * spacingX),
                     y: baseY + (c - (cols - 1) / 2) * spacingY,
-                    type: sortedTypes[i]
+                    type: sortedUnits[i].type,
+                    level: sortedUnits[i].level
                 });
             }
         } else if (type === 'phalanx') {
             // 밀집형: 앞줄은 무조건 탱커, 뒷줄은 전사
             const rows = 4;
             const unitsPerRow = Math.ceil((pool[UNIT_TYPES.TANKER].length + pool[UNIT_TYPES.MELEE].length) / rows);
-            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE]];
-
-            for (let i = 0; i < sortedTypes.length; i++) {
+            const sortedUnits = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE]];
+            for (let i = 0; i < sortedUnits.length; i++) {
                 const r = i % rows; // 줄 (깊이)
                 const c = Math.floor(i / rows); // 열 (너비)
                 pos.push({
                     x: startX - (r * spacingX),
                     y: baseY + (c - (unitsPerRow - 1) / 2) * spacingY,
-                    type: sortedTypes[i]
+                    type: sortedUnits[i].type,
+                    level: sortedUnits[i].level
                 });
             }
         } else if (type === 'wedge') {
             // 쐐기형: 선두는 탱커, 중심부는 전사, 후방은 마법사/원거리
-            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.RANGED]];
+            const sortedUnits = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.RANGED]];
             let row = 0;
             let countInRow = 1;
             let i = 0;
-            while (i < sortedTypes.length) {
-                for (let j = 0; j < countInRow && i < sortedTypes.length; j++) {
+            while (i < sortedUnits.length) {
+                for (let j = 0; j < countInRow && i < sortedUnits.length; j++) {
                     pos.push({
                         x: startX - (row * spacingX * 1.3),
                         y: baseY + (j - (countInRow - 1) / 2) * spacingY,
-                        type: sortedTypes[i]
+                        type: sortedUnits[i].type,
+                        level: sortedUnits[i].level
                     });
                     i++;
                 }
@@ -1638,46 +1667,55 @@ const FormationManager = {
                 countInRow += 2;
             }
         } else if (type === 'diamond') {
-            // 다이아몬드형: 마름모 모양 배치
-            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.RANGED], ...pool[UNIT_TYPES.MAGE]];
-            const size = Math.ceil(Math.sqrt(sortedTypes.length));
+            console.log("Calculating Diamond positions...");
+            const sortedUnits = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.RANGED], ...pool[UNIT_TYPES.MAGE]];
+            console.log("Sorted units length:", sortedUnits.length);
             let i = 0;
-            // 중앙으로부터의 거리 합이 일정한 점들을 배치 (Manhattan distance)
-            const maxDist = Math.floor(size * 0.8);
-            for (let d = 0; d <= maxDist * 2 && i < sortedTypes.length; d++) {
-                for (let x = 0; x <= d && i < sortedTypes.length; x++) {
+            let d = 0;
+            // 중앙으로부터의 Manhattan distance가 d인 지점들에 유닛 배치
+            while (i < sortedUnits.length) {
+                // Manhattan distance d인 좌표들 생성
+                for (let x = 0; x <= d && i < sortedUnits.length; x++) {
                     const y = d - x;
                     const points = new Set([
                         `${x},${y}`, `${-x},${y}`, `${x},${-y}`, `${-x},${-y}`
                     ]);
                     points.forEach(p => {
-                        if (i >= sortedTypes.length) return;
+                        if (i >= sortedUnits.length) return;
                         const [px, py] = p.split(',').map(Number);
+                        const unit = sortedUnits[i++];
                         pos.push({
                             x: startX - px * spacingX,
                             y: baseY + py * spacingY,
-                            type: sortedTypes[i++]
+                            type: unit.type,
+                            level: unit.level
                         });
                     });
                 }
+                d++;
+                if (d > 50) break; // 안전장치
             }
         } else if (type === 'circle') {
+            console.log("Calculating Circle positions...");
             // 원진형: 동심원 배치
-            const sortedTypes = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.RANGED]];
+            const sortedUnits = [...pool[UNIT_TYPES.TANKER], ...pool[UNIT_TYPES.MELEE], ...pool[UNIT_TYPES.MAGE], ...pool[UNIT_TYPES.RANGED]];
+            console.log("Sorted units length:", sortedUnits.length);
             let i = 0;
             let radius = 0;
             let ringIndex = 0;
-            while (i < sortedTypes.length) {
+            while (i < sortedUnits.length) {
                 const ringRadius = ringIndex * spacingX * 1.5;
                 const circumference = 2 * Math.PI * ringRadius;
                 const countInRing = ringIndex === 0 ? 1 : Math.floor(circumference / spacingY);
 
-                for (let j = 0; j < countInRing && i < sortedTypes.length; j++) {
+                for (let j = 0; j < countInRing && i < sortedUnits.length; j++) {
                     const angle = (j / countInRing) * Math.PI * 2;
+                    const unit = sortedUnits[i++];
                     pos.push({
                         x: startX - Math.cos(angle) * ringRadius - (ringIndex * 5), // 약간의 깊이 오프셋
                         y: baseY + Math.sin(angle) * ringRadius,
-                        type: sortedTypes[i++]
+                        type: unit.type,
+                        level: unit.level
                     });
                 }
                 ringIndex++;
@@ -1740,22 +1778,6 @@ const Renderer = {
         const rx = mz.w / 2, ry = rx * 0.35;
 
         ctx.save();
-
-
-        ctx.shadowBlur = 10; ctx.shadowColor = "rgba(251,191,36,0.5)";
-        ctx.strokeStyle = `rgba(251,191,36,${0.5 * pulse})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
-
-        // 회전하는 룬 효과
-        const rot = Engine.frames * 0.02;
-        for (let i = 0; i < 8; i++) {
-            const a = rot + (i * Math.PI * 2) / 8;
-            const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry;
-            ctx.fillStyle = `rgba(251,191,36,${0.3 * pulse})`;
-            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
-        }
-
         ctx.restore();
     },
 
@@ -1846,9 +1868,13 @@ const Renderer = {
 
             if (p.isMagic) {
                 ctx.shadowColor = p.team === 0 ? "#60a5fa" : "#fbbf24"; ctx.shadowBlur = 10;
-                ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x, p.y - p.z, sz * 1.5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x, p.y - p.z, sz * 0.75, 0, Math.PI * 2); ctx.fill(); // 마법 투사체 크기 50% 축소 (1.5 -> 0.75)
             } else if (p.isHeal) {
-                ctx.fillStyle = "#bbf7d0"; ctx.fillRect(p.x - sz, p.y - p.z - sz * 2, sz * 2, sz * 4); ctx.fillRect(p.x - sz * 2, p.y - p.z - sz, sz * 4, sz * 2);
+                // 힐 투사체 크기 50% 축소 (sz -> sz * 0.5)
+                const hsz = sz * 0.5;
+                ctx.fillStyle = "#bbf7d0";
+                ctx.fillRect(p.x - hsz, p.y - p.z - hsz * 2, hsz * 2, hsz * 4);
+                ctx.fillRect(p.x - hsz * 2, p.y - p.z - hsz, hsz * 4, hsz * 2);
             } else if (p.type === UNIT_TYPES.RANGED && !p.isCannon) {
                 // 가느다란 화살 표현 (오크는 더 눈에 띄는 주황색 계열 적용)
                 ctx.strokeStyle = p.team === 0 ? "#e5e7eb" : "#fb923c";
@@ -1921,7 +1947,13 @@ const Renderer = {
             ctx.strokeStyle = "#10b981"; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
             ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
         }
-        document.getElementById('score').textContent = Engine.score;
+        const scoreEl = document.getElementById('score');
+        if (scoreEl) {
+            const totalSeconds = Math.floor(Engine.score);
+            const mm = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+            const ss = String(totalSeconds % 60).padStart(2, '0');
+            scoreEl.textContent = `${mm}:${ss}`;
+        }
         const killEl = document.getElementById('kill-count');
         if (killEl) killEl.textContent = Engine.kills;
     }
