@@ -294,7 +294,6 @@
             return block;
         }
 
-
         function handleAction() {
             audio.init();
             if (gameState !== 'PLAYING') return;
@@ -422,7 +421,6 @@
             targetCameraY = (stack.length - PRE_STACK_COUNT) * BOX_HEIGHT + CAMERA_HEIGHT_OFFSET;
         }
 
-
         function gameOver() {
             gameState = 'OVER';
             audio.playNote([440, 110], 'sawtooth', 0.5, 0.3);
@@ -477,8 +475,6 @@
             gameState = 'PLAYING';
             startNewRound();
         }
-
-
 
         function onWindowResize() {
             const aspect = window.innerWidth / window.innerHeight;

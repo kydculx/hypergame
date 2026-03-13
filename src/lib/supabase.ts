@@ -1,11 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Define interface for global config
+interface WCGamesConfig {
+    SUPABASE_URL?: string;
+    SUPABASE_ANON_KEY?: string;
+}
+
+declare global {
+    interface Window {
+        WCGamesConfig?: WCGamesConfig;
+    }
+}
+
+const config = window.WCGamesConfig || {};
+const supabaseUrl = config.SUPABASE_URL;
+const supabaseAnonKey = config.SUPABASE_ANON_KEY;
 
 // Warn instead of crashing if keys are missing (allows UI to load during dev)
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Missing Supabase environment variables. Leaderboard will be disabled.');
+    console.warn('Missing Supabase environment variables in WCGamesConfig. Leaderboard will be disabled.');
 }
 
 export const supabase = createClient(

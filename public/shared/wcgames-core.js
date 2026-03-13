@@ -11,7 +11,7 @@
         isAdmin: false,
         dt: 0,
         _lastTime: 0,
-        _adminWhitelist: [
+        _adminWhitelist: (window.WCGamesConfig && window.WCGamesConfig.ADMIN_WHITELIST) || [
             'kydculx@gmail.com'
         ],
 
@@ -20,7 +20,7 @@
             const params = new URLSearchParams(window.location.search);
             this.debug = params.has('debug');
             this.sessionKey = params.get('sk') || '';
-            
+
             // Centralized Admin Detection
             const userEmail = params.get('u');
             if (userEmail && this._adminWhitelist.includes(userEmail)) {
@@ -31,7 +31,7 @@
             this.setupUI();
             this.setupListeners();
             this.setupVisibilityHandler();
-            this.setupAdSense(); 
+            this.setupAdSense();
             this.setupAdminUI();
             this.notifyReady();
 

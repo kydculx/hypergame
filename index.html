@@ -3,15 +3,20 @@
 
 <head>
   <meta charset="UTF-8" />
+  <!-- WCGames Global Config -->
+  <script src="/shared/wcgames-config.js"></script>
+
   <!-- Google Tag Manager -->
   <script>(function (w, d, s, l, i) {
+      i = i || (w.WCGamesConfig && w.WCGamesConfig.GTM_ID);
+      if (!i) return;
       w[l] = w[l] || []; w[l].push({
         'gtm.start':
           new Date().getTime(), event: 'gtm.js'
       }); var f = d.getElementsByTagName(s)[0],
         j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
           'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
-    })(window, document, 'script', 'dataLayer', '%VITE_GTM_ID%');</script>
+    })(window, document, 'script', 'dataLayer');</script>
   <!-- End Google Tag Manager -->
   <link rel="icon" type="image/png" href="/images/wc-icon.png" />
   <link rel="apple-touch-icon" href="/images/wc-icon.png" />
@@ -48,14 +53,40 @@
   <meta property="twitter:image" content="https://wcgames.fun/images/og-image.png" />
 
   <!-- AdSense Site-wide Auto Ads -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=%VITE_ADSENSE_ID%"
-    crossorigin="anonymous"></script>
+  <script>
+    (function () {
+      const gConfig = window.WCGamesConfig || {};
+      const clientID = gConfig.ADSENSE_ID;
+      if (clientID) {
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientID}`;
+        script.crossOrigin = 'anonymous';
+        document.head.appendChild(script);
+      }
+    })();
+  </script>
 </head>
 
 <body>
   <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%VITE_GTM_ID%" height="0" width="0"
-      style="display:none;visibility:hidden"></iframe></noscript>
+  <script>
+    (function () {
+      const gConfig = window.WCGamesConfig || {};
+      const gtmId = gConfig.GTM_ID;
+      if (gtmId) {
+        const noscript = document.createElement('noscript');
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://www.googletagmanager.com/ns.html?id=${gtmId}`;
+        iframe.height = "0";
+        iframe.width = "0";
+        iframe.style.display = "none";
+        iframe.style.visibility = "hidden";
+        noscript.appendChild(iframe);
+        document.body.insertBefore(noscript, document.body.firstChild);
+      }
+    })();
+  </script>
   <!-- End Google Tag Manager (noscript) -->
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>

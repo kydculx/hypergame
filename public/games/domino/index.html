@@ -401,7 +401,6 @@
         const dominoGroup = new THREE.Group();
         scene.add(dominoGroup);
 
-
         const REF_ASPECT = 16 / 9;
         const aspect = window.innerWidth / window.innerHeight;
 
@@ -1000,7 +999,7 @@
         function restartGame() {
             // WCGames.restart() logic calls onRestart then onStart.
             // We'll let startGame handle the actual resetting to avoid double-work.
-            gameState = 'START'; 
+            gameState = 'START';
         }
 
         // ============================================================
@@ -1087,7 +1086,6 @@
         // ============================================================
         // Animation Loop
         // ============================================================
-
 
         let animationId;
         function animate(timestamp) {
