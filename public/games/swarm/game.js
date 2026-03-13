@@ -136,13 +136,13 @@ const CONFIG = {
             id: 'arrow-rain',
             damage: 3,          // 데미지
             count: 100,         // 최대 보유 화살 수 (Ammo Capacity)
-            unlockTime: 60 * 0,      // 3분후 해금
+            unlockTime: 60 * 3,      // 3분후 해금
             minRangeRatio: 0.3, // 가로발사 최소범위
             maxRangeRatio: 0.85,    // 가로발사 최대범위
             minYRatio: 0.3,     // 세로발사 최소범위
             maxYRatio: 0.7,     // 세로발사 최대범위
             interval: 50,       // 발사 간격
-            rechargeRate: 10.0,   // 초당 충전되는 화살 수 (상승 조정)
+            rechargeRate: 1.0,   // 초당 충전되는 화살 수 (상승 조정)
             minLaunchAmmo: 1,    // 발사를 위해 필요한 최소 화살 수
             accuracy: 0.9        // 적군 조준 확률 (0.9 = 90%)
         }
@@ -1921,7 +1921,7 @@ const Renderer = {
                 if (p.isArrowRain) {
                     // 화살비 전용 사실적 렌더링
                     const len = 20; // 화살 전체 길이
-                    
+
                     // 1. 공기 저항/속도 잔상 (은은한 효과)
                     const grad = ctx.createLinearGradient(-len * 1.5, 0, 0, 0);
                     grad.addColorStop(0, "rgba(255, 255, 255, 0)");
@@ -1933,31 +1933,31 @@ const Renderer = {
                     // 2. 화살대 (나무 느낌)
                     ctx.strokeStyle = "#78350f"; // Brown
                     ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.moveTo(-len/2, 0); ctx.lineTo(len/2, 0); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-len / 2, 0); ctx.lineTo(len / 2, 0); ctx.stroke();
 
                     // 3. 깃털 (Fletching - 하얀색/회색)
                     ctx.fillStyle = "#f8fafc";
                     ctx.beginPath();
-                    ctx.moveTo(-len/2, 0);
-                    ctx.lineTo(-len/2 - 4, -2);
-                    ctx.lineTo(-len/2 - 2, 0);
-                    ctx.lineTo(-len/2 - 4, 2);
+                    ctx.moveTo(-len / 2, 0);
+                    ctx.lineTo(-len / 2 - 4, -2);
+                    ctx.lineTo(-len / 2 - 2, 0);
+                    ctx.lineTo(-len / 2 - 4, 2);
                     ctx.closePath();
                     ctx.fill();
 
                     // 4. 화살촉 (금속 느낌)
                     ctx.fillStyle = "#94a3b8"; // Steel
                     ctx.beginPath();
-                    ctx.moveTo(len/2, 0);
-                    ctx.lineTo(len/2 - 4, -2);
-                    ctx.lineTo(len/2 + 2, 0);
-                    ctx.lineTo(len/2 - 4, 2);
+                    ctx.moveTo(len / 2, 0);
+                    ctx.lineTo(len / 2 - 4, -2);
+                    ctx.lineTo(len / 2 + 2, 0);
+                    ctx.lineTo(len / 2 - 4, 2);
                     ctx.closePath();
                     ctx.fill();
-                    
+
                     // 화살촉 포인트 광택
                     ctx.fillStyle = "#fff";
-                    ctx.fillRect(len/2, -0.5, 1, 1);
+                    ctx.fillRect(len / 2, -0.5, 1, 1);
                 } else {
                     // 일반 화살 (오크는 더 눈에 띄는 주황색 계열 적용)
                     ctx.strokeStyle = p.team === 0 ? "#e5e7eb" : "#fb923c";
