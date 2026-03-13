@@ -88,15 +88,7 @@ const Home: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex flex-col items-center md:items-end gap-2">
-                        <p className="text-slate-500 text-xs uppercase tracking-widest font-semibold">
-                            {t('footer.contact')}
-                        </p>
-                        <a
-                            href="mailto:fhdls429@gmail.com"
-                            className="text-slate-300 hover:text-cyan-400 transition-colors duration-200 text-sm font-medium"
-                        >
-                            fhdls429@gmail.com
-                        </a>
+                        {/* Contact information removed per user request */}
                     </div>
                 </div>
                 <div className="max-w-6xl mx-auto mt-8 pt-8 border-t border-white/5 text-center">
