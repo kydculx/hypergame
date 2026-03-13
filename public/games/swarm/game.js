@@ -724,6 +724,18 @@ class Projectile {
             }
             // 이펙트는 타겟이 죽었어도 해당 위치에서 발생
             EffectSystem.addHitEffect({ x: this.x, y: this.y, team: this.team }, this.isCannon, this.isMagic);
+            
+            // 화살비 전용 추가 충격 이펙트
+            if (this.isArrowRain) {
+                for (let i = 0; i < 5; i++) {
+                    EffectSystem.addParticle(this.x, this.y, "#fff", {
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        life: 15,
+                        max: 15
+                    });
+                }
+            }
         }
         this.active = false;
     }
@@ -1564,17 +1576,23 @@ const FormationManager = {
                     }
                 };
 
-                // 투사체 발사 (성 위쪽에서 날아가는 느낌)
+                // 투사체 발사 (하늘 위에서 쏟아지는 느낌)
+                // 성 위쪽(base.y - 100)보다 훨씬 높은 곳에서 무작위로 생성
+                const startX = base.x + 20 + (Math.random() - 0.5) * 100;
+                const startY = base.y - 100 + (Math.random() - 0.5) * 50;
+                const startZ = 400 + Math.random() * 300; // 고도를 400~700 사이로 대폭 높임
+
                 const arrow = new Projectile({
-                    x: base.x + 20,
-                    y: base.y - 100,
-                    height: 80,
+                    x: startX,
+                    y: startY,
+                    height: startZ, // Projectile 생성자에서 startZ로 활용됨
                     team: 0,
                     type: UNIT_TYPES.RANGED,
                     damage: config.damage
                 }, dummyTarget);
 
-                arrow.speed = 8 + Math.random() * 4;
+                arrow.isArrowRain = true;
+                arrow.speed = 10 + Math.random() * 5; // 낙하 속도 증가
                 EntityManager.projectiles.push(arrow);
 
                 // 발사음 제거됨
@@ -1896,19 +1914,40 @@ const Renderer = {
                 ctx.fillRect(p.x - hsz, p.y - p.z - hsz * 2, hsz * 2, hsz * 4);
                 ctx.fillRect(p.x - hsz * 2, p.y - p.z - hsz, hsz * 4, hsz * 2);
             } else if (p.type === UNIT_TYPES.RANGED && !p.isCannon) {
-                // 가느다란 화살 표현 (오크는 더 눈에 띄는 주황색 계열 적용)
-                ctx.strokeStyle = p.team === 0 ? "#e5e7eb" : "#fb923c";
-                ctx.lineWidth = 2.5;
+                // 가느다란 화살 표현
                 ctx.translate(p.x, p.y - p.z);
-                ctx.rotate(p.visualAngle); // 화면상의 실제 이동 각도로 회전
+                ctx.rotate(p.visualAngle);
 
-                ctx.beginPath();
-                ctx.moveTo(-6, 0); ctx.lineTo(6, 0); // 화살 몸통
-                ctx.stroke();
+                if (p.isArrowRain) {
+                    // 화살비 전용 연출: 더 길고 잔상이 남는 듯한 효과 (Motion Blur)
+                    const length = 15 + Math.random() * 5;
+                    const gradient = ctx.createLinearGradient(-length, 0, length, 0);
+                    gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+                    gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.8)");
+                    gradient.addColorStop(1, "#fff");
+                    
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(-length, 0); ctx.lineTo(length, 0);
+                    ctx.stroke();
 
-                // 화살촉 (작은 점 또는 선)
-                ctx.fillStyle = p.team === 0 ? "#94a3b8" : "#ea580c";
-                ctx.fillRect(5, -1, 3, 2);
+                    // 화살촉에 약간의 빛
+                    ctx.shadowColor = "#fff"; ctx.shadowBlur = 5;
+                    ctx.fillStyle = "#fff";
+                    ctx.fillRect(length - 2, -1.5, 4, 3);
+                } else {
+                    // 일반 화살 (오크는 더 눈에 띄는 주황색 계열 적용)
+                    ctx.strokeStyle = p.team === 0 ? "#e5e7eb" : "#fb923c";
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-6, 0); ctx.lineTo(6, 0); // 화살 몸통
+                    ctx.stroke();
+
+                    // 화살촉 (작은 점 또는 선)
+                    ctx.fillStyle = p.team === 0 ? "#94a3b8" : "#ea580c";
+                    ctx.fillRect(5, -1, 3, 2);
+                }
             }
             else {
                 ctx.fillStyle = p.isCannon ? (p.team === 0 ? "#93c5fd" : "#fda4af") : (p.team === 0 ? "#22d3ee" : "#f97316");
