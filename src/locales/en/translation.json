@@ -36,7 +36,9 @@
   },
   "player": {
     "rotate_title": "Please rotate to Portrait",
-    "rotate_desc": "This game is optimized for portrait mode."
+    "rotate_desc": "This game is optimized for portrait mode.",
+    "rotate_landscape_title": "Please rotate to Landscape",
+    "rotate_landscape_desc": "This game is optimized for landscape mode."
   },
   "auth": {
     "login": "Login",

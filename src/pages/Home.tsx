@@ -6,7 +6,6 @@ import { GameGrid } from '../components/layout/GameGrid';
 import { PortalBackground } from '../components/layout/PortalBackground';
 import { useTranslation } from 'react-i18next';
 import { HallOfFame } from '../components/layout/HallOfFame';
-import { KakaoAdFit } from '../components/layout/KakaoAdFit';
 import ChatWindow from '../components/chat/ChatWindow';
 
 
@@ -22,8 +21,11 @@ const Home: React.FC = () => {
         if (!isMobile) {
             // Calculate center position
             const isLandscape = game.orientation === 'landscape';
-            const width = isLandscape ? 854 : 480;
-            const height = isLandscape ? 480 : 854;
+            const gConfig = (window as any).WCGamesConfig?.GAME_DIMENSIONS || {};
+            const defaults = isLandscape ? (gConfig.LANDSCAPE || { width: 854, height: 480 }) : (gConfig.PORTRAIT || { width: 480, height: 854 });
+            
+            const width = game.width || defaults.width;
+            const height = game.height || defaults.height;
             const left = (window.screen.width / 2) - (width / 2);
             const top = (window.screen.height / 2) - (height / 2);
 
@@ -72,7 +74,6 @@ const Home: React.FC = () => {
             </section>
 
             <HallOfFame />
-            <KakaoAdFit type="desktop" />
             <div id="game-grid">
                 <GameGrid games={games} onGameSelect={handlePlay} />
             </div>

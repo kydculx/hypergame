@@ -1,16 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Define interface for global config
-interface WCGamesConfig {
-    SUPABASE_URL?: string;
-    SUPABASE_ANON_KEY?: string;
-}
-
-declare global {
-    interface Window {
-        WCGamesConfig?: WCGamesConfig;
-    }
-}
+// WCGamesConfig is now defined in src/types/wcgames.d.ts
 
 const config = window.WCGamesConfig || {};
 const supabaseUrl = config.SUPABASE_URL;

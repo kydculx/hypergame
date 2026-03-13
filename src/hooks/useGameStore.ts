@@ -10,6 +10,8 @@ export interface Game {
   categoryId: 'action' | 'puzzle' | 'casual';
   sortOrder?: 'asc' | 'desc'; // 'desc' is default (higher is better)
   orientation?: 'portrait' | 'landscape'; // 'portrait' is default if not specified
+  width?: number;
+  height?: number;
 }
 
 export interface ScoreEntry {

@@ -36,7 +36,9 @@
   },
   "player": {
     "rotate_title": "세로 모드로 돌려주세요",
-    "rotate_desc": "이 게임은 세로 모드에 최적화되어 있습니다."
+    "rotate_desc": "이 게임은 세로 모드에 최적화되어 있습니다.",
+    "rotate_landscape_title": "가로 모드로 돌려주세요",
+    "rotate_landscape_desc": "이 게임은 가로 모드에 최적화되어 있습니다."
   },
   "auth": {
     "login": "로그인",

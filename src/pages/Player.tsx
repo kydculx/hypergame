@@ -3,7 +3,6 @@ import { useGameStore } from '../hooks/useGameStore';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { KakaoAdFit } from '../components/layout/KakaoAdFit';
 import { useUserStore } from '../hooks/useUserStore';
 import Leaderboard from '../components/Leaderboard';
 
@@ -19,6 +18,23 @@ const Player: React.FC = () => {
   const [sessionKey] = useState(() => Math.random().toString(36).substring(2, 15));
   const [isLandscape, setIsLandscape] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+
+  // Resolution & Orientation Helper
+  const getGameDimensions = () => {
+    if (!currentGame) return { width: 480, height: 854, orientation: 'portrait' as const };
+
+    const isLandscape = currentGame.orientation === 'landscape';
+    const gConfig = window.WCGamesConfig?.GAME_DIMENSIONS;
+    const defaults = isLandscape
+      ? (gConfig?.LANDSCAPE || { width: 854, height: 480 })
+      : (gConfig?.PORTRAIT || { width: 480, height: 854 });
+
+    return {
+      width: currentGame.width || defaults.width,
+      height: currentGame.height || defaults.height,
+      orientation: currentGame.orientation || 'portrait'
+    };
+  };
 
   // Check orientation mismatch
   useEffect(() => {
@@ -38,34 +54,11 @@ const Player: React.FC = () => {
     window.addEventListener('resize', checkOrientation);
     window.addEventListener('orientationchange', checkOrientation);
 
-    // Hard-fix for popup window size (snap-back)
-    const enforcePopupSize = () => {
-      const isPopup = new URLSearchParams(window.location.hash.split('?')[1]).get('popup') === 'true';
-      if (isPopup && currentGame) {
-        const isGameLandscape = currentGame.orientation === 'landscape';
-        const targetWidth = isGameLandscape ? 854 : 480;
-        const targetHeight = isGameLandscape ? 480 : 854;
-        
-        // Check outer size with a threshold to avoid minor rounding differences causing loops
-        const widthDiff = Math.abs(window.outerWidth - targetWidth);
-        const heightDiff = Math.abs(window.outerHeight - targetHeight);
-
-        if (widthDiff > 10 || heightDiff > 10) {
-          window.resizeTo(targetWidth, targetHeight);
-        }
-      }
-    };
-
-    if (window.location.hash.includes('popup=true')) {
-      window.addEventListener('resize', enforcePopupSize);
-    }
-
     return () => {
       window.removeEventListener('resize', checkOrientation);
       window.removeEventListener('orientationchange', checkOrientation);
-      window.removeEventListener('resize', enforcePopupSize);
     };
-  }, []);
+  }, [currentGame]);
 
   // If page is refreshed, find the game from store
   useEffect(() => {
@@ -147,52 +140,71 @@ const Player: React.FC = () => {
   const [searchParams] = useSearchParams();
   const isPopup = searchParams.get('popup') === 'true';
 
+  // Robust Handheld (Phone/Tablet) Detection
+  const isHandheld = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0 && window.innerWidth < 1366);
+
   if (!currentGame) return null;
   const userEmail = user?.email || '';
-  
+
   const gameUrlWithKey = currentGame.gameUrl.includes('?')
     ? `${currentGame.gameUrl}&sk=${sessionKey}&u=${encodeURIComponent(userEmail)}`
     : `${currentGame.gameUrl}?sk=${sessionKey}&u=${encodeURIComponent(userEmail)}`;
 
   // If it's a popup, we want it to fill the entire window without the "mobile box" styling
-  const isGameLandscape = currentGame.orientation === 'landscape';
-  const targetWidthStr = isGameLandscape ? "854px" : "480px";
-  const targetHeightStr = isGameLandscape ? "480px" : "854px";
-  const aspectRatioClass = isGameLandscape ? "md:aspect-[16/9]" : "md:aspect-[9/16]";
-  const maxWidthClass = isGameLandscape ? "md:max-w-[854px]" : "md:max-w-[480px]";
-  const maxHeightClass = isGameLandscape ? "md:max-h-[480px]" : "md:max-h-[800px]";
+  const dims = getGameDimensions();
+
+  const containerStyle = isPopup
+    ? {
+      width: `${dims.width}px`,
+      height: `${dims.height}px`,
+      minWidth: `${dims.width}px`,
+      minHeight: `${dims.height}px`,
+      flexShrink: 0,
+      margin: 'auto'
+    }
+    : (isHandheld ? {
+      width: '100%',
+      height: '100%',
+    } : {
+      aspectRatio: `${dims.width} / ${dims.height}`,
+      maxWidth: `${dims.width}px`,
+      maxHeight: `min(90vh, ${dims.height}px)`,
+      overscrollBehavior: 'none' as const,
+      touchAction: 'none' as const
+    });
 
   const containerClasses = isPopup
-    ? `relative w-[${targetWidthStr}] h-[${targetHeightStr}] bg-black flex flex-col shadow-2xl ring-1 ring-white/10`
-    : `relative w-full h-full md:h-[90vh] ${maxHeightClass} md:w-auto ${aspectRatioClass} ${maxWidthClass} bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden`;
+    ? `relative bg-black flex flex-col shadow-[0_0_100px_rgba(0,0,0,0.5)] ring-1 ring-white/10`
+    : (isHandheld
+      ? `relative w-full h-full bg-black flex flex-col overflow-hidden`
+      : `relative w-full h-full md:h-auto bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden`);
 
   const wrapperClasses = isPopup
-    ? "fixed inset-0 bg-[#05060f] flex items-center justify-center overflow-hidden overscroll-none touch-none"
-    : "fixed inset-0 bg-[#05060f] flex justify-center md:items-center overflow-hidden overscroll-none touch-none";
+    ? "fixed inset-0 bg-[#05060f] flex items-center justify-center overflow-hidden overscroll-none"
+    : (isHandheld
+      ? "fixed inset-0 bg-black flex flex-col overflow-hidden overscroll-none touch-none"
+      : "fixed inset-0 bg-[#05060f] flex justify-center md:items-center overflow-hidden overscroll-none touch-none");
 
   return (
     <div className={wrapperClasses}>
       <div
         className={containerClasses}
-        style={{
-          overscrollBehavior: 'none',
-          touchAction: 'none'
-        }}
+        style={containerStyle}
       >
         {/* Rotation Overlay - Shows only when orientation mismatch occurs */}
         {isLandscape && (
           <div className="fixed inset-0 z-[100] bg-[#0A0B1A] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-            <div className={`mb-6 text-cyan-400 animate-bounce ${isGameLandscape ? 'rotate-90' : ''}`}>
+            <div className={`mb-6 text-cyan-400 animate-bounce ${dims.orientation === 'landscape' ? 'rotate-90' : ''}`}>
               <svg className="w-20 h-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
                 <path d="M12 18h.01" />
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">
-              {isGameLandscape ? t('player.rotate_landscape_title', 'Rotate to Landscape') : t('player.rotate_title')}
+              {dims.orientation === 'landscape' ? t('player.rotate_landscape_title') : t('player.rotate_title')}
             </h2>
             <p className="text-gray-400">
-              {isGameLandscape ? t('player.rotate_landscape_desc', 'Please rotate your device to play in landscape mode.') : t('player.rotate_desc')}
+              {dims.orientation === 'landscape' ? t('player.rotate_landscape_desc') : t('player.rotate_desc')}
             </p>
           </div>
         )}
@@ -202,8 +214,8 @@ const Player: React.FC = () => {
           <div
             className="pointer-events-none absolute inset-0 z-50 flex flex-col justify-start items-end"
             style={{
-              paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
-              paddingRight: 'calc(env(safe-area-inset-right) + 1rem)',
+              paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
+              paddingRight: 'calc(env(safe-area-inset-right) + 0.5rem)',
             }}
           >
             {/* Close Button - Now positioned relative to Safe Area */}
@@ -211,7 +223,7 @@ const Player: React.FC = () => {
               onClick={() => navigate('/')}
               className="pointer-events-auto p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-all backdrop-blur-sm"
             >
-              <X size={24} />
+              <X size={20} />
             </button>
           </div>
         )}
@@ -225,11 +237,7 @@ const Player: React.FC = () => {
             allow="autoplay; fullscreen"
           />
         </div>
-        
-        {/* Mobile Kakao AdFit (320x50) at the bottom */}
-        {!isPopup && (
-          <KakaoAdFit type="mobile" />
-        )}
+
       </div>
 
       {/* Leaderboard Modal */}
