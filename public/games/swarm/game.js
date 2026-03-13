@@ -649,35 +649,48 @@ class Projectile {
         this.isHeal = this.type === UNIT_TYPES.HEALER;
         this.isMagic = this.type === UNIT_TYPES.MAGE;
         this.isCannon = source.isCannon || (source === EntityManager.playerBase); // 기지 포탄은 캐논 처리
+        
+        // 타겟 유실 대비용 마지막 위치 저장
+        this.lastTargetX = target.x;
+        this.lastTargetY = target.y;
+        this.targetH = targetH;
         this.active = true;
     }
 
     update() {
-        if (!this.target || this.target.hp <= 0) { this.active = false; return; }
+        // 타겟이 유효한지 확인
+        const isTargetValid = this.target && this.target.hp > 0;
+        
+        // 타겟이 유효하면 마지막 위치 갱신, 아니면 마지막 위치 사용
+        const tx = isTargetValid ? this.target.x : this.lastTargetX;
+        const ty = isTargetValid ? this.target.y : this.lastTargetY;
+        
+        if (isTargetValid) {
+            this.lastTargetX = tx;
+            this.lastTargetY = ty;
+        }
 
         // 이전 위치 저장 (각도 계산용)
         const prevX = this.x, prevY = this.y, prevZ = this.z;
 
-        const dx = this.target.x - this.x, dy = this.target.y - this.y;
+        const dx = tx - this.x, dy = ty - this.y;
         const d = Math.hypot(dx, dy);
 
         if (d < this.speed) {
-            this.hit(); // 명중
+            this.hit(); // 명중 (타겟이 없어도 해당 위치 도달 시 처리)
         } else {
             this.x += (dx / d) * this.speed;
             this.y += (dy / d) * this.speed;
 
-            // 포물선 궤적(Z) 계산 (시작/종료 높이 보정 포함)
-            const total = Math.hypot(this.target.x - this.sx, this.target.y - this.sy);
+            // 포물선 궤적(Z) 계산
+            const total = Math.hypot(tx - this.sx, ty - this.sy);
             const curr = Math.hypot(this.x - this.sx, this.y - this.sy);
             const p = Math.max(0, Math.min(1, curr / Math.max(1, total)));
             const peak = Math.min(60, Math.max(15, total * 0.25));
 
-            // 선형 보정 + 포물선 곡선
             const baseZ = (this.startZ * (1 - p)) + (this.endZ * p);
             this.z = baseZ + (peak * 4 * p * (1 - p));
 
-            // 현재 이동 각도 계산 (3D 궤적 고려하여 화면상의 실제 각도 산출)
             if (this.type === UNIT_TYPES.RANGED || this.isCannon) {
                 const visualY = this.y - this.z;
                 const prevVisualY = prevY - prevZ;
@@ -693,17 +706,24 @@ class Projectile {
      */
     hit() {
         const target = this.target;
+        const isTargetAlive = target && target.hp > 0;
+
         if (this.isHeal) {
-            target.hp = Math.min(target.maxHp, target.hp + Math.abs(this.damage));
-            EffectSystem.addHealEffect(target);
-        } else {
-            // takeDamage 호출로 반격 AI 발동 유도
-            if (target.takeDamage) {
-                target.takeDamage(this.damage, this.source);
-            } else {
-                target.hp = Math.max(0, target.hp - this.damage);
+            if (isTargetAlive) {
+                target.hp = Math.min(target.maxHp, target.hp + Math.abs(this.damage));
+                EffectSystem.addHealEffect(target);
             }
-            EffectSystem.addHitEffect(target, this.isCannon, this.isMagic);
+        } else {
+            if (isTargetAlive) {
+                // takeDamage 호출로 반격 AI 발동 유도
+                if (target.takeDamage) {
+                    target.takeDamage(this.damage, this.source);
+                } else {
+                    target.hp = Math.max(0, target.hp - this.damage);
+                }
+            }
+            // 이펙트는 타겟이 죽었어도 해당 위치에서 발생
+            EffectSystem.addHitEffect({ x: this.x, y: this.y, team: this.team }, this.isCannon, this.isMagic);
         }
         this.active = false;
     }
