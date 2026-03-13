@@ -1576,11 +1576,11 @@ const FormationManager = {
                     }
                 };
 
-                // 투사체 발사 (하늘 위에서 쏟아지는 느낌)
-                // 성 위쪽(base.y - 100)보다 훨씬 높은 곳에서 무작위로 생성
-                const startX = base.x + 20 + (Math.random() - 0.5) * 100;
-                const startY = base.y - 100 + (Math.random() - 0.5) * 50;
-                const startZ = 400 + Math.random() * 300; // 고도를 400~700 사이로 대폭 높임
+                // 투사체 발사 (성의 타워에서 날아가는 느낌으로 위치 조정)
+                // 좌우 타워와 성벽 위치를 고려하여 랜덤 오프셋 부여
+                const startX = base.x + (Math.random() > 0.5 ? -40 : 60);
+                const startY = base.y - 80 + (Math.random() - 0.5) * 30;
+                const startZ = 150 + Math.random() * 50; // 성벽/타워 높이
 
                 const arrow = new Projectile({
                     x: startX,
