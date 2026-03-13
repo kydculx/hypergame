@@ -1723,6 +1723,9 @@
 
                 DrawInitFloor();
                 document.getElementById('game-over').classList.remove('visible');
+
+                // Resume the core engine loop
+                LogicMainLoop();
             }
         });
 
