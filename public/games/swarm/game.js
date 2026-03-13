@@ -75,7 +75,7 @@ const CONFIG = {
     // 조작 관련 설정
     control: {
         moveOffset: 40,      // 이동 명령 시 분산 거리
-        baseBuffer: 100,      // 기지 정지 거리 버퍼
+        playerMoveLimitRatio: 0.5, // 아군 이동 가능 범위 (화면 너비 대비 백분율, 0.5 = 50%)
         returnOffset: 50     // 전투 후 복귀 시 무작위 분산 범위 (자연스러운 배치용)
     },
     // 진형 설정
@@ -128,6 +128,23 @@ const CONFIG = {
                 { type: UNIT_TYPES.MELEE, count: 20 },
                 { type: UNIT_TYPES.MAGE, count: 10 }
             ]
+        }
+        // 스킬 설정
+    },
+    skills: {
+        arrowRain: {
+            id: 'arrow-rain',
+            damage: 3,          // 데미지
+            count: 100,         // 최대 보유 화살 수 (Ammo Capacity)
+            unlockTime: 60 * 3,      // 해금 시간
+            minRangeRatio: 0.3, // 가로발사 최소범위
+            maxRangeRatio: 0.85,    // 가로발사 최대범위
+            minYRatio: 0.3,     // 세로발사 최소범위
+            maxYRatio: 0.7,     // 세로발사 최대범위
+            interval: 50,       // 발사 간격
+            rechargeRate: 1.0,   // 초당 충전되는 화살 수 (상승 조정)
+            minLaunchAmmo: 1,    // 발사를 위해 필요한 최소 화살 수
+            accuracy: 0.9        // 적군 조준 확률 (0.7 = 70%)
         }
     }
 };
@@ -497,9 +514,9 @@ class Unit {
             }
         }
 
-        // 소프트 경계선 적용: 자동 전진(state 0) 상태인 경우에만 화면 끝에서 멈춰 서게 함
+        // 소프트 경계선 적용: 자동 전진(state 0) 상태인 경우에만 설정된 비율(예: 50%)에서 멈춰 서게 함
         // 이를 통해 반격(state 2)이나 명령 이동(state 1) 시에는 자유로운 움직임을 보장하여 순간이동을 방지
-        const rightLimit = Engine.canvas.width - CONFIG.control.baseBuffer;
+        const rightLimit = Engine.canvas.width * CONFIG.control.playerMoveLimitRatio;
         if (this.team === 0 && this.state === 0 && this.x >= rightLimit && this.vx > 0) {
             this.vx = 0;
         }
@@ -1054,9 +1071,8 @@ const CombatSystem = {
             }
         }
 
-        // 플레이어 유닛 경계선 설정
-        const baseBuffer = CONFIG.control.baseBuffer;
-        const rightLimit = Engine.canvas.width - baseBuffer;
+        // 플레이어 유닛 경계선 설정 (화면 너비 대비 비율)
+        const rightLimit = Engine.canvas.width * CONFIG.control.playerMoveLimitRatio;
 
         // 적 처치 및 타겟 유실 시 상태 전환은 매 프레임 체크 (반응성 향상)
         if (u.state === 2) {
@@ -1257,9 +1273,21 @@ const FormationManager = {
     cooldowns: {},
 
     init() {
-        // 모든 진형의 쿨타임을 0으로 초기화
+        this.cooldowns = {};
+        this.unlocks = {};
+        this.skillAmmo = {};
+
+        // 모든 진형 초기화
         for (const key in CONFIG.formations) {
             this.cooldowns[key] = 0;
+            this.unlocks[key] = false;
+        }
+        // 스킬 초기화
+        for (const key in CONFIG.skills) {
+            const skill = CONFIG.skills[key];
+            this.cooldowns[skill.id] = 0;
+            this.unlocks[skill.id] = false;
+            this.skillAmmo[skill.id] = 0;
         }
         // 자동 강화 쿨타임 초기화
         this.cooldowns['auto-upgrade'] = 0;
@@ -1280,16 +1308,11 @@ const FormationManager = {
             const isLocked = elapsedSeconds < config.unlockTime;
 
             if (isLocked) {
-                // 해금 시간 전이면 버튼 비활성화 및 잠금 표시 처리
                 if (!btn.disabled) btn.disabled = true;
                 if (!btn.classList.contains('locked')) btn.classList.add('locked');
-
-                // 남은 해금 시간 표시 (선택 사항: 필요 시 overlay나 텍스트로 추가 가능)
-                this.updateUI(key, true); // true: 잠금 모드로 그리기
+                this.updateUI(key, true);
             } else {
-                // 해금된 경우
                 if (btn.classList.contains('locked')) btn.classList.remove('locked');
-
                 if (this.cooldowns[key] > 0) {
                     this.cooldowns[key]--;
                     this.updateUI(key);
@@ -1298,6 +1321,42 @@ const FormationManager = {
                         btn.disabled = false;
                         this.updateUI(key);
                     }
+                }
+            }
+        }
+
+        // 스킬 쿨타임 및 해금 처리
+        for (const key in CONFIG.skills) {
+            const config = CONFIG.skills[key];
+            const btn = document.getElementById(`btn-${config.id}`);
+            if (!btn) continue;
+
+            const elapsedSeconds = Engine.frames / 60;
+            const isLocked = elapsedSeconds < config.unlockTime;
+
+            if (isLocked) {
+                if (!btn.disabled) btn.disabled = true;
+                if (!btn.classList.contains('locked')) btn.classList.add('locked');
+                this.updateUI(config.id, true);
+            } else {
+                if (btn.classList.contains('locked')) btn.classList.remove('locked');
+                this.unlocks[config.id] = true;
+
+                // 화살 충전 로직 (해금된 상태에서만)
+                const currentAmmo = this.skillAmmo[config.id] || 0;
+                if (currentAmmo < config.count) {
+                    this.skillAmmo[config.id] = Math.min(config.count, currentAmmo + config.rechargeRate / 60);
+                }
+
+                if (this.cooldowns[config.id] > 0) {
+                    this.cooldowns[config.id]--;
+                    this.updateUI(config.id);
+                } else {
+                    if (btn.disabled) {
+                        btn.disabled = false;
+                    }
+                    // 잔탄수 등 실시간 UI 동기화
+                    this.updateUI(config.id);
                 }
             }
         }
@@ -1359,19 +1418,121 @@ const FormationManager = {
         if (!btn) return;
         const circle = btn.querySelector('.cooldown-circle');
         if (circle) {
-            const config = CONFIG.formations[key];
+            // formations 또는 skills에서 설정을 찾음
+            let config = CONFIG.formations[key];
+            if (!config) {
+                for (const sKey in CONFIG.skills) {
+                    if (CONFIG.skills[sKey].id === key) {
+                        config = CONFIG.skills[sKey];
+                        break;
+                    }
+                }
+            }
+            if (!config) return;
+
             const circumference = 120; // Approximately 2 * PI * 19
 
             if (isInitialLock) {
-                // 해금 대기 중일 때는 원형을 꽉 채워둠
                 circle.style.strokeDashoffset = 0;
-                circle.style.stroke = 'rgba(255, 255, 255, 0.2)'; // 더 흐리게
+                circle.style.stroke = 'rgba(255, 255, 255, 0.2)';
             } else {
-                const maxTicks = config.cooldown * 60;
-                const progress = this.cooldowns[key] / maxTicks;
-                circle.style.strokeDashoffset = circumference * progress;
-                circle.style.stroke = ''; // 기본값 복구
+                // cooldown이 있는 경우에만 프로그레스 표시 (화살 비처럼 없는 경우는 full로 유지)
+                if (config.cooldown) {
+                    const maxTicks = config.cooldown * 60;
+                    const progress = this.cooldowns[key] / maxTicks;
+                    circle.style.strokeDashoffset = circumference * progress;
+                } else {
+                    circle.style.strokeDashoffset = 0;
+                }
+                circle.style.stroke = '';
             }
+        }
+
+        // 스킬인 경우 잔탄수 표시 업데이트
+        if (key === 'arrow-rain') {
+            const container = btn.parentElement;
+            const ammoDisplay = container ? container.querySelector('.ammo-count') : null;
+            if (ammoDisplay) {
+                ammoDisplay.textContent = Math.floor(this.skillAmmo[key] || 0);
+            }
+        }
+    },
+
+    /**
+     * 화살 비 스킬 발사
+     */
+    triggerArrowRain() {
+        if (!Engine.isStarted || Engine.isGameOver) return;
+        const config = CONFIG.skills.arrowRain;
+
+        // 해금 여부 확인
+        if (!this.unlocks[config.id]) return;
+
+        // 최소 발사 수 확인 (Math.floor 사용)
+        const availableAmmo = Math.floor(this.skillAmmo[config.id] || 0);
+        if (availableAmmo < config.minLaunchAmmo) return;
+
+        const base = EntityManager.playerBase;
+
+        // 잔탄 모두 사용
+        const launchCount = availableAmmo;
+        this.skillAmmo[config.id] = 0;
+
+        // 화살 퍼붓기 효과
+        for (let i = 0; i < launchCount; i++) {
+            setTimeout(() => {
+                if (!Engine.isStarted || Engine.isGameOver) return;
+
+                // 지능적 타겟팅: 적군 부대(team 1)가 있는 곳을 우선적으로 조준
+                const enemies = EntityManager.units.filter(u => u.team === 1 && u.hp > 0);
+
+                let tx, ty;
+                // 설정된 확률(accuracy)에 따라 생존한 적군 중 한 명의 위치를 조준
+                if (enemies.length > 0 && Math.random() < config.accuracy) {
+                    const targetEnemy = enemies[Math.floor(Math.random() * enemies.length)];
+                    // 적의 위치 주변으로 약간의 흩뿌림 효과(jitter) 추가
+                    tx = targetEnemy.x + (Math.random() - 0.5) * 40;
+                    ty = targetEnemy.y + (Math.random() - 0.5) * 40;
+                } else {
+                    // 30% 확률 또는 적이 없을 때는 기존처럼 설정된 범위 내 랜덤 조준
+                    const minX = Engine.canvas.width * config.minRangeRatio;
+                    const maxX = Engine.canvas.width * config.maxRangeRatio;
+                    tx = minX + Math.random() * (maxX - minX);
+
+                    const combatTop = base.y + CONFIG.layout.combatOffset.top;
+                    const combatHeight = CONFIG.layout.combatOffset.bottom - CONFIG.layout.combatOffset.top;
+                    const minY = combatTop + combatHeight * config.minYRatio;
+                    const maxY = combatTop + combatHeight * config.maxYRatio;
+                    ty = minY + Math.random() * (maxY - minY);
+                }
+
+                // 가상의 타겟 생성
+                const dummyTarget = {
+                    x: tx, y: ty, hp: 1,
+                    takeDamage: (dmg) => {
+                        // 범위 데미지 처리 (피격 시점에 반경 내 적들에게 데미지)
+                        EntityManager.units.filter(u => u.team === 1 && u.hp > 0 && Math.hypot(u.x - tx, u.y - ty) < 50).forEach(u => {
+                            u.takeDamage(dmg);
+                        });
+                    }
+                };
+
+                // 투사체 발사 (성 위쪽에서 날아가는 느낌)
+                const arrow = new Projectile({
+                    x: base.x + 20,
+                    y: base.y - 100,
+                    height: 80,
+                    team: 0,
+                    type: UNIT_TYPES.RANGED,
+                    damage: config.damage
+                }, dummyTarget);
+
+                arrow.speed = 8 + Math.random() * 4;
+                EntityManager.projectiles.push(arrow);
+
+                // 발사음
+                if (i % 5 === 0) WCGames.Audio.play([800, 1200], 'sine', 0.05, 0.05);
+            }, i * config.interval);
         }
     },
 
