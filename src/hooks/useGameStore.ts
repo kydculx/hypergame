@@ -9,6 +9,7 @@ export interface Game {
   gameUrl: string;
   categoryId: 'action' | 'puzzle' | 'casual';
   sortOrder?: 'asc' | 'desc'; // 'desc' is default (higher is better)
+  orientation?: 'portrait' | 'landscape'; // 'portrait' is default if not specified
 }
 
 export interface ScoreEntry {
@@ -53,74 +54,86 @@ export const useGameStore = create<GameState>()(
           thumbnailUrl: 'games/2048/thumb.svg',
           gameUrl: 'games/2048/index.html',
           categoryId: 'puzzle',
+          orientation: 'portrait'
         },
         {
           id: 'stack-tower',
           thumbnailUrl: 'games/stack/thumb.svg',
           gameUrl: 'games/stack/index.html',
           categoryId: 'casual',
+          orientation: 'portrait'
         },
         {
           id: 'zigzag',
           thumbnailUrl: 'games/zigzag/thumb.svg',
           gameUrl: 'games/zigzag/index.html',
           categoryId: 'casual',
+          orientation: 'portrait'
         },
         {
           id: 'jump',
           thumbnailUrl: 'games/jump/thumb.png',
           gameUrl: 'games/jump/index.html',
           categoryId: 'casual',
+          orientation: 'portrait'
         },
         {
           id: 'neon-breakout',
           thumbnailUrl: 'games/breakout/thumb.svg',
           gameUrl: 'games/breakout/index.html',
           categoryId: 'action',
+          orientation: 'portrait'
         },
         {
           id: 'helix',
           thumbnailUrl: 'games/helix/thumb.png',
           gameUrl: 'games/helix/index.html',
           categoryId: 'casual',
+          orientation: 'portrait'
         },
         {
           id: 'speedrush',
           thumbnailUrl: 'games/speedrush/thumb.png',
           gameUrl: 'games/speedrush/index.html',
           categoryId: 'action',
+          orientation: 'portrait'
         },
         {
           id: 'domino',
           thumbnailUrl: 'games/domino/thumb.svg',
           gameUrl: 'games/domino/index.html',
           categoryId: 'puzzle',
+          orientation: 'portrait'
         },
         {
           id: 'minesweeper',
           thumbnailUrl: 'games/minesweeper/thumb.png',
           gameUrl: 'games/minesweeper/index.html',
           categoryId: 'puzzle',
-          sortOrder: 'asc'
+          sortOrder: 'asc',
+          orientation: 'portrait'
         },
         {
           id: 'bulletdodge',
           thumbnailUrl: 'games/bulletdodge/thumb.png',
           gameUrl: 'games/bulletdodge/index.html',
           categoryId: 'action',
+          orientation: 'portrait'
         },
         {
           id: 'swarm',
           thumbnailUrl: 'games/swarm/thumb.png',
           gameUrl: 'games/swarm/index.html',
           categoryId: 'action',
+          orientation: 'portrait'
         },
         {
           id: 'solitaire',
           thumbnailUrl: 'games/solitaire/thumb.png',
           gameUrl: 'games/solitaire/index.html',
           categoryId: 'puzzle',
-          sortOrder: 'asc' // Lower time is better
+          sortOrder: 'asc', // Lower time is better
+          orientation: 'portrait'
         },
 
       ],

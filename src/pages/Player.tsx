@@ -20,12 +20,15 @@ const Player: React.FC = () => {
   const [isLandscape, setIsLandscape] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
-  // Check orientation
+  // Check orientation mismatch
   useEffect(() => {
     const checkOrientation = () => {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        setIsLandscape(window.innerWidth > window.innerHeight);
+      if (isMobile && currentGame) {
+        const deviceIsLandscape = window.innerWidth > window.innerHeight;
+        const gameNeedsLandscape = currentGame.orientation === 'landscape';
+        // Mismatch if game is portrait but device is landscape, OR game is landscape but device is portrait
+        setIsLandscape(gameNeedsLandscape ? !deviceIsLandscape : deviceIsLandscape);
       } else {
         setIsLandscape(false);
       }
@@ -36,15 +39,13 @@ const Player: React.FC = () => {
     window.addEventListener('orientationchange', checkOrientation);
 
     // Hard-fix for popup window size (snap-back)
-    // - [x] Enforce fixed window size via `window.resizeTo`
-    // - [x] Implement "Letterbox" fallback for strict dimensions
-    // - [x] Remove all scrollbars from popup mode
-    // - [x] Verify unresizable behavior across browsers
     const enforcePopupSize = () => {
       const isPopup = new URLSearchParams(window.location.hash.split('?')[1]).get('popup') === 'true';
-      if (isPopup) {
-        const targetWidth = 480;
-        const targetHeight = 854;
+      if (isPopup && currentGame) {
+        const isGameLandscape = currentGame.orientation === 'landscape';
+        const targetWidth = isGameLandscape ? 854 : 480;
+        const targetHeight = isGameLandscape ? 480 : 854;
+        
         // Check outer size with a threshold to avoid minor rounding differences causing loops
         const widthDiff = Math.abs(window.outerWidth - targetWidth);
         const heightDiff = Math.abs(window.outerHeight - targetHeight);
@@ -74,11 +75,11 @@ const Player: React.FC = () => {
       else navigate('/');
     }
 
-    // Attempt to lock orientation to portrait
+    // Attempt to lock orientation
     const lockOrientation = async () => {
       try {
-        if (screen.orientation && (screen.orientation as any).lock) {
-          await (screen.orientation as any).lock('portrait');
+        if (screen.orientation && (screen.orientation as any).lock && currentGame) {
+          await (screen.orientation as any).lock(currentGame.orientation || 'portrait');
         }
       } catch {
         // Orientation lock is not supported on most desktop browsers
@@ -154,10 +155,16 @@ const Player: React.FC = () => {
     : `${currentGame.gameUrl}?sk=${sessionKey}&u=${encodeURIComponent(userEmail)}`;
 
   // If it's a popup, we want it to fill the entire window without the "mobile box" styling
-  // We use a fixed width/height for the container to ensure it stays 480x854 even if the window is resized
+  const isGameLandscape = currentGame.orientation === 'landscape';
+  const targetWidthStr = isGameLandscape ? "854px" : "480px";
+  const targetHeightStr = isGameLandscape ? "480px" : "854px";
+  const aspectRatioClass = isGameLandscape ? "md:aspect-[16/9]" : "md:aspect-[9/16]";
+  const maxWidthClass = isGameLandscape ? "md:max-w-[854px]" : "md:max-w-[480px]";
+  const maxHeightClass = isGameLandscape ? "md:max-h-[480px]" : "md:max-h-[800px]";
+
   const containerClasses = isPopup
-    ? "relative w-[480px] h-[854px] bg-black flex flex-col shadow-2xl ring-1 ring-white/10"
-    : "relative w-full h-full md:h-[90vh] md:max-h-[800px] md:w-auto md:aspect-[9/16] md:max-w-[480px] bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden";
+    ? `relative w-[${targetWidthStr}] h-[${targetHeightStr}] bg-black flex flex-col shadow-2xl ring-1 ring-white/10`
+    : `relative w-full h-full md:h-[90vh] ${maxHeightClass} md:w-auto ${aspectRatioClass} ${maxWidthClass} bg-black flex flex-col md:shadow-[0_0_100px_rgba(0,0,0,0.8)] md:border-x md:border-white/5 md:rounded-2xl overflow-hidden`;
 
   const wrapperClasses = isPopup
     ? "fixed inset-0 bg-[#05060f] flex items-center justify-center overflow-hidden overscroll-none touch-none"
@@ -172,17 +179,21 @@ const Player: React.FC = () => {
           touchAction: 'none'
         }}
       >
-        {/* Rotation Overlay - Shows only in mobile landscape */}
+        {/* Rotation Overlay - Shows only when orientation mismatch occurs */}
         {isLandscape && (
           <div className="fixed inset-0 z-[100] bg-[#0A0B1A] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-            <div className="w-20 h-20 mb-6 text-cyan-400 animate-bounce">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className={`mb-6 text-cyan-400 animate-bounce ${isGameLandscape ? 'rotate-90' : ''}`}>
+              <svg className="w-20 h-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
                 <path d="M12 18h.01" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">{t('player.rotate_title')}</h2>
-            <p className="text-gray-400">{t('player.rotate_desc')}</p>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {isGameLandscape ? t('player.rotate_landscape_title', 'Rotate to Landscape') : t('player.rotate_title')}
+            </h2>
+            <p className="text-gray-400">
+              {isGameLandscape ? t('player.rotate_landscape_desc', 'Please rotate your device to play in landscape mode.') : t('player.rotate_desc')}
+            </p>
           </div>
         )}
 

@@ -21,8 +21,9 @@ const Home: React.FC = () => {
 
         if (!isMobile) {
             // Calculate center position
-            const width = 480;
-            const height = 854; // Standard 9:16 approx
+            const isLandscape = game.orientation === 'landscape';
+            const width = isLandscape ? 854 : 480;
+            const height = isLandscape ? 480 : 854;
             const left = (window.screen.width / 2) - (width / 2);
             const top = (window.screen.height / 2) - (height / 2);
 

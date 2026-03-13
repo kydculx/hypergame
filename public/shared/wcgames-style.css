@@ -60,6 +60,21 @@
     box-sizing: border-box !important;
 }
 
+/* Landscape Optimization for Popups */
+@media (max-height: 500px) and (orientation: landscape) {
+    .wcg-popup {
+        padding: 20px 30px !important;
+        max-width: 600px !important;
+    }
+    .wcg-popup h1, .wcg-popup h2, .wcg-popup .title {
+        font-size: 28px !important;
+        margin-bottom: 8px !important;
+    }
+    .wcg-popup p, .wcg-popup .instructions {
+        margin-bottom: 16px !important;
+    }
+}
+
 .wcg-overlay.wcg-visible .wcg-popup {
     transform: scale(1) translateY(0);
 }
