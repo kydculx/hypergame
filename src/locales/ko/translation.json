@@ -76,15 +76,15 @@
     "casual": "캐주얼 / 타이밍"
   },
   "chat": {
-    "title": "Free Chat",
-    "placeholder": "Type a message...",
-    "login_to_chat": "Login to chat",
-    "no_messages": "No messages yet.",
-    "subtitle": "Connect with players around the world in real-time",
-    "first_hello": "Be the first to say hello!"
+    "title": "자유 채팅",
+    "placeholder": "메시지를 입력하세요...",
+    "login_to_chat": "로그인 후 채팅 가능",
+    "no_messages": "아직 메시지가 없습니다.",
+    "subtitle": "전 세계 플레이어들과 실시간으로 소통하세요",
+    "first_hello": "첫 번째로 인사를 건네보세요!"
   },
   "games": {
-    "plays": "plays"
+    "plays": "회 플레이"
   },
   "community": {
     "title": "커뮤니티 게시판",
