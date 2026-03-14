@@ -111,9 +111,9 @@ export const GameStatsChart: React.FC<GameStatsChartProps> = ({
             </div>
             
             {/* X-Axis Labels */}
-            <div className="flex justify-between mt-4 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+            <div className="flex justify-between mt-4 text-[9px] text-slate-500 font-bold uppercase tracking-wider px-1">
                 <span>{sortedData[0].date}</span>
-                <span>{sortedData[Math.floor(sortedData.length / 2)].date}</span>
+                <span className="hidden sm:inline">{sortedData[Math.floor(sortedData.length / 2)].date}</span>
                 <span>{sortedData[sortedData.length - 1].date}</span>
             </div>
         </div>

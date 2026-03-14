@@ -101,15 +101,17 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Game Stats Table */}
+                {/* Game Stats Table / Cards */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
-                    <div className="p-6 border-b border-white/5">
+                    <div className="p-6 border-b border-white/5 flex items-center justify-between">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             <BarChart2 size={24} className="text-cyan-400" />
                             Game Performance
                         </h2>
                     </div>
-                    <div className="overflow-x-auto">
+
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-white/5 border-b border-white/5">
@@ -188,6 +190,72 @@ const AdminDashboard: React.FC = () => {
                                 })}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile Card List View */}
+                    <div className="md:hidden divide-y divide-white/5">
+                        {sortedGames.map((game) => {
+                            const count = playCounts[game.id] || 0;
+                            const percentage = totalPlays > 0 ? (count / totalPlays) * 100 : 0;
+                            const isExpanded = expandedGameId === game.id;
+
+                            return (
+                                <div key={game.id} className={`flex flex-col transition-colors ${isExpanded ? 'bg-white/[0.03]' : ''}`}>
+                                    <div 
+                                        className="p-5 flex items-center justify-between cursor-pointer active:bg-white/5"
+                                        onClick={() => handleToggleTrends(game.id)}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                                                <Gamepad2 size={20} className="text-cyan-400" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-white uppercase tracking-tight text-sm">{game.id}</h3>
+                                                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{count.toLocaleString()} Plays</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-right flex flex-col items-end gap-1">
+                                                <span className="text-xs font-mono font-bold text-cyan-400">{percentage.toFixed(1)}%</span>
+                                                <div className="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-cyan-400" 
+                                                        style={{ width: `${percentage}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="text-slate-500">
+                                                {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Mobile Expanded Trends */}
+                                    {isExpanded && (
+                                        <div className="px-5 pb-6 animate-in slide-in-from-top-2 duration-300">
+                                            <div className="flex flex-col gap-4 p-4 bg-black/40 rounded-2xl border border-white/5">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                        <TrendingUp size={11} />
+                                                        Daily Trends (30D)
+                                                    </h4>
+                                                    <span className="text-[9px] text-slate-500 uppercase font-bold">
+                                                        MAX: {Math.max(...(dailyStats[game.id]?.map(d => d.playCount) || [0]))}
+                                                    </span>
+                                                </div>
+                                                <div className="h-[150px] w-full">
+                                                    <GameStatsChart 
+                                                        data={dailyStats[game.id] || []} 
+                                                        height={150} 
+                                                        color="#22d3ee" 
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </main>
