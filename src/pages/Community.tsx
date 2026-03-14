@@ -45,8 +45,8 @@ const Community: React.FC = () => {
                     <span className="font-medium">{t('community.back_home')}</span>
                 </button>
 
-                <div className="flex justify-between items-center mb-12">
-                    <div>
+                <div className="mb-12">
+                    <div className="mb-6">
                         <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-2">
                             {t('community.title')}
                         </h1>
@@ -55,12 +55,17 @@ const Community: React.FC = () => {
                         </p>
                     </div>
 
-                    <button
-                        onClick={handleWriteClick}
-                        className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 hover:scale-105 transition-transform active:scale-95"
-                    >
-                        {t('community.write')}
-                    </button>
+                    <div className="flex justify-end">
+                        <button
+                            onClick={handleWriteClick}
+                            className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20 hover:scale-105 transition-transform active:scale-95 group flex items-center gap-2"
+                        >
+                            <span className="bg-white/20 p-1 rounded-lg group-hover:rotate-90 transition-transform">
+                                <ArrowLeft size={16} className="rotate-[225deg]" />
+                            </span>
+                            {t('community.write')}
+                        </button>
+                    </div>
                 </div>
 
                 <PostList key={refreshTrigger} />
