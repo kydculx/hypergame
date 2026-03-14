@@ -1,12 +1,11 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Trophy, MessageSquare } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useGameStore, type Game } from '../hooks/useGameStore';
 import { Header } from '../components/layout/Header';
 import { GameGrid } from '../components/layout/GameGrid';
 import { PortalBackground } from '../components/layout/PortalBackground';
 import { useTranslation } from 'react-i18next';
 import { HallOfFame } from '../components/layout/HallOfFame';
-import ChatWindow from '../components/chat/ChatWindow';
 
 
 const Home: React.FC = () => {
@@ -61,16 +60,31 @@ const Home: React.FC = () => {
                     {t('home.desc')}
                 </p>
 
-                <button
-                    onClick={() => document.getElementById('game-grid')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="group relative px-8 py-4 bg-white text-black font-bold text-lg rounded-full overflow-hidden transition-transform hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <span className="relative z-10 group-hover:text-white transition-colors duration-300 flex items-center gap-2">
-                        {t('home.start_playing')}
-                        <svg className="w-5 h-5 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
-                    </span>
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
+                    <Link
+                        to="/community"
+                        className="flex items-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-white font-bold text-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 group"
+                    >
+                        <MessageSquare className="text-cyan-400 group-hover:scale-110 transition-transform" />
+                        {t('header.community')}
+                    </Link>
+
+                    <Link
+                        to="/leaderboard"
+                        className="flex items-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-white font-bold text-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 group"
+                    >
+                        <Trophy className="text-amber-400 group-hover:scale-110 transition-transform" />
+                        {t('header.leaderboard')}
+                    </Link>
+
+                    <Link
+                        to="/chat"
+                        className="flex items-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-white font-bold text-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 group"
+                    >
+                        <MessageSquare className="text-cyan-400 group-hover:scale-110 transition-transform" />
+                        {t('chat.title')}
+                    </Link>
+                </div>
             </section>
 
             <HallOfFame />
@@ -98,8 +112,7 @@ const Home: React.FC = () => {
                 </div>
             </footer>
 
-            {/* Global Chat */}
-            <ChatWindow />
+            {/* Global Chat removed as it's now a full page */}
         </div>
     );
 };

@@ -47,8 +47,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 }
             });
             if (error) throw error;
-        } catch (err: any) {
-            setError(err.message || `An error occurred during ${provider} authentication`);
+        } catch (err: unknown) {
+            const error = err as Error;
+            setError(error.message || `An error occurred during ${provider} authentication`);
         } finally {
             setLoading(false);
         }
@@ -83,8 +84,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 // If email confirmation is off, this practically logs them in immediately
                 onClose();
             }
-        } catch (err: any) {
-            setError(err.message || 'An error occurred during authentication');
+        } catch (err: unknown) {
+            const error = err as Error;
+            setError(error.message || 'An error occurred during authentication');
         } finally {
             setLoading(false);
         }

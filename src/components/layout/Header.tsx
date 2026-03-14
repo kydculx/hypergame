@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { Trophy, X, Globe } from 'lucide-react';
+import { Globe, BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { UserProfile } from './UserProfile';
-import Leaderboard from '../Leaderboard';
 import { usePresence } from '../../hooks/usePresence';
+import { useUserStore } from '../../hooks/useUserStore';
 
 export const Header: React.FC = () => {
     const { onlineCount } = usePresence();
-    const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
     const { i18n, t } = useTranslation();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const isAdmin = useUserStore((state) => state.isAdmin);
 
     // Apply a scroll listener for a more dynamic header
     const [scrolled, setScrolled] = useState(false);
@@ -19,18 +22,13 @@ export const Header: React.FC = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    React.useEffect(() => {
-        if (isLeaderboardOpen) {
-            document.body.style.overflow = 'hidden';
+    const handleLogoClick = () => {
+        if (location.pathname === '/') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
-            document.body.style.overflow = '';
+            navigate('/');
         }
-
-        // Cleanup in case component unmounts while modal is open
-        return () => {
-            document.body.style.overflow = '';
-        };
-    }, [isLeaderboardOpen]);
+    };
 
     return (
         <>
@@ -38,7 +36,7 @@ export const Header: React.FC = () => {
                 <div className="max-w-[1400px] mx-auto flex items-center justify-between px-6 md:px-8">
                     {/* Logo Container */}
                     <div
-                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                        onClick={handleLogoClick}
                         className="flex items-center gap-3 cursor-pointer group"
                     >
                         <div className={`p-1 transition-all duration-300 ${scrolled ? 'bg-white/10 border border-white/10 shadow-lg' : 'bg-transparent border border-transparent'} rounded-full backdrop-blur-md group-hover:bg-white/20 group-hover:border-white/30 group-hover:scale-105 flex items-center justify-center`}>
@@ -63,6 +61,21 @@ export const Header: React.FC = () => {
 
                         <div className="w-[1px] h-6 bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
 
+                        {/* Admin Dashboard Link (Only if Admin) */}
+                        {isAdmin && (
+                            <>
+                                <button
+                                    onClick={() => navigate('/admin-stats')}
+                                    className="flex items-center gap-1.5 bg-black/20 hover:bg-cyan-500/20 px-3 py-1.5 md:py-2 rounded-full text-cyan-400 hover:text-cyan-300 transition-all duration-300 group/admin font-bold text-xs tracking-wider"
+                                    title="Admin Dashboard"
+                                >
+                                    <BarChart2 size={16} className="group-hover/admin:scale-110 transition-transform" />
+                                    <span className="hidden lg:inline uppercase">Stats</span>
+                                </button>
+                                <div className="w-[1px] h-6 bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
+                            </>
+                        )}
+
                         {/* Language Selector */}
                         <button
                             onClick={() => {
@@ -81,19 +94,6 @@ export const Header: React.FC = () => {
                             <span className="uppercase">{i18n.language.startsWith('ko') ? 'KO' : 'EN'}</span>
                         </button>
 
-                        <div className="hidden sm:block w-[1px] h-6 bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
-
-                        {/* Leaderboard Button */}
-                        <button
-                            onClick={() => setIsLeaderboardOpen(true)}
-                            className="bg-black/20 hover:bg-amber-500/20 p-2 md:p-2.5 rounded-full text-amber-500 hover:text-amber-400 transition-all duration-300 flex items-center justify-center group/btn"
-                            title="Leaderboard"
-                        >
-                            <Trophy size={18} className="drop-shadow-sm group-hover/btn:scale-110 transition-transform" />
-                        </button>
-
-                        <div className="w-[1px] h-6 bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
-
                         {/* User Profile */}
                         <div className="pr-1">
                             <UserProfile />
@@ -102,26 +102,7 @@ export const Header: React.FC = () => {
                 </div>
             </header>
 
-            {/* Leaderboard Modal */}
-            {isLeaderboardOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    {/* Backdrop */}
-                    <div
-                        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
-                    ></div>
-
-                    {/* Modal Content */}
-                    <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto hidden-scrollbar rounded-2xl animate-in fade-in zoom-in duration-200">
-                        <button
-                            onClick={() => setIsLeaderboardOpen(false)}
-                            className="absolute top-4 right-4 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors backdrop-blur-md"
-                        >
-                            <X size={24} />
-                        </button>
-                        <Leaderboard />
-                    </div>
-                </div>
-            )}
+            {/* Leaderboard Modal removed as it's now a full page */}
         </>
     );
 };

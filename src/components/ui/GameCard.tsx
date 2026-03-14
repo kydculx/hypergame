@@ -1,10 +1,12 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface GameCardProps {
     title: string;
     thumbnail: string;
     size?: 'small' | 'medium' | 'large' | 'wide';
     category?: string;
+    playCount?: number;
     className?: string;
     onClick?: () => void;
 }
@@ -14,9 +16,11 @@ export const GameCard: React.FC<GameCardProps> = ({
     thumbnail,
     size = 'medium',
     category,
+    playCount,
     className = '',
     onClick
 }) => {
+    const { t } = useTranslation();
     // Determine spans based on size
     const sizeClasses = {
         small: 'col-span-1 row-span-1',
@@ -56,7 +60,14 @@ export const GameCard: React.FC<GameCardProps> = ({
             <div className="absolute top-0 bottom-0 left-0 right-0 pointer-events-none flex flex-col justify-end">
                 <div className="bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-12 pb-4 px-4 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
                     <h3 className="text-white font-bold text-base tracking-tight truncate drop-shadow-md">{title}</h3>
-                    {category && <p className="text-cyan-400 font-medium text-xs uppercase tracking-wider mt-0.5">{category}</p>}
+                    <div className="flex items-center justify-between mt-0.5">
+                        {category && <p className="text-cyan-400 font-medium text-[10px] uppercase tracking-wider">{category}</p>}
+                        {playCount !== undefined && (
+                            <p className="text-slate-400 text-[10px] font-medium">
+                                {playCount.toLocaleString()} {t('games.plays')}
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
 

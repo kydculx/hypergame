@@ -33,6 +33,8 @@ interface GameState {
   personalBests: Record<string, number>;
   userRanks: Record<string, number>;
   userProfile: UserProfile;
+  playCounts: Record<string, number>;
+  dailyStats: Record<string, { date: string, playCount: number }[]>;
   setCurrentGame: (game: Game | null) => void;
   addScore: (gameId: string, score: number) => Promise<void>;
   getBestScore: (gameId: string) => number;
@@ -40,6 +42,9 @@ interface GameState {
   fetchLeaderboard: (gameId: string) => Promise<void>;
   fetchUserRank: (gameId: string) => Promise<void>;
   fetchUserRecords: () => Promise<void>;
+  incrementPlayCount: (gameId: string) => Promise<void>;
+  fetchPlayCounts: () => Promise<void>;
+  fetchDailyStats: (gameId: string) => Promise<void>;
 }
 
 const getRandomColor = () => {
@@ -149,7 +154,119 @@ export const useGameStore = create<GameState>()(
         avatarColor: getRandomColor(),
         joinedAt: Date.now(),
       },
+      playCounts: {},
+      dailyStats: {},
       setCurrentGame: (game) => set({ currentGame: game }),
+
+      incrementPlayCount: async (gameId) => {
+        try {
+          // 1. Call Supabase RPC to increment safely (Now handles both total and daily)
+          const { error } = await supabase.rpc('increment_play_count', { target_game_id: gameId });
+          
+          if (error) {
+            // Fallback to manual update if RPC fails
+            console.warn('[useGameStore] RPC failed, trying manual update:', error.message);
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Increment total
+            await supabase
+              .from('game_stats')
+              .upsert({ game_id: gameId, play_count: (get().playCounts[gameId] || 0) + 1 }, { onConflict: 'game_id' });
+            
+            // Increment daily
+            const { data: dailyData } = await supabase
+              .from('game_daily_stats')
+              .select('play_count')
+              .eq('game_id', gameId)
+              .eq('date', today)
+              .single();
+            
+            await supabase
+              .from('game_daily_stats')
+              .upsert({ 
+                game_id: gameId, 
+                date: today, 
+                play_count: (dailyData?.play_count || 0) + 1 
+              }, { onConflict: 'game_id,date' });
+          }
+
+          // 2. Update local state
+          const today = new Date().toISOString().split('T')[0];
+          set((state) => {
+            const updatedPlayCounts = {
+              ...state.playCounts,
+              [gameId]: (state.playCounts[gameId] || 0) + 1
+            };
+
+            // Also update dailyStats if it exists in local state
+            const updatedDailyStats = { ...state.dailyStats };
+            if (updatedDailyStats[gameId]) {
+                const todayEntryIndex = updatedDailyStats[gameId].findIndex(d => d.date === today);
+                if (todayEntryIndex !== -1) {
+                    updatedDailyStats[gameId][todayEntryIndex].playCount += 1;
+                } else {
+                    updatedDailyStats[gameId].push({ date: today, playCount: 1 });
+                }
+            }
+
+            return { 
+                playCounts: updatedPlayCounts,
+                dailyStats: updatedDailyStats
+            };
+          });
+        } catch (err) {
+          console.error('[useGameStore] Error incrementing play count:', err);
+        }
+      },
+
+      fetchPlayCounts: async () => {
+        try {
+          const { data, error } = await supabase
+            .from('game_stats')
+            .select('game_id, play_count');
+
+          if (error) throw error;
+
+          if (data) {
+            const counts: Record<string, number> = {};
+            data.forEach((item: any) => {
+              counts[item.game_id] = parseInt(item.play_count);
+            });
+            set({ playCounts: counts });
+          }
+        } catch (err) {
+          console.error('[useGameStore] Error fetching play counts:', err);
+        }
+      },
+
+      fetchDailyStats: async (gameId) => {
+        try {
+          const { data, error } = await supabase
+            .from('game_daily_stats')
+            .select('date, play_count')
+            .eq('game_id', gameId)
+            .order('date', { ascending: true })
+            .limit(30);
+
+          if (error) throw error;
+
+          if (data) {
+            const formatted = data.map((d: any) => ({
+              date: d.date,
+              playCount: parseInt(d.play_count)
+            }));
+            
+            set((state) => ({
+              dailyStats: {
+                ...state.dailyStats,
+                [gameId]: formatted
+              }
+            }));
+          }
+        } catch (err) {
+          console.error('[useGameStore] Error fetching daily stats:', err);
+        }
+      },
 
       addScore: async (gameId, score) => {
         const { user, userName } = useUserStore.getState();
@@ -345,7 +462,8 @@ export const useGameStore = create<GameState>()(
       partialize: (state) => ({
         leaderboard: state.leaderboard,
         personalBests: state.personalBests,
-        userProfile: state.userProfile
+        userProfile: state.userProfile,
+        playCounts: state.playCounts
       }),
     }
   )

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameCard } from '../ui/GameCard';
+import { useGameStore } from '../../hooks/useGameStore';
 import type { Game } from '../../hooks/useGameStore';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +15,12 @@ type Category = typeof CATEGORIES[number];
 export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
     const { t } = useTranslation();
     const [activeCategory, setActiveCategory] = useState<Category>('all');
+    const playCounts = useGameStore((state) => state.playCounts);
+    const fetchPlayCounts = useGameStore((state) => state.fetchPlayCounts);
+
+    useEffect(() => {
+        fetchPlayCounts();
+    }, [fetchPlayCounts]);
 
     const filteredGames = games.filter(game => 
         activeCategory === 'all' ? true : game.categoryId === activeCategory
@@ -54,6 +61,7 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
                         thumbnail={game.thumbnailUrl}
                         size="medium"
                         category={t(`games.${game.id}.category`)}
+                        playCount={playCounts[game.id] || 0}
                         onClick={() => onGameSelect(game)}
                         className="bg-gray-100" // Fallback color if image loads slow
                     />

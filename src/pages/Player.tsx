@@ -13,11 +13,13 @@ const Player: React.FC = () => {
   const games = useGameStore((state) => state.games);
   const setCurrentGame = useGameStore((state) => state.setCurrentGame);
   const addScore = useGameStore((state) => state.addScore);
+  const incrementPlayCount = useGameStore((state) => state.incrementPlayCount);
   const navigate = useNavigate();
 
   const [sessionKey] = useState(() => Math.random().toString(36).substring(2, 15));
   const [isLandscape, setIsLandscape] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const hasIncremented = React.useRef<string | null>(null);
 
   // Resolution & Orientation Helper
   const getGameDimensions = () => {
@@ -97,6 +99,14 @@ const Player: React.FC = () => {
       document.body.style.height = '';
     };
   }, [gameId, currentGame, games, setCurrentGame, navigate]);
+
+  // Increment play count once per session
+  useEffect(() => {
+    if (gameId && hasIncremented.current !== gameId) {
+      incrementPlayCount(gameId);
+      hasIncremented.current = gameId;
+    }
+  }, [gameId, incrementPlayCount]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {

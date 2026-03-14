@@ -5,7 +5,8 @@
     "login": "로그인",
     "profile": "프로필",
     "logout": "로그아웃",
-    "live_users": "접속 중"
+    "live_users": "접속 중",
+    "community": "커뮤니티"
   },
   "board": {
     "title": "글로벌 랭킹",
@@ -75,10 +76,43 @@
     "casual": "캐주얼 / 타이밍"
   },
   "chat": {
-    "title": "자유 채팅",
-    "placeholder": "메시지를 입력하세요...",
-    "login_to_chat": "로그인 후 채팅 가능",
-    "no_messages": "아직 메시지가 없습니다.",
-    "first_hello": "첫 번째로 인사를 건네보세요!"
+    "title": "Free Chat",
+    "placeholder": "Type a message...",
+    "login_to_chat": "Login to chat",
+    "no_messages": "No messages yet.",
+    "subtitle": "Connect with players around the world in real-time",
+    "first_hello": "Be the first to say hello!"
+  },
+  "games": {
+    "plays": "plays"
+  },
+  "community": {
+    "title": "커뮤니티 게시판",
+    "subtitle": "전 세계 플레이어들과 소통하고 정보를 나누는 공간입니다.",
+    "write": "글쓰기",
+    "title_label": "제목",
+    "content_label": "내용",
+    "author_label": "작성자",
+    "submit": "등록",
+    "cancel": "취소",
+    "back_home": "홈으로 돌아가기",
+    "no_posts": "아직 등록된 게시글이 없습니다.",
+    "loading": "불러오는 중...",
+    "error_load": "게시글을 불러오는 중 오류가 발생했습니다.",
+    "error_submit": "게시글 등록 중 오류가 발생했습니다.",
+    "success_submit": "게시글이 등록되었습니다.",
+    "login_required": "글을 쓰려면 로그인이 필요합니다.",
+    "comments": "댓글",
+    "write_comment": "댓글 쓰기...",
+    "no_comments": "아직 댓글이 없습니다.",
+    "edit": "수정",
+    "delete": "삭제",
+    "confirm_delete": "정말 삭제하시겠습니까?",
+    "confirm_delete_desc": "정말 삭제하시겠습니까? 삭제시 복구가 불가능 합니다",
+    "post_updated": "게시글이 수정되었습니다.",
+    "comment_updated": "댓글이 수정되었습니다.",
+    "reply": "답글",
+    "delete_failed": "삭제에 실패했습니다.",
+    "update_failed": "수정에 실패했습니다."
   }
 }

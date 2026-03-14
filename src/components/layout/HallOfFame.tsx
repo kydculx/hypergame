@@ -17,10 +17,13 @@ export const HallOfFame: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchTopRankers = async () => {
-            const rankers: TopRanker[] = [];
+        const fetchData = async () => {
+            if (games.length === 0) {
+                setIsLoading(false);
+                return;
+            }
 
-            // Fetch top score for each game
+            const rankers: TopRanker[] = [];
             for (const game of games) {
                 try {
                     const { data } = await supabase
@@ -43,13 +46,10 @@ export const HallOfFame: React.FC = () => {
             }
 
             setTopRankers(rankers);
+            setIsLoading(false);
         };
 
-        if (games.length > 0) {
-            fetchTopRankers().finally(() => setIsLoading(false));
-        } else {
-            setIsLoading(false);
-        }
+        fetchData();
     }, [games]);
 
     if (topRankers.length === 0 && !isLoading) return null;

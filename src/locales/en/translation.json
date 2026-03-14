@@ -5,7 +5,8 @@
     "login": "Login",
     "profile": "Profile",
     "logout": "Logout",
-    "live_users": "Live"
+    "live_users": "Live",
+    "community": "Community"
   },
   "board": {
     "title": "Global Rankings",
@@ -79,6 +80,39 @@
     "placeholder": "Type a message...",
     "login_to_chat": "Login to chat",
     "no_messages": "No messages yet.",
+    "subtitle": "Connect with players around the world in real-time",
     "first_hello": "Be the first to say hello!"
+  },
+  "games": {
+    "plays": "plays"
+  },
+  "community": {
+    "title": "Community Board",
+    "subtitle": "A place to connect and share information with players worldwide.",
+    "write": "Write Post",
+    "title_label": "Title",
+    "content_label": "Content",
+    "author_label": "Author",
+    "submit": "Post",
+    "cancel": "Cancel",
+    "back_home": "Back to Home",
+    "no_posts": "No posts have been registered yet.",
+    "loading": "Loading...",
+    "error_load": "An error occurred while loading posts.",
+    "error_submit": "An error occurred while submitting the post.",
+    "success_submit": "Post registered successfully.",
+    "login_required": "Login is required to write a post.",
+    "comments": "Comments",
+    "write_comment": "Write a comment...",
+    "no_comments": "No comments yet.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm_delete": "Are you sure you want to delete this?",
+    "confirm_delete_desc": "Are you sure you want to delete this? This action cannot be undone and all associated content will be lost.",
+    "post_updated": "Post updated successfully.",
+    "comment_updated": "Comment updated successfully.",
+    "reply": "Reply",
+    "delete_failed": "Delete failed.",
+    "update_failed": "Update failed."
   }
 }

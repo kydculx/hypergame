@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js';
 interface UserState {
     userName: string;
     user: User | null;
+    isAdmin: boolean;
     setUserName: (name: string) => void;
     setUser: (user: User | null) => void;
     logout: () => Promise<void>;
@@ -18,9 +19,11 @@ export const useUserStore = create<UserState>()(
         (set) => ({
             userName: generateGuestName(),
             user: null,
+            isAdmin: false,
             setUserName: (name) => set({ userName: name }),
             setUser: (user) => set((state) => ({
                 user,
+                isAdmin: user?.user_metadata?.role === 'admin' || user?.app_metadata?.role === 'admin',
                 // If logging out, revert to guest. If logging in, use email prefix or existing metadata username
                 userName: user
                     ? (user.user_metadata?.user_name || user.email?.split('@')[0] || state.userName)
@@ -28,7 +31,7 @@ export const useUserStore = create<UserState>()(
             })),
             logout: async () => {
                 await supabase.auth.signOut();
-                set({ user: null, userName: generateGuestName() });
+                set({ user: null, isAdmin: false, userName: generateGuestName() });
             }
         }),
         {

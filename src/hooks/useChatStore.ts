@@ -11,10 +11,7 @@ export interface ChatMessage {
 
 interface ChatState {
   messages: ChatMessage[];
-  isOpen: boolean;
   isSubscribed: boolean;
-  setIsOpen: (isOpen: boolean) => void;
-  toggleChat: () => void;
   sendMessage: (content: string) => Promise<void>;
   fetchMessages: () => Promise<void>;
   subscribeToMessages: () => (() => void) | void;
@@ -23,11 +20,7 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
-  isOpen: false,
   isSubscribed: false,
-
-  setIsOpen: (isOpen) => set({ isOpen }),
-  toggleChat: () => set((state) => ({ isOpen: !state.isOpen })),
 
   fetchMessages: async () => {
     try {
