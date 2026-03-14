@@ -18,8 +18,18 @@ Each game resides in its own folder under `/public/games/[game-id]/`.
 - `wcgame.ready()`: Signals the game is loaded.
 
 ## 4. Current Game List
-- `stack`: Stack blocks as high as possible.
-- `domino`: Domino sequence gameplay.
-- `speedrush`: Racing game.
-- `swarm`: Action/Shooter game.
-- `puzzle`: Classic sliding/match puzzle.
+1. **2048** (`games/2048`): Puzzle
+2. **Stack Tower** (`games/stack`): Casual
+3. **ZigZag** (`games/zigzag`): Casual
+4. **Jump** (`games/jump`): Casual
+5. **Neon Breakout** (`games/breakout`): Action
+6. **Helix** (`games/helix`): Casual
+7. **SpeedRush** (`games/speedrush`): Action
+8. **Domino** (`games/domino`): Puzzle
+9. **Minesweeper** (`games/minesweeper`): Puzzle (Time-based, Ascending)
+10. **BulletDodge** (`games/bulletdodge`): Action
+11. **Swarm** (`games/swarm`): Action
+12. **Solitaire** (`games/solitaire`): Puzzle (Time-based, Ascending)
+
+---
+*Last verified: 2026-03-15*
