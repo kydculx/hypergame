@@ -44,12 +44,19 @@ const CONFIG = {
         ]
     },
     BOT: {
-        COUNT: 10,
-        SPEED: 3,
-        ROTATE_SPEED: 1,
-        FIRE_COOLDOWN: 2000,
-        DETECTION_RANGE: 50,
-        ATTACK_RANGE: 30
+        COUNT: 8,
+        SPEED: 3.5,
+        ROTATE_SPEED: 1.2,
+        FIRE_COOLDOWN: 1800,
+        DETECTION_RANGE: 60,
+        ATTACK_RANGE: 40,
+        NICKNAMES: [
+            "SuperTanker", "VoxelKing", "NoobMaster69", "TankCommander", "IronFist", 
+            "SwiftShadow", "MetalBeast", "Alpha", "Bravo", "Charlie", "Delta", 
+            "GhostShell", "SteelRain", "DesertRat", "BlueDragon", "RedDragon",
+            "KoreanPro", "Expert_X", "HiddenTiger", "FlyingEagle", "SniperJoe"
+        ],
+        COLORS: [0x9933ff, 0xff9900, 0x00ffcc, 0xff0066, 0x33cc33, 0xffdd00]
     }
 };
 
@@ -374,11 +381,14 @@ class Bot extends Tank {
         this.target = null;
         this.state = 'WANDER';
         this.stateTimer = 0;
-        this.wanderAngle = Math.random() * Math.PI * 2;
+        this.strafeTimer = 0;
+        this.aimJitter = (Math.random() - 0.5) * 0.1;
+        this.aimJitterTimer = 0;
 
-        // Change bot color
-        this.body.material.color.setHex(CONFIG.COLORS.BOT);
-        this.turret.material.color.setHex(CONFIG.COLORS.BOT);
+        // Change bot color and name
+        const botColor = CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)];
+        this.body.material.color.setHex(botColor);
+        this.turret.material.color.setHex(botColor);
     }
 
     updateAI(dt) {
@@ -392,8 +402,8 @@ class Bot extends Tank {
         const possibleTargets = [];
         if (myTank && myTank.hp > 0) possibleTargets.push(myTank);
         tanks.forEach(t => { if (t.hp > 0) possibleTargets.push(t); });
-        bots.forEach(b => { 
-            if (b !== this && b.hp > 0) possibleTargets.push(b); 
+        bots.forEach(b => {
+            if (b !== this && b.hp > 0) possibleTargets.push(b);
         });
 
         for (const target of possibleTargets) {
@@ -417,28 +427,51 @@ class Bot extends Tank {
             const targetPos = this.target.group.position;
             const dx = targetPos.x - this.group.position.x;
             const dz = targetPos.z - this.group.position.z;
-
-            // Correct angle to point -Z towards (dx, dz)
-            const angleToTarget = Math.atan2(-dx, -dz);
-
-            // Rotate faster toward target
-            this.group.rotation.y = lerpAngle(this.group.rotation.y, angleToTarget, dt * 4);
-            this.turretGroup.rotation.y = lerpAngle(this.turretGroup.rotation.y, 0, dt * 5);
-
-            // Move closer if far, stop if near
             const dist = this.group.position.distanceTo(targetPos);
-            if (dist > 8) {
-                this.move(1, dt);
-            } else if (dist < 5) {
-                this.move(-1, dt);
+            
+            // 1. Calculate Target Angle for Hull (to circle)
+            // We want to point the hull roughly sideways (PI/2 or -PI/2 relative to target)
+            this.strafeTimer -= dt;
+            if (this.strafeTimer <= 0) {
+                this.strafeTimer = 2 + Math.random() * 3;
+                this.strafeDir = Math.random() < 0.5 ? 1 : -1;
             }
 
-            // Shoot if aimed well
-            const currentDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
+            // Dist control: if too far, point slightly more towards target. If too near, point slightly more away.
+            let offset = (Math.PI / 2) * this.strafeDir;
+            if (dist > 15) offset *= 0.5; // Turn more towards target
+            else if (dist < 8) offset *= 1.5; // Turn more away
+            
+            const angleToTarget = Math.atan2(-dx, -dz);
+            const hullTargetAngle = angleToTarget + offset;
+
+            // Rotate hull
+            this.group.rotation.y = lerpAngle(this.group.rotation.y, hullTargetAngle, dt * 2.5);
+            
+            // 2. Rotate turret independently to point at Target (with slight jitter)
+            this.aimJitterTimer += dt;
+            if (this.aimJitterTimer > 1) {
+                this.aimJitterTimer = 0;
+                this.aimJitter = (Math.random() - 0.5) * 0.2; // Slight miss
+            }
+            const turretDesiredGlobalAngle = angleToTarget + this.aimJitter;
+            const turretLocalTargetAngle = turretDesiredGlobalAngle - this.group.rotation.y;
+            this.turretGroup.rotation.y = lerpAngle(this.turretGroup.rotation.y, turretLocalTargetAngle, dt * 5);
+
+            // 3. Constant movement
+            if (!this.move(1, dt)) {
+                // If blocked, reverse strafe
+                this.strafeDir *= -1;
+                this.strafeTimer = 2;
+            }
+
+            // 4. Shoot if turret aimed well
+            const turretWorldAngle = this.group.rotation.y + this.turretGroup.rotation.y;
+            const currentDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), turretWorldAngle);
             const targetDirRaw = new THREE.Vector3(dx, 0, dz).normalize();
             const dot = currentDir.dot(targetDirRaw);
-
-            if (dot > 0.95 && dist < CONFIG.BOT.ATTACK_RANGE) {
+            
+            if (dot > 0.96 && dist < CONFIG.BOT.ATTACK_RANGE) {
                 this.shoot();
             }
         } else {
@@ -480,7 +513,9 @@ class Bot extends Tank {
 
     shoot() {
         const now = Date.now();
-        if (now - this.lastFireTime < CONFIG.BOT.FIRE_COOLDOWN) return;
+        // Add random jitter to fire cooldown (+/- 200ms)
+        const jitteredCooldown = CONFIG.BOT.FIRE_COOLDOWN + (Math.random() - 0.5) * 400;
+        if (now - this.lastFireTime < jitteredCooldown) return;
         this.lastFireTime = now;
 
         const pos = new THREE.Vector3();
@@ -496,6 +531,13 @@ class Bot extends Tank {
     handleHit(damage, shooterId) {
         if (this.hp <= 0) return;
         super.updateHP(this.hp - damage);
+
+        // React to hit (Panic / Dodge)
+        if (this.hp > 0) {
+            this.strafeDir *= -1;
+            this.strafeTimer = 1 + Math.random();
+            this.wanderAngle = (Math.random() - 0.5) * Math.PI * 2;
+        }
 
         if (this.hp <= 0) {
             // Find who shot this
@@ -630,7 +672,8 @@ function spawnBots(count) {
     for (let i = 0; i < count; i++) {
         const spawn = getRandomSpawnPoint();
         const botId = `bot_${Math.random().toString(36).substring(2, 7)}`;
-        const bot = new Bot(botId, `BOT_${i + 1}`);
+        const botName = CONFIG.BOT.NICKNAMES[Math.floor(Math.random() * CONFIG.BOT.NICKNAMES.length)];
+        const bot = new Bot(botId, botName);
         bot.group.position.set(spawn.x, 0, spawn.z);
         bots.push(bot);
     }
