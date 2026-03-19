@@ -401,6 +401,8 @@ class Bot extends Tank {
         this.strafeTimer = 0;
         this.aimJitter = (Math.random() - 0.5) * 0.1;
         this.aimJitterTimer = 0;
+        this.blockedTimer = 0;
+        this.strafeDir = Math.random() < 0.5 ? 1 : -1;
 
         // Change bot color and name (Use synced color if provided, otherwise random)
         this.color = syncedColor || (CONFIG.BOT && CONFIG.BOT.COLORS ? CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)] : 0x9933ff);
@@ -515,9 +517,27 @@ class Bot extends Tank {
         }
 
         // Ensure bots stay in bounds
-        const halfSize = CONFIG.WORLD.SIZE / 2 - 2;
+        const halfSize = (CONFIG.WORLD.SIZE / 2) - 5;
         this.group.position.x = Math.max(-halfSize, Math.min(halfSize, this.group.position.x));
         this.group.position.z = Math.max(-halfSize, Math.min(halfSize, this.group.position.z));
+
+        // Proactive Wall Avoidance (Check ahead)
+        const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
+        const probeDist = 3.5;
+        const probePos = this.group.position.clone().add(forward.multiplyScalar(probeDist));
+        
+        if (!isPositionSafe(probePos.x, probePos.z)) {
+            this.blockedTimer += dt;
+            // Force rotation away from the wall
+            this.group.rotation.y += this.strafeDir * dt * 3.0; // Turn faster when sensing wall
+            
+            if (this.blockedTimer > 0.5) {
+                // Emergency Reserve
+                this.move(-0.6, dt);
+            }
+        } else {
+            this.blockedTimer = Math.max(0, this.blockedTimer - dt);
+        }
     }
 
     move(dir, dt) {
@@ -730,17 +750,16 @@ function updateScoreboard() {
     players.sort((a, b) => b.kills - a.kills);
 
     scoreboard.innerHTML = `
-        <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 5px; text-align: center;">
-            Online: ${onlineCount} | Room: Global
+        <div style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px;">
+            ${CONFIG.BOT.NICKNAMES.length > 0 ? 'Scoreboard' : ''}
         </div>
-    ` + players.map(p => {
-        const isMaster = p.id === Array.from(tanks.keys()).sort()[0] || (amIMaster && p.isLocal);
-        return `
-        <div class="scoreboard-item" style="color: ${p.isLocal ? '#4d79ff' : (p.isBot ? '#e0e0e0' : '#ff4d4d')}">
-            <span>${p.name || p.id}${p.isLocal ? ' (ME)' : ''}${p.isBot ? ' 🤖' : ''}</span>
-            <span style="font-size: 0.8em; opacity: 0.6; margin-left:10px;">${p.kills} K</span>
-        </div>
-    `; }).join('');
+        ${players.map(p => `
+            <div class="scoreboard-item" style="color: ${p.isLocal ? '#4d79ff' : (p.isBot ? '#e0e0e0' : '#ff4d4d')}">
+                <span>${p.name || p.id}${p.isLocal ? ' (ME)' : ''}</span>
+                <span style="font-size: 0.8em; opacity: 0.6; margin-left:10px;">${p.kills} K</span>
+            </div>
+        `).join('')}
+    `;
 }
 
 function fire() {
