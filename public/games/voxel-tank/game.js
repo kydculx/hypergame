@@ -387,9 +387,13 @@ class Bot extends Tank {
         this.aimJitterTimer = 0;
 
         // Change bot color and name
-        const botColor = CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)];
-        this.body.material.color.setHex(botColor);
-        this.turret.material.color.setHex(botColor);
+        const botColor = (CONFIG.BOT && CONFIG.BOT.COLORS) ? CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)] : 0x9933ff;
+        if (this.body && this.body.material) {
+            this.body.material.color.set(botColor);
+        }
+        if (this.turret && this.turret.material) {
+            this.turret.material.color.set(botColor);
+        }
     }
 
     updateAI(dt) {
@@ -986,9 +990,9 @@ function updateMasterStatus() {
         statusText.textContent = `HP: ${myTank.hp} / ${CONFIG.TANK.MAX_HP}${masterIndicator}`;
     }
 
-    // If I became Master and there are no bots, spawn them
-    if (amIMaster && !previousMaster && bots.length === 0) {
-        console.log("I am now Master. Spawning bots...");
+    // If I am Master and there are no bots, spawn them (even if I was already Master, e.g. after restart)
+    if (amIMaster && bots.length === 0) {
+        console.log("I am Master and no bots exist. Spawning...");
         spawnBots(CONFIG.BOT.COUNT);
     }
 }
@@ -1210,6 +1214,7 @@ const Game = {
 
             channel.on('broadcast', { event: 'bot_sync' }, ({ payload }) => {
                 if (amIMaster) return; // Master ignores sync
+                if (!payload.bots) return;
                 
                 const receivedBotIds = new Set(payload.bots.map(b => b.id));
                 
