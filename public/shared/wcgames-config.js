@@ -5,7 +5,7 @@
 window.WCGamesConfig = {
     // Admin email whitelist for accessing debug tools and cheats
     ADMIN_WHITELIST: [
-        'kydculx@gmail.com'
+        'admin@wcgames.fun'
     ],
     // Google Tag Manager ID
     GTM_ID: 'GTM-KZ2RT667',

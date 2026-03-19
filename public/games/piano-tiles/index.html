@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>YouTube Piano Tiles</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Pretendard', sans-serif;
+            color: white;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* YouTube Player - Wrapper & UI */
+        #player-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 250px;
+            z-index: 50;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #player-ui-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 60;
+            pointer-events: none;
+        }
+
+        #center-play-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 3px solid #fff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #center-play-btn:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 30px rgba(34, 211, 238, 0.4);
+        }
+
+        #center-play-btn:active {
+            transform: scale(0.95);
+        }
+
+        #center-play-btn svg {
+            width: 40px;
+            height: 40px;
+            fill: #fff;
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+        }
+
+        #bottom-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 70;
+        }
+
+        #bottom-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: #22d3ee;
+            box-shadow: 0 0 15px #22d3ee;
+            transition: width 0.1s linear;
+        }
+
+        canvas {
+            position: absolute;
+            top: 250px;
+            left: 0;
+            width: 100%;
+            height: calc(100vh - 250px);
+            z-index: 10;
+            cursor: crosshair;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 270px;
+            left: 20px;
+            z-index: 100;
+            pointer-events: none;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .score {
+            font-size: 32px;
+            font-weight: 800;
+            color: #22d3ee;
+        }
+
+        .combo {
+            font-size: 18px;
+            color: #f472b6;
+        }
+
+        #setup-ui {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        input {
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            width: 300px;
+            margin-bottom: 20px;
+            outline: none;
+            border: 1px solid #333;
+        }
+
+        input:focus {
+            border-color: #22d3ee;
+        }
+
+        button {
+            padding: 12px 30px;
+            border-radius: 10px;
+            border: none;
+            background: #22d3ee;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #67e8f9;
+            transform: translateY(-2px);
+        }
+
+        #msg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            font-weight: 800;
+            text-transform: uppercase;
+            z-index: 150;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .hit {
+            animation: ratingPopup 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes ratingPopup {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -40%) scale(0.5);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -60%) scale(1.1);
+            }
+
+            80% {
+                opacity: 1;
+                transform: translate(-50%, -60%) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -80%) scale(0.8);
+            }
+        }
+
+        /* Countdown Overlay */
+        #countdown-overlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 900;
+            pointer-events: none;
+        }
+
+        #countdown-text {
+            font-size: 150px;
+            font-weight: 900;
+            color: #22d3ee;
+            text-shadow: 0 0 30px #22d3ee, 0 0 60px #22d3ee;
+            animation: countdownPulse 1s infinite;
+        }
+
+        @keyframes countdownPulse {
+            0% {
+                transform: scale(1);
+                opacity: 0;
+            }
+
+            20% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+
+            80% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        #editor-ui {
+            position: absolute;
+            top: 260px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            width: 90%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(34, 211, 238, 0.1);
+            box-sizing: border-box;
+            /* ADDED */
+        }
+
+        .editor-section {
+            margin-bottom: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* REFINED */
+        .editor-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .editor-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .editor-btn-group {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .editor-metrics {
+            font-size: 13px;
+            opacity: 0.8;
+            font-weight: 500;
+            color: #22d3ee;
+        }
+
+        #editor-seekbar {
+            width: 100%;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #22d3ee;
+            display: block;
+            box-sizing: border-box;
+        }
+
+        #rec-dot {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            box-shadow: 0 0 10px #ef4444;
+        }
+
+        .blinking {
+            animation: blink-animation 1s steps(5, start) infinite;
+        }
+
+        @keyframes blink-animation {
+            to {
+                visibility: hidden;
+            }
+        }
+
+        /* Song Selection UI */
+        #song-selection {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 300;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .song-list {
+            width: 100%;
+            max-width: 600px;
+            display: grid;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .song-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-align: left;
+        }
+
+        .song-card:hover {
+            background: rgba(34, 211, 238, 0.1);
+            border-color: #22d3ee;
+            transform: scale(1.02);
+        }
+
+        .song-card .thumb {
+            width: 80px;
+            height: 60px;
+            border-radius: 8px;
+            background: #222;
+            object-fit: cover;
+        }
+
+        .song-card .info {
+            flex: 1;
+        }
+
+        .song-card .title {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 4px;
+            color: #22d3ee;
+        }
+
+        .song-card .artist {
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        .edit-badge {
+            background: #22d3ee;
+            color: #000;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            cursor: pointer;
+        }
+
+        .delete-badge {
+            background: #ef4444;
+            color: #fff;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 5px;
+            cursor: pointer;
+        }
+
+        #global-back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 9999;
+            display: none;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+            backdrop-filter: blur(5px);
+        }
+
+        #global-back-btn:hover {
+            background: rgba(239, 68, 68, 0.4);
+            border-color: #ef4444;
+        }
+
+        /* Custom Modal Styling */
+        #custom-modal-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #custom-modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        #custom-modal {
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 32px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(34, 211, 238, 0.1);
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #custom-modal-overlay.active #custom-modal {
+            transform: scale(1);
+        }
+
+        #modal-title {
+            font-size: 24px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        #modal-message {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+            margin-bottom: 32px;
+        }
+
+        .modal-btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            border: none;
+            min-width: 120px;
+        }
+
+        .modal-btn-cancel {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-btn-cancel:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-btn-confirm {
+            background: #ef4444;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .modal-btn-confirm:hover {
+            background: #f87171;
+            transform: translateY(-2px);
+        }
+
+        .modal-btn-confirm.success {
+            background: #22d3ee;
+            color: #000;
+            box-shadow: 0 4px 12px rgba(34, 211, 238, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <button id="global-back-btn" data-i18n="exit_to_menu">EXIT TO MENU</button>
+        <!-- Song Selection (First View) -->
+        <div id="song-selection">
+            <div style="width: 100%; max-width: 600px; margin-bottom: 30px; text-align: left;">
+                <h1 style="color: #22d3ee; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;"
+                    data-i18n="song_selection">SONG SELECTION</h1>
+                <p style="opacity: 0.6; margin: 8px 0 0 0; font-size: 14px;" data-i18n="song_selection_desc">연주할 곡을
+                    선택하거나 새로운 곡을 추가하세요</p>
+                <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
+                    <button id="manual-btn"
+                        style="background: transparent; border: 1px solid #22d3ee; color: #22d3ee; padding: 6px 20px; font-size: 13px; font-weight: 800; border-radius: 8px; cursor: pointer; transition: 0.2s;"
+                        data-i18n="add_new_song">+ ADD NEW SONG</button>
+                </div>
+            </div>
+            <div id="song-list" class="song-list" style="margin-top: 0;">
+                <!-- Songs will be loaded here -->
+            </div>
+        </div>
+        <div id="setup-modal-overlay"
+            style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(15px); z-index: 400; display: none; align-items: center; justify-content: center;">
+            <div id="setup-ui"
+                style="position: relative; top: auto; left: auto; transform: none; background: rgba(15, 23, 42, 0.9); padding: 40px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); text-align: center; width: 90%; max-width: 450px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+                <h1 style="margin-top: 0; color: #22d3ee; font-size: 28px; font-weight: 800;"
+                    data-i18n="add_song_modal_title">ADD NEW SONG</h1>
+                <p style="opacity: 0.7; margin-bottom: 30px; font-size: 14px;" data-i18n="add_song_modal_desc">YouTube
+                    URL을 입력하고 맵 에디터를 시작하세요</p>
+
+                <div style="text-align: left; margin-bottom: 25px;">
+                    <label
+                        style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 8px; color: #22d3ee; opacity: 0.8; letter-spacing: 1px;"
+                        data-i18n="youtube_id_label">YOUTUBE VIDEO ID</label>
+                    <div
+                        style="display: flex; align-items: center; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 0 15px; height: 48px; box-sizing: border-box;">
+                        <span
+                            style="color: rgba(255,255,255,0.3); font-size: 13px; font-weight: 500; white-space: nowrap; padding-right: 2px;">https://www.youtube.com/watch?v=</span>
+                        <input type="text" id="yt-url" placeholder="60ItHLz5WEA" maxlength="11"
+                            style="flex: 1; background: transparent; border: none; padding: 0; margin: 0; color: white; font-size: 14px; font-family: monospace">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+                    <div style="flex: 1; text-align: left;">
+                        <label
+                            style="display: block; font-size: 11px; font-weight: bold; margin-bottom: 8px; opacity: 0.5;"
+                            data-i18n="title_label">TITLE</label>
+                        <input type="text" id="song-title-input" placeholder="Title" data-i18n-placeholder="title_label"
+                            style="width: 100%; box-sizing: border-box; margin-bottom: 0; background: rgba(255,255,255,0.05); font-size: 13px;">
+                    </div>
+                    <div style="flex: 1; text-align: left;">
+                        <label
+                            style="display: block; font-size: 11px; font-weight: bold; margin-bottom: 8px; opacity: 0.5;"
+                            data-i18n="artist_label">ARTIST</label>
+                        <input type="text" id="song-artist-input" placeholder="Artist" data-i18n-placeholder="artist_label"
+                            style="width: 100%; box-sizing: border-box; margin-bottom: 0; background: rgba(255,255,255,0.05); font-size: 13px;">
+                    </div>
+                </div>
+
+
+
+                <button id="edit-btn"
+                    style="width: 100%; background: #22d3ee; color: #000; padding: 16px; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 4px 15px rgba(34, 211, 238, 0.3);"
+                    data-i18n="go_to_editor">GO TO MAP EDITOR</button>
+                <button id="back-to-list"
+                    style="background: transparent; border: none; color: rgba(255,255,255,0.5); margin-top: 20px; font-size: 13px; cursor: pointer; text-decoration: underline;"
+                    data-i18n="cancel">CANCEL</button>
+            </div>
+        </div>
+
+        <div id="ui-overlay">
+            <div id="score" class="score">000,000</div>
+            <div id="combo" class="combo"><span data-i18n="combo_label">COMBO</span> 0</div>
+            <div id="playback-controls" style="display: flex; gap: 8px; margin-top: 15px; pointer-events: auto;">
+                <button id="main-play-btn"
+                    style="background: #22d3ee; color: #000; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; min-width: 80px;"
+                    data-i18n="start">START</button>
+                <button id="main-stop-btn"
+                    style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s;"
+                    data-i18n="stop">STOP</button>
+            </div>
+        </div>
+
+        <div id="msg">PERFECT</div>
+
+        <canvas id="game-canvas"></canvas>
+
+        <div id="player-wrapper">
+            <div id="player"></div>
+            <div id="player-ui-overlay">
+                <button id="center-play-btn">
+                    <!-- Play icon -->
+                    <svg id="svg-play" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <!-- Pause icon (hidden by default) -->
+                    <svg id="svg-pause" viewBox="0 0 24 24" style="display:none;">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                </button>
+            </div>
+            <div id="bottom-progress-bar">
+                <div id="bottom-progress-fill"></div>
+            </div>
+        </div>
+
+        <!-- Editor Dashboard (Integrated) -->
+        <div id="editor-ui">
+            <!-- Header Section: Recording Status & Prime Controls -->
+            <div class="editor-section">
+                <div class="editor-row">
+                    <div id="rec-status"
+                        style="display: flex; align-items: center; color: #f472b6; font-weight: bold; font-size: 14px;">
+                        <span id="rec-dot" class="blinking"></span> <span data-i18n="recording">RECORDING</span>
+                    </div>
+                    <div class="editor-btn-group">
+                        <button id="editor-play-btn"
+                            style="background: #22d3ee; color: #000; padding: 6px 14px; font-size: 12px; border-radius: 6px;"
+                            data-i18n="play">PLAY</button>
+                        <button id="editor-stop-btn"
+                            style="background: #ef4444; color: #fff; padding: 6px 14px; font-size: 12px; border-radius: 6px;"
+                            data-i18n="stop">STOP</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Section: Timeline & Seekbar -->
+            <div class="editor-section">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 8px; opacity: 0.6; letter-spacing: 1px;">
+                    <span data-i18n="timeline">TIMELINE</span>
+                    <span id="editor-time">0:00 / 0:00</span>
+                </div>
+                <input type="range" id="editor-seekbar" value="0" step="0.1">
+            </div>
+
+            <!-- Footer Section: Metrics & Action Buttons -->
+            <div class="editor-section">
+                <div class="editor-row">
+                    <div class="editor-metrics"><span data-i18n="notes_count">NOTES:</span> <span
+                            id="note-count">0</span> <span style="font-size: 10px; opacity: 0.5; margin-left:10px;"
+                            data-i18n="right_click_delete">(Right Click to Delete)</span></div>
+                    <div class="editor-btn-group">
+                        <button onclick="copyMap()"
+                            style="background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); padding: 8px 15px; font-size: 11px; border-radius: 8px;"
+                            data-i18n="copy">COPY</button>
+                        <button onclick="testRecording()"
+                            style="background: #f472b6; color: white; padding: 8px 15px; font-size: 11px; border-radius: 8px;"
+                            data-i18n="test">TEST</button>
+                        <button id="save-db-btn"
+                            style="background: #a855f7; color: white; padding: 8px 20px; font-size: 11px; font-weight: bold; border-radius: 8px;"
+                            data-i18n="save_to_db">SAVE TO DB</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="countdown-overlay">
+            <div id="countdown-text">3</div>
+        </div>
+
+        <!-- Custom Modal -->
+        <div id="custom-modal-overlay">
+            <div id="custom-modal">
+                <div id="modal-title" data-i18n="delete_song_confirm_title">Delete Song?</div>
+                <div id="modal-message" data-i18n="delete_song_confirm_msg">Are you sure you want to delete this song?
+                    This action cannot be undone.</div>
+                <div class="modal-btn-group">
+                    <button id="modal-cancel-btn" class="modal-btn modal-btn-cancel" data-i18n="cancel">CANCEL</button>
+                    <button id="modal-confirm-btn" class="modal-btn modal-btn-confirm"
+                        data-i18n="delete">DELETE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shared Config & Core -->
+    <script src="../../shared/wcgames-config.js"></script>
+    <script src="../../shared/wcgames-core.js"></script>
+
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="/shared/i18n.js"></script>
+    <script src="game.js?v=2"></script>
+</body>
+
+</html>

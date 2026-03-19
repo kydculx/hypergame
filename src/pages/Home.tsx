@@ -11,6 +11,7 @@ import { HallOfFame } from '../components/layout/HallOfFame';
 const Home: React.FC = () => {
     const { t } = useTranslation();
     const games = useGameStore((state) => state.games);
+    const visibleGames = games.filter(game => !game.hidden);
     const setCurrentGame = useGameStore((state) => state.setCurrentGame);
     const navigate = useNavigate();
 
@@ -89,7 +90,7 @@ const Home: React.FC = () => {
 
             <HallOfFame />
             <div id="game-grid">
-                <GameGrid games={games} onGameSelect={handlePlay} />
+                <GameGrid games={visibleGames} onGameSelect={handlePlay} />
             </div>
             <footer className="relative py-12 px-6 mt-12 mb-20 bg-black/30 backdrop-blur-sm border-t border-white/5">
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">

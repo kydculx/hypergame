@@ -12,6 +12,7 @@ export interface Game {
   orientation?: 'portrait' | 'landscape'; // 'portrait' is default if not specified
   width?: number;
   height?: number;
+  hidden?: boolean;
 }
 
 export interface ScoreEntry {
@@ -142,7 +143,21 @@ export const useGameStore = create<GameState>()(
           sortOrder: 'asc', // Lower time is better
           orientation: 'portrait'
         },
-
+        {
+          id: 'piano-tiles',
+          thumbnailUrl: '/games/piano-tiles/thumb.png',
+          gameUrl: 'games/piano-tiles/index.html',
+          categoryId: 'action',
+          orientation: 'portrait',
+          hidden: true
+        },
+        {
+          id: 'voxel-tank',
+          thumbnailUrl: '/games/voxel-tank/thumb.png',
+          gameUrl: 'games/voxel-tank/index.html',
+          categoryId: 'action',
+          orientation: 'landscape'
+        },
       ],
 
       currentGame: null,
@@ -162,17 +177,17 @@ export const useGameStore = create<GameState>()(
         try {
           // 1. Call Supabase RPC to increment safely (Now handles both total and daily)
           const { error } = await supabase.rpc('increment_play_count', { target_game_id: gameId });
-          
+
           if (error) {
             // Fallback to manual update if RPC fails
             console.warn('[useGameStore] RPC failed, trying manual update:', error.message);
             const today = new Date().toISOString().split('T')[0];
-            
+
             // Increment total
             await supabase
               .from('game_stats')
               .upsert({ game_id: gameId, play_count: (get().playCounts[gameId] || 0) + 1 }, { onConflict: 'game_id' });
-            
+
             // Increment daily
             const { data: dailyData } = await supabase
               .from('game_daily_stats')
@@ -180,13 +195,13 @@ export const useGameStore = create<GameState>()(
               .eq('game_id', gameId)
               .eq('date', today)
               .single();
-            
+
             await supabase
               .from('game_daily_stats')
-              .upsert({ 
-                game_id: gameId, 
-                date: today, 
-                play_count: (dailyData?.play_count || 0) + 1 
+              .upsert({
+                game_id: gameId,
+                date: today,
+                play_count: (dailyData?.play_count || 0) + 1
               }, { onConflict: 'game_id,date' });
           }
 
@@ -201,17 +216,17 @@ export const useGameStore = create<GameState>()(
             // Also update dailyStats if it exists in local state
             const updatedDailyStats = { ...state.dailyStats };
             if (updatedDailyStats[gameId]) {
-                const todayEntryIndex = updatedDailyStats[gameId].findIndex(d => d.date === today);
-                if (todayEntryIndex !== -1) {
-                    updatedDailyStats[gameId][todayEntryIndex].playCount += 1;
-                } else {
-                    updatedDailyStats[gameId].push({ date: today, playCount: 1 });
-                }
+              const todayEntryIndex = updatedDailyStats[gameId].findIndex(d => d.date === today);
+              if (todayEntryIndex !== -1) {
+                updatedDailyStats[gameId][todayEntryIndex].playCount += 1;
+              } else {
+                updatedDailyStats[gameId].push({ date: today, playCount: 1 });
+              }
             }
 
-            return { 
-                playCounts: updatedPlayCounts,
-                dailyStats: updatedDailyStats
+            return {
+              playCounts: updatedPlayCounts,
+              dailyStats: updatedDailyStats
             };
           });
         } catch (err) {
@@ -255,7 +270,7 @@ export const useGameStore = create<GameState>()(
               date: d.date,
               playCount: parseInt(d.play_count)
             }));
-            
+
             set((state) => ({
               dailyStats: {
                 ...state.dailyStats,

@@ -11,9 +11,7 @@
         isAdmin: false,
         dt: 0,
         _lastTime: 0,
-        _adminWhitelist: (window.WCGamesConfig && window.WCGamesConfig.ADMIN_WHITELIST) || [
-            'kydculx@gmail.com'
-        ],
+        _adminWhitelist: (window.WCGamesConfig && window.WCGamesConfig.ADMIN_WHITELIST),
 
         init(config) {
             this.config = config;

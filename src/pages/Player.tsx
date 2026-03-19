@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '../hooks/useUserStore';
 import Leaderboard from '../components/Leaderboard';
+import { AuthModal } from '../components/layout/AuthModal';
 
 const Player: React.FC = () => {
   const { t } = useTranslation();
@@ -19,6 +20,7 @@ const Player: React.FC = () => {
   const [sessionKey] = useState(() => Math.random().toString(36).substring(2, 15));
   const [isLandscape, setIsLandscape] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const hasIncremented = React.useRef<string | null>(null);
 
   // Resolution & Orientation Helper
@@ -139,6 +141,9 @@ const Player: React.FC = () => {
         case 'SHOW_LEADERBOARD':
           setIsLeaderboardOpen(true);
           break;
+        case 'REQUEST_LOGIN':
+          setIsAuthModalOpen(true);
+          break;
       }
     };
 
@@ -147,6 +152,7 @@ const Player: React.FC = () => {
   }, [gameId, addScore, sessionKey]);
 
   const user = useUserStore((state) => state.user);
+  const userName = useUserStore((state) => state.userName);
   const [searchParams] = useSearchParams();
   const isPopup = searchParams.get('popup') === 'true';
 
@@ -155,10 +161,11 @@ const Player: React.FC = () => {
 
   if (!currentGame) return null;
   const userEmail = user?.email || '';
-
+  const userUID = user?.id || sessionKey;
+  const nParam = `&n=${encodeURIComponent(userName)}&uid=${encodeURIComponent(userUID)}`;
   const gameUrlWithKey = currentGame.gameUrl.includes('?')
-    ? `${currentGame.gameUrl}&sk=${sessionKey}&u=${encodeURIComponent(userEmail)}`
-    : `${currentGame.gameUrl}?sk=${sessionKey}&u=${encodeURIComponent(userEmail)}`;
+    ? `${currentGame.gameUrl}&sk=${sessionKey}&u=${encodeURIComponent(userEmail)}${nParam}`
+    : `${currentGame.gameUrl}?sk=${sessionKey}&u=${encodeURIComponent(userEmail)}${nParam}`;
 
   // If it's a popup, we want it to fill the entire window without the "mobile box" styling
   const dims = getGameDimensions();
@@ -244,7 +251,7 @@ const Player: React.FC = () => {
             src={gameUrlWithKey}
             className="w-full h-full border-none"
             title={t(`games.${currentGame.id}.title`)}
-            allow="autoplay; fullscreen"
+            allow="autoplay; fullscreen; encrypted-media"
           />
         </div>
 
@@ -271,6 +278,12 @@ const Player: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 };
