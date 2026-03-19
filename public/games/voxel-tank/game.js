@@ -83,9 +83,9 @@ function getPlayerIdentity() {
         let name = nMatch ? decodeURIComponent(nMatch[1]).trim() : '';
         let idBase = uidMatch ? decodeURIComponent(uidMatch[1]).trim() : '';
         let sk = skMatch ? decodeURIComponent(skMatch[1]).trim() : '';
-        
+
         if (!idBase) idBase = Math.random().toString(36).substring(2, 9);
-        
+
         // Append session key to ensure uniqueness for same user in multiple tabs
         let id = idBase;
         if (sk) {
@@ -406,7 +406,7 @@ class Bot extends Tank {
 
         // Change bot color and name (Use synced color if provided, otherwise random)
         this.color = syncedColor || (CONFIG.BOT && CONFIG.BOT.COLORS ? CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)] : 0x9933ff);
-        
+
         if (this.body && this.body.material) {
             this.body.material.color.set(this.color);
         }
@@ -525,12 +525,12 @@ class Bot extends Tank {
         const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
         const probeDist = 3.5;
         const probePos = this.group.position.clone().add(forward.multiplyScalar(probeDist));
-        
+
         if (!isPositionSafe(probePos.x, probePos.z)) {
             this.blockedTimer += dt;
             // Force rotation away from the wall
             this.group.rotation.y += this.strafeDir * dt * 3.0; // Turn faster when sensing wall
-            
+
             if (this.blockedTimer > 0.5) {
                 // Emergency Reserve
                 this.move(-0.6, dt);
@@ -746,7 +746,7 @@ function updateScoreboard() {
     // Online count
     const onlineCount = Array.from(tanks.values()).length + 1;
     const scoreboardTitle = document.querySelector('.scoreboard-title') || { textContent: '' };
-    
+
     players.sort((a, b) => b.kills - a.kills);
 
     scoreboard.innerHTML = `
@@ -880,7 +880,7 @@ function checkCollisions() {
 
         if (myTank.group.position.x > wallMinX && myTank.group.position.x < wallMaxX &&
             myTank.group.position.z > wallMinZ && myTank.group.position.z < wallMaxZ) {
-            
+
             const dists = [
                 Math.abs(myTank.group.position.x - wallMinX),
                 Math.abs(myTank.group.position.x - wallMaxX),
@@ -935,7 +935,7 @@ function updateBullets() {
                 const isBotShooter = bots.some(b => b.id === bullet.ownerId);
                 if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
                     AudioSFX.playImpact();
-                    
+
                     // Apply locally if target is self
                     if (tank === myTank) {
                         tank.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
@@ -977,7 +977,7 @@ function syncMultiplayer() {
     if (!channel) return;
 
     const now = Date.now();
-    if (now - lastSyncTime < 50) return; // 20fps sync
+    if (now - lastSyncTime < 40) return; // 20fps sync
     lastSyncTime = now;
 
     // 1. Broadcast My Status (Only if playing)
@@ -1025,7 +1025,7 @@ let currentMasterId = null;
 function updateMasterStatus() {
     if (!channel) return;
     const state = channel.presenceState();
-    
+
     // Find all players and their states
     let players = [];
     Object.keys(state).forEach(id => {
@@ -1039,7 +1039,7 @@ function updateMasterStatus() {
 
     // Sticky Logic: If current Master is still in room and PLAYING, keep them.
     const activeCurrentMaster = players.find(p => p.id === currentMasterId && p.state === 'PLAYING');
-    
+
     if (activeCurrentMaster) {
         // Stick with current
         amIMaster = (currentMasterId === myId);
@@ -1069,7 +1069,7 @@ function updateMasterStatus() {
 
 function updatePresenceState() {
     if (channel) {
-        channel.track({ 
+        channel.track({
             online_at: new Date().toISOString(),
             game_state: WCGames.state,
             name: myName
@@ -1231,13 +1231,13 @@ const Game = {
                         presence: { key: myId }
                     }
                 });
-                
+
                 setupChannelListeners();
-                
+
                 channel.subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
                         updatePresenceState();
-                        setTimeout(updateMasterStatus, 500); 
+                        setTimeout(updateMasterStatus, 500);
                     }
                 });
             }
