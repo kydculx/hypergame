@@ -981,39 +981,31 @@ function syncMultiplayer() {
     if (!channel) return;
 
     const now = Date.now();
-    const syncInterval = 100; // 10fps sync (enough with lerp)
+    const syncInterval = 40; // 25fps sync
     if (now - lastSyncTime < syncInterval) return;
     lastSyncTime = now;
 
-    // 1. Broadcast My Status (Only if playing and state changed)
+    // 1. Broadcast My Status (Only if playing)
     if (WCGames.state === 'PLAYING' && myId && myTank) {
-        const hasMoved = myTank.group.position.distanceTo(lastSentPos) > 0.05;
-        const hasHullRot = Math.abs(myTank.group.rotation.y - lastSentHullRot) > 0.02;
-        const hasTurretRot = Math.abs(myTank.turretGroup.rotation.y - lastSentTurretRot) > 0.02;
-        const hasHPDropped = myTank.hp !== lastSentHP;
-        const hasKillsChanged = myTank.kills !== lastSentKills;
+        channel.send({
+            type: 'broadcast',
+            event: 'move',
+            payload: {
+                id: myId,
+                name: myName,
+                pos: { x: myTank.group.position.x, y: myTank.group.position.y, z: myTank.group.position.z },
+                rot: myTank.group.rotation.y,
+                turretRot: myTank.turretGroup.rotation.y,
+                hp: myTank.hp,
+                kills: myTank.kills
+            }
+        });
 
-        if (hasMoved || hasHullRot || hasTurretRot || hasHPDropped || hasKillsChanged) {
-            channel.send({
-                type: 'broadcast',
-                event: 'move',
-                payload: {
-                    id: myId,
-                    name: myName,
-                    pos: { x: myTank.group.position.x, y: myTank.group.position.y, z: myTank.group.position.z },
-                    rot: myTank.group.rotation.y,
-                    turretRot: myTank.turretGroup.rotation.y,
-                    hp: myTank.hp,
-                    kills: myTank.kills
-                }
-            });
-
-            lastSentPos.copy(myTank.group.position);
-            lastSentHullRot = myTank.group.rotation.y;
-            lastSentTurretRot = myTank.turretGroup.rotation.y;
-            lastSentHP = myTank.hp;
-            lastSentKills = myTank.kills;
-        }
+        lastSentPos.copy(myTank.group.position);
+        lastSentHullRot = myTank.group.rotation.y;
+        lastSentTurretRot = myTank.turretGroup.rotation.y;
+        lastSentHP = myTank.hp;
+        lastSentKills = myTank.kills;
     }
 
     // 2. Broadcast Bot status (Master only, always sync at 10Hz if bots active)
