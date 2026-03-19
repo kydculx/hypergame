@@ -927,6 +927,7 @@ function syncMultiplayer() {
             pos: { x: myTank.group.position.x, y: myTank.group.position.y, z: myTank.group.position.z },
             rot: myTank.group.rotation.y,
             turretRot: myTank.turretGroup.rotation.y,
+            hp: myTank.hp,
             kills: myTank.kills
         }
     });
