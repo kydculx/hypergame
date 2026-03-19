@@ -117,6 +117,11 @@ let channel;
 let amIMaster = false;
 let lastFireTime = 0;
 let lastSyncTime = 0;
+let lastSentPos = new THREE.Vector3();
+let lastSentHullRot = 0;
+let lastSentTurretRot = 0;
+let lastSentHP = 0;
+let lastSentKills = 0;
 let animationId = null;
 
 /* 3. Utilities (Helper functions) */
@@ -972,33 +977,47 @@ function updateBullets() {
         if (bulletHit) continue;
     }
 }
-
 function syncMultiplayer() {
     if (!channel) return;
 
     const now = Date.now();
-    if (now - lastSyncTime < 40) return; // 20fps sync
+    const syncInterval = 100; // 10fps sync (enough with lerp)
+    if (now - lastSyncTime < syncInterval) return;
     lastSyncTime = now;
 
-    // 1. Broadcast My Status (Only if playing)
+    // 1. Broadcast My Status (Only if playing and state changed)
     if (WCGames.state === 'PLAYING' && myId && myTank) {
-        channel.send({
-            type: 'broadcast',
-            event: 'move',
-            payload: {
-                id: myId,
-                name: myName,
-                pos: { x: myTank.group.position.x, y: myTank.group.position.y, z: myTank.group.position.z },
-                rot: myTank.group.rotation.y,
-                turretRot: myTank.turretGroup.rotation.y,
-                hp: myTank.hp,
-                kills: myTank.kills
-            }
-        });
+        const hasMoved = myTank.group.position.distanceTo(lastSentPos) > 0.05;
+        const hasHullRot = Math.abs(myTank.group.rotation.y - lastSentHullRot) > 0.02;
+        const hasTurretRot = Math.abs(myTank.turretGroup.rotation.y - lastSentTurretRot) > 0.02;
+        const hasHPDropped = myTank.hp !== lastSentHP;
+        const hasKillsChanged = myTank.kills !== lastSentKills;
+
+        if (hasMoved || hasHullRot || hasTurretRot || hasHPDropped || hasKillsChanged) {
+            channel.send({
+                type: 'broadcast',
+                event: 'move',
+                payload: {
+                    id: myId,
+                    name: myName,
+                    pos: { x: myTank.group.position.x, y: myTank.group.position.y, z: myTank.group.position.z },
+                    rot: myTank.group.rotation.y,
+                    turretRot: myTank.turretGroup.rotation.y,
+                    hp: myTank.hp,
+                    kills: myTank.kills
+                }
+            });
+
+            lastSentPos.copy(myTank.group.position);
+            lastSentHullRot = myTank.group.rotation.y;
+            lastSentTurretRot = myTank.turretGroup.rotation.y;
+            lastSentHP = myTank.hp;
+            lastSentKills = myTank.kills;
+        }
     }
 
-    // 2. Broadcast Bot status (Master only)
-    if (amIMaster && bots.length > 0) {
+    // 2. Broadcast Bot status (Master only, always sync at 10Hz if bots active)
+    if (amIMaster && bots.length > 0 && WCGames.state === 'PLAYING') {
         channel.send({
             type: 'broadcast',
             event: 'bot_sync',
@@ -1010,14 +1029,11 @@ function syncMultiplayer() {
                     pos: { x: b.group.position.x, y: b.group.position.y, z: b.group.position.z },
                     rot: b.group.rotation.y,
                     turretRot: b.turretGroup.rotation.y,
-                    hp: b.hp,
-                    kills: b.kills
+                    hp: b.hp
                 }))
             }
         });
     }
-
-    updateScoreboard();
 }
 
 let currentMasterId = null;
@@ -1083,6 +1099,7 @@ function animate() {
     const dt = clock.getDelta();
     update(dt);
     syncMultiplayer();
+    updateScoreboard();
     renderer.render(scene, camera);
 }
 
