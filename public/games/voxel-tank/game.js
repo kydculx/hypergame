@@ -888,7 +888,11 @@ function update(dt) {
         if (bullet.ownerId !== myId && bullet.mesh.position.distanceTo(myTank.group.position) < 1.2) {
             AudioSFX.playImpact();
 
-            // If I hit myself, I handle it and broadcast the hit
+            // Direct damage handling for local player
+            myTank.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
+
+            // Sync the hit to others (though syncMultiplayer in handleHit handles this, 
+            // the hit event is good for immediate remote feedback like sound/vfx)
             channel.send({
                 type: 'broadcast',
                 event: 'hit',
