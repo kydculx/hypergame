@@ -381,7 +381,7 @@ class Tank {
 }
 
 class Bot extends Tank {
-    constructor(id, name) {
+    constructor(id, name, syncedColor = null) {
         super(id, name, false);
         this.isBot = true;
         this.lastFireTime = 0;
@@ -392,13 +392,14 @@ class Bot extends Tank {
         this.aimJitter = (Math.random() - 0.5) * 0.1;
         this.aimJitterTimer = 0;
 
-        // Change bot color and name
-        const botColor = (CONFIG.BOT && CONFIG.BOT.COLORS) ? CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)] : 0x9933ff;
+        // Change bot color and name (Use synced color if provided, otherwise random)
+        this.color = syncedColor || (CONFIG.BOT && CONFIG.BOT.COLORS ? CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)] : 0x9933ff);
+        
         if (this.body && this.body.material) {
-            this.body.material.color.set(botColor);
+            this.body.material.color.set(this.color);
         }
         if (this.turret && this.turret.material) {
-            this.turret.material.color.set(botColor);
+            this.turret.material.color.set(this.color);
         }
     }
 
@@ -722,12 +723,14 @@ function updateScoreboard() {
         <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 5px; text-align: center;">
             Online: ${onlineCount} | Room: Global
         </div>
-    ` + players.map(p => `
-        <div class="scoreboard-item" style="color: ${p.isLocal ? '#4d79ff' : '#ff4d4d'}">
-            <span>${p.name || p.id}${p.isLocal ? ' (ME)' : ''}</span>
-            <span style="margin-left: 20px">${p.kills} Kills</span>
+    ` + players.map(p => {
+        const isMaster = p.id === Array.from(tanks.keys()).sort()[0] || (amIMaster && p.isLocal);
+        return `
+        <div class="scoreboard-item" style="color: ${p.isLocal ? '#4d79ff' : (p.isBot ? '#e0e0e0' : '#ff4d4d')}">
+            <span>${p.name || p.id}${p.isLocal ? ' (ME)' : ''}${p.isBot ? ' 🤖' : ''}</span>
+            <span style="font-size: 0.8em; opacity: 0.6; margin-left:10px;">${p.kills} K</span>
         </div>
-    `).join('');
+    `; }).join('');
 }
 
 function fire() {
@@ -976,6 +979,7 @@ function syncMultiplayer() {
                 bots: bots.map(b => ({
                     id: b.id,
                     name: b.name,
+                    color: b.color,
                     pos: { x: b.group.position.x, y: b.group.position.y, z: b.group.position.z },
                     rot: b.group.rotation.y,
                     turretRot: b.turretGroup.rotation.y,
@@ -1237,7 +1241,7 @@ const Game = {
                 payload.bots.forEach(bData => {
                     let bot = bots.find(b => b.id === bData.id);
                     if (!bot) {
-                        bot = new Bot(bData.id, bData.name);
+                        bot = new Bot(bData.id, bData.name, bData.color);
                         bots.push(bot);
                     }
                     if (bot && bot.group) {
@@ -1247,6 +1251,13 @@ const Game = {
                         bot.turretGroup.rotation.y = bData.turretRot;
                         bot.updateHP(bData.hp);
                         bot.kills = bData.kills;
+                        
+                        // Ensure color is synced if it changed or wasn't set
+                        if (bot.color !== bData.color) {
+                            bot.color = bData.color;
+                            if (bot.body && bot.body.material) bot.body.material.color.set(bot.color);
+                            if (bot.turret && bot.turret.material) bot.turret.material.color.set(bot.color);
+                        }
                     }
                 });
                 
