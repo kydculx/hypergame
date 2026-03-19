@@ -85,30 +85,42 @@ const PostForm: React.FC<PostFormProps> = ({ onClose, onSuccess, editingPost }) 
 
                 <form onSubmit={handleSubmit} className="p-8 space-y-6">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-400 ml-1">
-                            {t('community.title_label')}
-                        </label>
+                        <div className="flex justify-between items-center ml-1">
+                            <label className="text-sm font-medium text-slate-400">
+                                {t('community.title_label')}
+                            </label>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                                {title.length}/50
+                            </span>
+                        </div>
                         <input
                             type="text"
                             required
+                            maxLength={50}
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all font-medium"
-                            placeholder="글 제목을 입력하세요"
+                            placeholder="글 제목을 입력하세요 (최대 50자)"
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-400 ml-1">
-                            {t('community.content_label')}
-                        </label>
+                        <div className="flex justify-between items-center ml-1">
+                            <label className="text-sm font-medium text-slate-400">
+                                {t('community.content_label')}
+                            </label>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                                {content.length}/50
+                            </span>
+                        </div>
                         <textarea
                             required
                             rows={8}
+                            maxLength={50}
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all resize-none"
-                            placeholder="내용을 입력하세요..."
+                            placeholder="내용을 입력하세요... (최대 50자)"
                         />
                     </div>
 

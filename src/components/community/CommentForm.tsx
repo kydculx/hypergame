@@ -59,14 +59,22 @@ const CommentForm: React.FC<CommentFormProps> = ({ postId, onSuccess }) => {
                 className="relative mt-4 flex items-center gap-2"
                 onClick={() => !user && setIsAuthModalOpen(true)}
             >
-                <input
-                    type="text"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder={user ? t('community.write_comment') : t('community.login_required')}
-                    disabled={!user || isSubmitting}
-                    className={`flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all font-light ${!user ? 'cursor-pointer opacity-50' : ''}`}
-                />
+                <div className="relative flex-1">
+                    <input
+                        type="text"
+                        value={content}
+                        maxLength={50}
+                        onChange={(e) => setContent(e.target.value)}
+                        placeholder={user ? t('community.write_comment') : t('community.login_required')}
+                        disabled={!user || isSubmitting}
+                        className={`w-full bg-white/5 border border-white/10 rounded-full px-4 py-2 pr-12 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all font-light ${!user ? 'cursor-pointer opacity-50' : ''}`}
+                    />
+                    {user && content.length > 0 && (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-mono">
+                            {content.length}/50
+                        </span>
+                    )}
+                </div>
                 <button
                     type="submit"
                     disabled={isSubmitting || (!user ? false : !content.trim())}

@@ -39,13 +39,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: async (content: string) => {
     const { userName } = useUserStore.getState();
-    if (!content.trim()) return;
-
+    const trimmedContent = content.trim().substring(0, 50);
+    if (!trimmedContent) return;
+    
     try {
       const { error } = await supabase
         .from('messages')
-        .insert([{ user_name: userName, content: content.trim() }]);
-
+        .insert([{ user_name: userName, content: trimmedContent }]);
+      
       if (error) throw error;
     } catch (err) {
       console.error('Error sending message:', err);
