@@ -996,6 +996,10 @@ const Game = {
         if (typeof walls !== 'undefined') {
             walls.length = 0;
         }
+        if (typeof bots !== 'undefined') {
+            bots.forEach(b => b.destroy());
+            bots.length = 0;
+        }
 
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x1a1a1a);
