@@ -979,6 +979,13 @@ function updateMasterStatus() {
     const previousMaster = amIMaster;
     amIMaster = (newMasterId === myId);
 
+    // UI Feedback for debugging/clarity
+    const statusText = document.getElementById('status-text');
+    if (statusText) {
+        let masterIndicator = amIMaster ? " [MASTER]" : "";
+        statusText.textContent = `HP: ${myTank.hp} / ${CONFIG.TANK.MAX_HP}${masterIndicator}`;
+    }
+
     // If I became Master and there are no bots, spawn them
     if (amIMaster && !previousMaster && bots.length === 0) {
         console.log("I am now Master. Spawning bots...");
@@ -1280,6 +1287,8 @@ const Game = {
                         tanks.delete(id);
                     }
                 });
+                // Robust master check
+                if (channel) updateMasterStatus();
             }, 1000);
 
             // Subscription
