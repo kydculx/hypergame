@@ -1002,12 +1002,14 @@ function syncMultiplayer() {
     updateScoreboard();
 }
 
+let currentMasterId = null;
+
 function updateMasterStatus() {
     if (!channel) return;
     const state = channel.presenceState();
     
     // Find all players and their states
-    const players = [];
+    let players = [];
     Object.keys(state).forEach(id => {
         const presences = state[id];
         if (presences && presences.length > 0) {
@@ -1017,27 +1019,29 @@ function updateMasterStatus() {
 
     if (players.length === 0) return;
 
-    // Prioritize 'PLAYING' state, then Sort by ID for stability
-    players.sort((a, b) => {
-        if (a.state === 'PLAYING' && b.state !== 'PLAYING') return -1;
-        if (a.state !== 'PLAYING' && b.state === 'PLAYING') return 1;
-        return a.id.localeCompare(b.id);
-    });
-
-    const newMasterId = players[0].id;
-    const previousMaster = amIMaster;
-    amIMaster = (newMasterId === myId);
+    // Sticky Logic: If current Master is still in room and PLAYING, keep them.
+    const activeCurrentMaster = players.find(p => p.id === currentMasterId && p.state === 'PLAYING');
     
-    // If I just became Master, force an AI update immediately
-    if (amIMaster && !previousMaster) {
-        console.log("I am the new Master (Active).");
+    if (activeCurrentMaster) {
+        // Stick with current
+        amIMaster = (currentMasterId === myId);
+    } else {
+        // Pick new Master
+        // Prioritize 'PLAYING' state, then Sort by ID
+        players.sort((a, b) => {
+            if (a.state === 'PLAYING' && b.state !== 'PLAYING') return -1;
+            if (a.state !== 'PLAYING' && b.state === 'PLAYING') return 1;
+            return a.id.localeCompare(b.id);
+        });
+        currentMasterId = players[0].id;
+        amIMaster = (currentMasterId === myId);
     }
 
     // UI Feedback
     const statusText = document.getElementById('status-text');
     if (statusText) {
         let masterIndicator = amIMaster ? " [MASTER]" : "";
-        statusText.textContent = `HP: ${myTank ? myTank.hp : 0} / ${CONFIG.TANK.MAX_HP}${masterIndicator}`;
+        statusText.textContent = `HP: ${myTank ? Math.floor(myTank.hp) : 0} / ${CONFIG.TANK.MAX_HP}${masterIndicator}`;
     }
 
     if (amIMaster && bots.length === 0) {
@@ -1195,180 +1199,30 @@ const Game = {
         myTank.group.position.set(spawn.x, 0, spawn.z);
         myTank.updateHP(CONFIG.TANK.MAX_HP);
 
-        // Bots (Now handled by updateMasterStatus once multi-channel is ready)
-
-        // Supabase Init
+        // Bots (Now handled by updateMasterStatus once multi-channel is r        // Supabase Init
         const config = window.WCGamesConfig;
         if (config && config.SUPABASE_URL) {
             if (!supabaseClient) {
                 supabaseClient = supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
             }
 
-            if (channel) {
-                channel.unsubscribe();
+            if (!channel) {
+                channel = supabaseClient.channel('voxel-tank-multi', {
+                    config: {
+                        broadcast: { self: false },
+                        presence: { key: myId }
+                    }
+                });
+                
+                setupChannelListeners();
+                
+                channel.subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        updatePresenceState();
+                        setTimeout(updateMasterStatus, 500); 
+                    }
+                });
             }
-
-            channel = supabaseClient.channel('voxel-tank-multi', {
-                config: {
-                    broadcast: { self: false },
-                    presence: { key: myId }
-                }
-            });
-
-            channel.on('presence', { event: 'sync' }, () => {
-                const state = channel.presenceState();
-                console.log('Presence sync:', state);
-                updateMasterStatus();
-            });
-
-            channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
-                console.log('Player joined:', key, newPresences);
-                updateMasterStatus();
-            });
-
-            channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-                console.log('Player left:', key, leftPresences);
-                if (tanks.has(key)) {
-                    tanks.get(key).destroy();
-                    tanks.delete(key);
-                }
-                updateMasterStatus();
-            });
-
-            channel.on('broadcast', { event: 'move' }, ({ payload }) => {
-                if (payload.id === myId) return;
-
-                let tank = tanks.get(payload.id);
-                if (!tank) {
-                    tank = new Tank(payload.id, payload.name);
-                    tanks.set(payload.id, tank);
-                }
-
-                if (tank && tank.group) {
-                    // Smoothly set position (lerp for better visual sync)
-                    if (payload.pos) {
-                        const targetPos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
-                        tank.group.position.lerp(targetPos, 0.4);
-                    }
-                    tank.group.rotation.y = payload.rot;
-                    if (tank.turretGroup) {
-                        tank.turretGroup.rotation.y = payload.turretRot;
-                    }
-                    tank.updateHP(payload.hp);
-                    tank.kills = payload.kills || 0;
-                    tank.lastSeen = Date.now();
-                    updateScoreboard();
-                }
-            });
-
-            channel.on('broadcast', { event: 'fire' }, ({ payload }) => {
-                if (payload.ownerId === myId) return;
-                const bullet = new Bullet(
-                    new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z),
-                    new THREE.Vector3(payload.dir.x, payload.dir.y, payload.dir.z),
-                    payload.ownerId
-                );
-                bullets.push(bullet);
-            });
-
-            channel.on('broadcast', { event: 'bot_sync' }, ({ payload }) => {
-                if (amIMaster) return; // Master ignores sync
-                if (!payload.bots) return;
-                
-                const receivedBotIds = new Set(payload.bots.map(b => b.id));
-                
-                // 1. Update existing/New bots
-                payload.bots.forEach(bData => {
-                    let bot = bots.find(b => b.id === bData.id);
-                    if (!bot) {
-                        bot = new Bot(bData.id, bData.name, bData.color);
-                        bots.push(bot);
-                    }
-                    if (bot && bot.group) {
-                        const targetPos = new THREE.Vector3(bData.pos.x, bData.pos.y, bData.pos.z);
-                        bot.group.position.lerp(targetPos, 0.4);
-                        bot.group.rotation.y = bData.rot;
-                        bot.turretGroup.rotation.y = bData.turretRot;
-                        bot.updateHP(bData.hp);
-                        bot.kills = bData.kills;
-                        
-                        // Ensure color is synced if it changed or wasn't set
-                        if (bot.color !== bData.color) {
-                            bot.color = bData.color;
-                            if (bot.body && bot.body.material) bot.body.material.color.set(bot.color);
-                            if (bot.turret && bot.turret.material) bot.turret.material.color.set(bot.color);
-                        }
-                    }
-                });
-                
-                // 2. Remove bots not in payload
-                for (let i = bots.length - 1; i >= 0; i--) {
-                    if (!receivedBotIds.has(bots[i].id)) {
-                        bots[i].destroy();
-                        bots.splice(i, 1);
-                    }
-                }
-                updateScoreboard();
-            });
-
-            channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
-                if (payload.shooterId === myId) return; // Already handled locally if I was the shooter
-
-                let target;
-                if (payload.targetId === myId) {
-                    target = myTank;
-                } else {
-                    target = tanks.get(payload.targetId) || bots.find(b => b.id === payload.targetId);
-                }
-
-                if (target) {
-                    // Only the Master (if it's a bot) or the Target itself (if it's a player) should handle the damage calculation
-                    // Here we let the target handle it locally if they are the target, 
-                    // OR if it's a bot, everyone updates it? No, if we have Master sync, 
-                    // Master updates it and everyone receives the result.
-                    if (target === myTank || (amIMaster && target.isBot)) {
-                        target.handleHit(payload.damage, payload.shooterId);
-                    }
-                }
-            });
-
-            channel.on('broadcast', { event: 'death' }, ({ payload }) => {
-                const allTanks = [myTank, ...Array.from(tanks.values()), ...bots];
-                const killer = allTanks.find(t => t && t.id === payload.shooterId);
-                if (killer) {
-                    killer.kills++;
-                    updateScoreboard();
-                    if (killer.isLocal) syncMultiplayer();
-                }
-
-                if (tanks.has(payload.victimId)) {
-                    tanks.get(payload.victimId).destroy();
-                    tanks.delete(payload.victimId);
-                    updateScoreboard();
-                }
-            });
-
-            // Handle disconnection (simple timeout)
-            if (Game.timeoutInterval) clearInterval(Game.timeoutInterval);
-            Game.timeoutInterval = setInterval(() => {
-                const now = Date.now();
-                tanks.forEach((tank, id) => {
-                    if (now - tank.lastSeen > 3000) { // 3 seconds timeout
-                        tank.destroy();
-                        tanks.delete(id);
-                    }
-                });
-                // Robust master check
-                if (channel) updateMasterStatus();
-            }, 1000);
-
-            // Subscription
-            channel.subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    updatePresenceState();
-                    setTimeout(updateMasterStatus, 500); 
-                }
-            });
         }
 
         if (animationId) cancelAnimationFrame(animationId);
@@ -1382,6 +1236,124 @@ const Game = {
     }
 };
 
+function setupChannelListeners() {
+    if (!channel) return;
+
+    channel.on('presence', { event: 'sync' }, () => {
+        updateMasterStatus();
+    });
+
+    channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        updateMasterStatus();
+    });
+
+    channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        if (tanks.has(key)) {
+            tanks.get(key).destroy();
+            tanks.delete(key);
+        }
+        updateMasterStatus();
+    });
+
+    channel.on('broadcast', { event: 'move' }, ({ payload }) => {
+        if (payload.id === myId) return;
+        let tank = tanks.get(payload.id);
+        if (!tank) {
+            tank = new Tank(payload.id, payload.name);
+            tanks.set(payload.id, tank);
+        }
+        if (tank && tank.group) {
+            if (payload.pos) {
+                const targetPos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
+                tank.group.position.lerp(targetPos, 0.4);
+            }
+            tank.group.rotation.y = payload.rot;
+            if (tank.turretGroup) tank.turretGroup.rotation.y = payload.turretRot;
+            tank.updateHP(payload.hp);
+            tank.kills = payload.kills || 0;
+            tank.lastSeen = Date.now();
+            updateScoreboard();
+        }
+    });
+
+    channel.on('broadcast', { event: 'fire' }, ({ payload }) => {
+        if (payload.ownerId === myId) return;
+        const bPos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
+        const bDir = new THREE.Vector3(payload.dir.x, payload.dir.y, payload.dir.z);
+        const bullet = new Bullet(bPos, bDir, payload.ownerId);
+        bullets.push(bullet);
+    });
+
+    channel.on('broadcast', { event: 'bot_sync' }, ({ payload }) => {
+        if (amIMaster) return;
+        if (!payload.bots) return;
+        const receivedBotIds = new Set(payload.bots.map(b => b.id));
+        payload.bots.forEach(bData => {
+            let bot = bots.find(b => b.id === bData.id);
+            if (!bot) {
+                bot = new Bot(bData.id, bData.name, bData.color);
+                bots.push(bot);
+            }
+            if (bot && bot.group) {
+                const targetPos = new THREE.Vector3(bData.pos.x, bData.pos.y, bData.pos.z);
+                bot.group.position.lerp(targetPos, 0.4);
+                bot.group.rotation.y = bData.rot;
+                bot.turretGroup.rotation.y = bData.turretRot;
+                bot.updateHP(bData.hp);
+                bot.kills = bData.kills;
+                if (bot.color !== bData.color) {
+                    bot.color = bData.color;
+                    if (bot.body && bot.body.material) bot.body.material.color.set(bot.color);
+                    if (bot.turret && bot.turret.material) bot.turret.material.color.set(bot.color);
+                }
+            }
+        });
+        for (let i = bots.length - 1; i >= 0; i--) {
+            if (!receivedBotIds.has(bots[i].id)) {
+                bots[i].destroy();
+                bots.splice(i, 1);
+            }
+        }
+        updateScoreboard();
+    });
+
+    channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
+        if (payload.shooterId === myId) return;
+        let target = (payload.targetId === myId) ? myTank : (tanks.get(payload.targetId) || bots.find(b => b.id === payload.targetId));
+        if (target) {
+            if (target === myTank || (amIMaster && target.isBot)) {
+                target.handleHit(payload.damage, payload.shooterId);
+            }
+        }
+    });
+
+    channel.on('broadcast', { event: 'death' }, ({ payload }) => {
+        const killer = [myTank, ...Array.from(tanks.values()), ...bots].find(t => t && t.id === payload.shooterId);
+        if (killer) {
+            killer.kills++;
+            updateScoreboard();
+            if (killer.isLocal) syncMultiplayer();
+        }
+        if (tanks.has(payload.victimId)) {
+            tanks.get(payload.victimId).destroy();
+            tanks.delete(payload.victimId);
+            updateScoreboard();
+        }
+    });
+
+    if (Game.timeoutInterval) clearInterval(Game.timeoutInterval);
+    Game.timeoutInterval = setInterval(() => {
+        const now = Date.now();
+        tanks.forEach((tank, id) => {
+            if (now - tank.lastSeen > 3000) {
+                tank.destroy();
+                tanks.delete(id);
+            }
+        });
+        if (channel) updateMasterStatus();
+    }, 1000);
+}
+
 window.Game = Game;
 
 WCGames.init({
@@ -1392,27 +1364,18 @@ WCGames.init({
         Game.init();
         updatePresenceState();
     },
-    onPause: () => {
-        updatePresenceState();
-    },
-    onResume: () => {
-        updatePresenceState();
-    },
+    onPause: updatePresenceState,
+    onResume: updatePresenceState,
     onGameOver: () => {
         updatePresenceState();
         updateMasterStatus();
     },
     onRestart: () => {
-        // Reset everything
-        if (tanks) {
-            tanks.forEach(t => t.destroy());
-            tanks.clear();
-        }
         if (bullets) {
             bullets.forEach(b => b.destroy());
             bullets.length = 0;
         }
-        if (bots) {
+        if (!amIMaster && bots) {
             bots.forEach(b => b.destroy());
             bots.length = 0;
         }
@@ -1420,8 +1383,9 @@ WCGames.init({
         if (myTank) {
             myTank.group.position.set(spawn.x, 0, spawn.z);
             myTank.updateHP(CONFIG.TANK.MAX_HP);
+            myTank.kills = 0;
         }
-
+        updateScoreboard();
         updatePresenceState();
         updateMasterStatus();
         syncMultiplayer();
