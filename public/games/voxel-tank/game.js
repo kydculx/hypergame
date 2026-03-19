@@ -526,6 +526,19 @@ class Bot extends Tank {
         const bullet = new Bullet(pos, dir.negate(), this.id);
         bullets.push(bullet);
 
+        // Broadcast Bot fire (Master only)
+        if (amIMaster && channel) {
+            channel.send({
+                type: 'broadcast',
+                event: 'fire',
+                payload: {
+                    pos: { x: pos.x, y: pos.y, z: pos.z },
+                    dir: { x: -dir.x, y: -dir.y, z: -dir.z }, // Need to negate for correct direction
+                    ownerId: this.id
+                }
+            });
+        }
+
         if (window.AudioSFX) AudioSFX.playShoot();
     }
 
