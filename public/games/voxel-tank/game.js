@@ -567,19 +567,6 @@ class Bot extends Tank {
         const bullet = new Bullet(pos, dir.clone(), this.id);
         bullets.push(bullet);
 
-        // Broadcast Bot fire (Master only)
-        if (amIMaster && channel) {
-            channel.send({
-                type: 'broadcast',
-                event: 'fire',
-                payload: {
-                    pos: { x: pos.x, y: pos.y, z: pos.z },
-                    dir: { x: dir.x, y: dir.y, z: dir.z },
-                    ownerId: this.id
-                }
-            });
-        }
-
         if (window.AudioSFX) AudioSFX.playShoot();
     }
 
@@ -849,10 +836,8 @@ function update(dt) {
         camera.lookAt(myTank.group.position);
     }
 
-    // 2. AI Update (Master only, regardless of state)
-    if (amIMaster) {
-        bots.forEach(bot => bot.updateAI(dt));
-    }
+    // 2. AI Update (Every client handles their own local bots)
+    bots.forEach(bot => bot.updateAI(dt));
 
     // 3. Sync
     syncMultiplayer();
@@ -997,26 +982,6 @@ function syncMultiplayer() {
         });
     }
 
-    // 2. Broadcast Bot status (Master only)
-    if (amIMaster && bots.length > 0) {
-        channel.send({
-            type: 'broadcast',
-            event: 'bot_sync',
-            payload: {
-                bots: bots.map(b => ({
-                    id: b.id,
-                    name: b.name,
-                    color: b.color,
-                    pos: { x: b.group.position.x, y: b.group.position.y, z: b.group.position.z },
-                    rot: b.group.rotation.y,
-                    turretRot: b.turretGroup.rotation.y,
-                    hp: b.hp,
-                    kills: b.kills
-                }))
-            }
-        });
-    }
-
     updateScoreboard();
 }
 
@@ -1062,7 +1027,7 @@ function updateMasterStatus() {
         statusText.textContent = `HP: ${myTank ? Math.floor(myTank.hp) : 0} / ${CONFIG.TANK.MAX_HP}${masterIndicator}`;
     }
 
-    if (amIMaster && bots.length === 0) {
+    if (bots.length === 0) {
         spawnBots(CONFIG.BOT.COUNT);
     }
 }
@@ -1302,38 +1267,6 @@ function setupChannelListeners() {
         bullets.push(bullet);
     });
 
-    channel.on('broadcast', { event: 'bot_sync' }, ({ payload }) => {
-        if (amIMaster) return;
-        if (!payload.bots) return;
-        const receivedBotIds = new Set(payload.bots.map(b => b.id));
-        payload.bots.forEach(bData => {
-            let bot = bots.find(b => b.id === bData.id);
-            if (!bot) {
-                bot = new Bot(bData.id, bData.name, bData.color);
-                bots.push(bot);
-            }
-            if (bot && bot.group) {
-                const targetPos = new THREE.Vector3(bData.pos.x, bData.pos.y, bData.pos.z);
-                bot.group.position.lerp(targetPos, 0.4);
-                bot.group.rotation.y = bData.rot;
-                bot.turretGroup.rotation.y = bData.turretRot;
-                bot.updateHP(bData.hp);
-                bot.kills = bData.kills;
-                if (bot.color !== bData.color) {
-                    bot.color = bData.color;
-                    if (bot.body && bot.body.material) bot.body.material.color.set(bot.color);
-                    if (bot.turret && bot.turret.material) bot.turret.material.color.set(bot.color);
-                }
-            }
-        });
-        for (let i = bots.length - 1; i >= 0; i--) {
-            if (!receivedBotIds.has(bots[i].id)) {
-                bots[i].destroy();
-                bots.splice(i, 1);
-            }
-        }
-        updateScoreboard();
-    });
 
     channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
         if (payload.shooterId === myId) return;
