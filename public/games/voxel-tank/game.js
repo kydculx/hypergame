@@ -926,9 +926,11 @@ function updateBullets() {
         }
         if (bulletHit) continue;
 
-        // Player collisions
-        tanks.forEach(tank => {
-            if (bullet.ownerId !== tank.id && bullet.mesh.position.distanceTo(tank.group.position) < 1.2) {
+        // Player collisions (Including self)
+        const allPlayers = [myTank, ...Array.from(tanks.values())];
+        allPlayers.forEach(tank => {
+            if (!tank || bullet.ownerId === tank.id) return;
+            if (bullet.mesh.position.distanceTo(tank.group.position) < 1.2) {
                 // Authority: Shooter (Player) or Master (for Bot shooter)
                 const isBotShooter = bots.some(b => b.id === bullet.ownerId);
                 if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
@@ -962,15 +964,6 @@ function updateBullets() {
             }
         }
         if (bulletHit) continue;
-
-        // Self collision (Local player hit)
-        if (bullet.ownerId !== myId && bullet.mesh.position.distanceTo(myTank.group.position) < 1.2) {
-            // Authority: The shooter will handle the hit broadcast.
-            // We only show local impact for visual weight.
-            AudioSFX.playImpact();
-            bullet.destroy();
-            bullets.splice(i, 1);
-        }
     }
 }
 
