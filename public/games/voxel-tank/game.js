@@ -705,6 +705,38 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+/* 7. Collision & Spawn Utils */
+function isPositionSafe(x, z) {
+    const tankRadius = 1.2; // matching hardcoded collision radius
+    const halfSize = (CONFIG.WORLD.SIZE / 2) - 5;
+    
+    if (Math.abs(x) > halfSize || Math.abs(z) > halfSize) return false;
+
+    for (const wallDef of CONFIG.MAP.LAYOUT) {
+        const wallMinX = wallDef.x - wallDef.w / 2 - tankRadius;
+        const wallMaxX = wallDef.x + wallDef.w / 2 + tankRadius;
+        const wallMinZ = wallDef.z - wallDef.d / 2 - tankRadius;
+        const wallMaxZ = wallDef.z + wallDef.d / 2 + tankRadius;
+
+        if (x > wallMinX && x < wallMaxX && z > wallMinZ && z < wallMaxZ) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function getRandomSpawnPoint() {
+    const range = (CONFIG.WORLD.SIZE / 2) - 10;
+    for (let i = 0; i < 100; i++) {
+        const x = (Math.random() - 0.5) * range * 2;
+        const z = (Math.random() - 0.5) * range * 2;
+        if (isPositionSafe(x, z)) {
+            return { x, z };
+        }
+    }
+    return { x: 0, z: 0 };
+}
+
 /* 8. SDK Initialization & Callbacks */
 const Game = {
     start() {
@@ -794,7 +826,9 @@ const Game = {
         });
 
         // My Tank
+        const spawn = getRandomSpawnPoint();
         myTank = new Tank(myId, myName, true);
+        myTank.group.position.set(spawn.x, 0, spawn.z);
         myTank.updateHP(CONFIG.TANK.MAX_HP);
 
         // Supabase Init
@@ -941,11 +975,17 @@ WCGames.init({
     },
     onRestart: () => {
         // Reset everything
-        tanks.forEach(t => t.destroy());
-        tanks.clear();
-        bullets.forEach(b => b.destroy());
-        bullets.length = 0;
-        myTank.group.position.set(0, 0, 0);
+        if (tanks) {
+            tanks.forEach(t => t.destroy());
+            tanks.clear();
+        }
+        if (bullets) {
+            bullets.forEach(b => b.destroy());
+            bullets.length = 0;
+        }
+        const spawn = getRandomSpawnPoint();
+        myTank.group.position.set(spawn.x, 0, spawn.z);
         myTank.updateHP(CONFIG.TANK.MAX_HP);
+        syncMultiplayer();
     }
 });
