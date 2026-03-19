@@ -117,11 +117,6 @@ let channel;
 let amIMaster = false;
 let lastFireTime = 0;
 let lastSyncTime = 0;
-let lastSentPos = new THREE.Vector3();
-let lastSentHullRot = 0;
-let lastSentTurretRot = 0;
-let lastSentHP = 0;
-let lastSentKills = 0;
 let animationId = null;
 
 /* 3. Utilities (Helper functions) */
@@ -977,12 +972,12 @@ function updateBullets() {
         if (bulletHit) continue;
     }
 }
+
 function syncMultiplayer() {
     if (!channel) return;
 
     const now = Date.now();
-    const syncInterval = 40; // 25fps sync
-    if (now - lastSyncTime < syncInterval) return;
+    if (now - lastSyncTime < 40) return; // 25fps sync
     lastSyncTime = now;
 
     // 1. Broadcast My Status (Only if playing)
@@ -1000,16 +995,10 @@ function syncMultiplayer() {
                 kills: myTank.kills
             }
         });
-
-        lastSentPos.copy(myTank.group.position);
-        lastSentHullRot = myTank.group.rotation.y;
-        lastSentTurretRot = myTank.turretGroup.rotation.y;
-        lastSentHP = myTank.hp;
-        lastSentKills = myTank.kills;
     }
 
-    // 2. Broadcast Bot status (Master only, always sync at 10Hz if bots active)
-    if (amIMaster && bots.length > 0 && WCGames.state === 'PLAYING') {
+    // 2. Broadcast Bot status (Master only)
+    if (amIMaster && bots.length > 0) {
         channel.send({
             type: 'broadcast',
             event: 'bot_sync',
@@ -1021,11 +1010,14 @@ function syncMultiplayer() {
                     pos: { x: b.group.position.x, y: b.group.position.y, z: b.group.position.z },
                     rot: b.group.rotation.y,
                     turretRot: b.turretGroup.rotation.y,
-                    hp: b.hp
+                    hp: b.hp,
+                    kills: b.kills
                 }))
             }
         });
     }
+
+    updateScoreboard();
 }
 
 let currentMasterId = null;
@@ -1091,7 +1083,6 @@ function animate() {
     const dt = clock.getDelta();
     update(dt);
     syncMultiplayer();
-    updateScoreboard();
     renderer.render(scene, camera);
 }
 
