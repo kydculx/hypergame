@@ -64,7 +64,7 @@ export const GameCard: React.FC<GameCardProps> = ({
                         {category && <p className="text-cyan-400 font-medium text-[10px] uppercase tracking-wider">{category}</p>}
                         {playCount !== undefined && (
                             <p className="text-slate-400 text-[10px] font-medium">
-                                {playCount.toLocaleString()} {t('games.plays')}
+                                {playCount.toLocaleString()} {t('plays')}
                             </p>
                         )}
                     </div>
