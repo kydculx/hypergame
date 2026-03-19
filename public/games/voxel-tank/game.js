@@ -44,12 +44,12 @@ const CONFIG = {
         ]
     },
     BOT: {
-        COUNT: 3,
-        SPEED: 3,
-        ROTATE_SPEED: 0.8,
+        COUNT: 10,
+        SPEED: 5,
+        ROTATE_SPEED: 1,
         FIRE_COOLDOWN: 2000,
-        DETECTION_RANGE: 30,
-        ATTACK_RANGE: 20
+        DETECTION_RANGE: 50,
+        ATTACK_RANGE: 30
     }
 };
 
@@ -70,7 +70,7 @@ function getPlayerIdentity() {
         let id = uidMatch ? decodeURIComponent(uidMatch[1]).trim() : '';
         if (!id) id = Math.random().toString(36).substring(2, 9);
         if (!name) name = id;
-        
+
         // Safety: id should be alphanumeric, name can have Korean
         id = id.replace(/[^a-zA-Z0-9]/g, '_');
         name = name.replace(/[^a-zA-Z0-9가-힣\s]/g, '');
@@ -340,11 +340,11 @@ class Tank {
         if (this.hp <= 0) return; // Already dead
 
         this.updateHP(this.hp - damage);
-        
+
         // If I am hit, I need to broadcast my new HP immediately
         if (this.isLocal) {
             syncMultiplayer();
-            
+
             // If I died, I broadcast the death event so the shooter gets the kill
             if (this.hp <= 0) {
                 channel.send({
@@ -373,7 +373,7 @@ class Bot extends Tank {
         this.state = 'WANDER';
         this.stateTimer = 0;
         this.wanderAngle = Math.random() * Math.PI * 2;
-        
+
         // Change bot color
         this.body.material.color.setHex(CONFIG.COLORS.BOT);
         this.turret.material.color.setHex(CONFIG.COLORS.BOT);
@@ -406,11 +406,15 @@ class Bot extends Tank {
         // 2. State Execution
         if (this.state === 'ATTACK') {
             const targetPos = this.target.group.position;
-            const angleToTarget = Math.atan2(targetPos.x - this.group.position.x, targetPos.z - this.group.position.z);
+            const dx = targetPos.x - this.group.position.x;
+            const dz = targetPos.z - this.group.position.z;
             
-            // Rotate smooth toward target
-            this.group.rotation.y = lerpAngle(this.group.rotation.y, angleToTarget, CONFIG.BOT.ROTATE_SPEED * dt);
-            this.turretGroup.rotation.y = lerpAngle(this.turretGroup.rotation.y, 0, dt * 2);
+            // Correct angle to point -Z towards (dx, dz)
+            const angleToTarget = Math.atan2(-dx, -dz);
+
+            // Rotate faster toward target
+            this.group.rotation.y = lerpAngle(this.group.rotation.y, angleToTarget, dt * 4);
+            this.turretGroup.rotation.y = lerpAngle(this.turretGroup.rotation.y, 0, dt * 5);
 
             // Move closer if far, stop if near
             const dist = this.group.position.distanceTo(targetPos);
@@ -421,27 +425,31 @@ class Bot extends Tank {
             }
 
             // Shoot if aimed well
-            const angleDiff = Math.abs(this.group.rotation.y - angleToTarget);
-            if (angleDiff < 0.3 && dist < CONFIG.BOT.ATTACK_RANGE) {
+            const currentDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
+            const targetDirRaw = new THREE.Vector3(dx, 0, dz).normalize();
+            const dot = currentDir.dot(targetDirRaw);
+            
+            if (dot > 0.95 && dist < CONFIG.BOT.ATTACK_RANGE) {
                 this.shoot();
             }
         } else {
             // WANDER
             this.stateTimer -= dt;
             if (this.stateTimer <= 0) {
-                this.stateTimer = 2 + Math.random() * 3;
-                this.wanderAngle += (Math.random() - 0.5) * 2;
+                this.stateTimer = 1 + Math.random() * 2;
+                this.wanderAngle = (Math.random() - 0.5) * Math.PI * 2;
             }
 
-            this.group.rotation.y = lerpAngle(this.group.rotation.y, this.wanderAngle, CONFIG.BOT.ROTATE_SPEED * dt);
-            
+            this.group.rotation.y = lerpAngle(this.group.rotation.y, this.wanderAngle, dt * 2);
+
             // Move forward, but check for walls
             if (!this.move(1, dt)) {
-                // If blocked, turn away
-                this.wanderAngle += Math.PI * 0.5;
+                // If blocked, pick a new random angle immediately and try to move away
+                this.wanderAngle = (Math.random() - 0.5) * Math.PI * 2;
+                this.stateTimer = 0.5;
             }
         }
-        
+
         // Ensure bots stay in bounds
         const halfSize = CONFIG.WORLD.SIZE / 2 - 2;
         this.group.position.x = Math.max(-halfSize, Math.min(halfSize, this.group.position.x));
@@ -452,7 +460,7 @@ class Bot extends Tank {
         const speed = CONFIG.BOT.SPEED * dir;
         const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
         const nextPos = this.group.position.clone().add(forward.multiplyScalar(speed * dt));
-        
+
         if (isPositionSafe(nextPos.x, nextPos.z)) {
             this.group.position.copy(nextPos);
             this.engineAudio.update(Math.abs(dir));
@@ -469,17 +477,17 @@ class Bot extends Tank {
         const pos = new THREE.Vector3();
         this.barrel.getWorldPosition(pos);
         const dir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y + this.turretGroup.rotation.y);
-        
+
         const bullet = new Bullet(pos, dir.negate(), this.id);
         bullets.push(bullet);
 
         if (window.AudioSFX) AudioSFX.playShoot();
     }
-    
+
     handleHit(damage, shooterId) {
         if (this.hp <= 0) return;
         super.updateHP(this.hp - damage);
-        
+
         if (this.hp <= 0) {
             if (shooterId === myId) {
                 myTank.kills++;
@@ -491,7 +499,7 @@ class Bot extends Tank {
             // Remove from bots array
             const idx = bots.indexOf(this);
             if (idx !== -1) bots.splice(idx, 1);
-            
+
             // Respawn after 5 seconds
             setTimeout(() => spawnBots(1), 5000);
         }
@@ -620,13 +628,13 @@ function spawnBots(count) {
 function updateScoreboard() {
     const scoreboard = document.getElementById('scoreboard');
     if (!scoreboard) return;
-    
+
     const players = Array.from(tanks.values());
     if (myTank) players.push(myTank);
     bots.forEach(b => players.push(b));
-    
+
     players.sort((a, b) => b.kills - a.kills);
-    
+
     scoreboard.innerHTML = players.map(p => `
         <div class="scoreboard-item" style="color: ${p.isLocal ? '#4d79ff' : '#ff4d4d'}">
             <span>${p.name || p.id}${p.isLocal ? ' (ME)' : ''}</span>
@@ -791,7 +799,7 @@ function update(dt) {
         tanks.forEach(tank => {
             if (bullet.ownerId !== tank.id && bullet.mesh.position.distanceTo(tank.group.position) < 1.2) {
                 if (bullet.ownerId === myId || tank.isLocal) AudioSFX.playImpact();
-                
+
                 // If I am the shooter, I broadcast the hit
                 if (bullet.ownerId === myId) {
                     channel.send({
@@ -824,7 +832,7 @@ function update(dt) {
         // Collision with Self (if not hit target yet)
         if (bullet.ownerId !== myId && bullet.mesh.position.distanceTo(myTank.group.position) < 1.2) {
             AudioSFX.playImpact();
-            
+
             // If I hit myself, I handle it and broadcast the hit
             channel.send({
                 type: 'broadcast',
@@ -880,7 +888,7 @@ function animate() {
 function isPositionSafe(x, z) {
     const tankRadius = 1.2; // matching hardcoded collision radius
     const halfSize = (CONFIG.WORLD.SIZE / 2) - 5;
-    
+
     if (Math.abs(x) > halfSize || Math.abs(z) > halfSize) return false;
 
     for (const wallDef of CONFIG.MAP.LAYOUT) {
@@ -1075,17 +1083,17 @@ const Game = {
                 );
                 bullets.push(bullet);
             });
-            
+
             channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
                 if (payload.shooterId === myId) return; // Already handled locally if I was the shooter
-                
+
                 let target;
                 if (payload.targetId === myId) {
                     target = myTank;
                 } else {
                     target = tanks.get(payload.targetId);
                 }
-                
+
                 if (target) {
                     target.handleHit(payload.damage, payload.shooterId);
                 }
@@ -1164,7 +1172,7 @@ WCGames.init({
         const spawn = getRandomSpawnPoint();
         myTank.group.position.set(spawn.x, 0, spawn.z);
         myTank.updateHP(CONFIG.TANK.MAX_HP);
-        
+
         spawnBots(CONFIG.BOT.COUNT);
         syncMultiplayer();
     }
