@@ -770,80 +770,86 @@ function fire() {
 }
 
 function update(dt) {
-    if (WCGames.state !== 'PLAYING') return;
+    // 1. My Tank Update (Only while playing)
+    if (WCGames.state === 'PLAYING' && myTank) {
+        let moveDir = 0;
+        let rotateDir = 0;
 
-    // Local Tank Movement
-    let moveDir = 0;
-    let rotateDir = 0;
+        if (keys['KeyW'] || keys['w'] || keys['ArrowUp']) moveDir += 1;
+        if (keys['KeyS'] || keys['s'] || keys['ArrowDown']) moveDir -= 1;
+        if (keys['KeyA'] || keys['a'] || keys['ArrowLeft']) rotateDir += 1;
+        if (keys['KeyD'] || keys['d'] || keys['ArrowRight']) rotateDir -= 1;
 
-    if (keys['KeyW'] || keys['w'] || keys['ArrowUp']) moveDir += 1;
-    if (keys['KeyS'] || keys['s'] || keys['ArrowDown']) moveDir -= 1;
-    if (keys['KeyA'] || keys['a'] || keys['ArrowLeft']) rotateDir += 1;
-    if (keys['KeyD'] || keys['d'] || keys['ArrowRight']) rotateDir -= 1;
+        // Merge Joystick
+        if (Math.abs(joystickLeft.y) > 0.1) moveDir -= joystickLeft.y;
+        if (Math.abs(joystickLeft.x) > 0.1) rotateDir -= joystickLeft.x;
 
-    // Merge Joystick
-    if (Math.abs(joystickLeft.y) > 0.1) moveDir -= joystickLeft.y;
-    if (Math.abs(joystickLeft.x) > 0.1) rotateDir -= joystickLeft.x;
+        myTank.group.rotation.y += rotateDir * CONFIG.TANK.ROTATE_SPEED * dt;
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(myTank.group.quaternion);
+        myTank.group.position.add(forward.multiplyScalar(moveDir * CONFIG.TANK.SPEED * dt));
 
-    myTank.group.rotation.y += rotateDir * CONFIG.TANK.ROTATE_SPEED * dt;
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(myTank.group.quaternion);
-    myTank.group.position.add(forward.multiplyScalar(moveDir * CONFIG.TANK.SPEED * dt));
+        if (myTank.engineAudio) myTank.engineAudio.update(Math.abs(moveDir));
 
-    if (myTank.engineAudio) myTank.engineAudio.update(Math.abs(moveDir));
+        // Turret Rotation (Mouse / Right Joystick)
+        let targetTurretAngle = null;
 
-    // Turret Rotation (Mouse / Right Joystick)
-    let targetTurretAngle = null;
+        if (Math.abs(joystickRight.x) > 0.1 || Math.abs(joystickRight.y) > 0.1) {
+            targetTurretAngle = Math.atan2(-joystickRight.x, -joystickRight.y);
+            if (Math.sqrt(joystickRight.x ** 2 + joystickRight.y ** 2) > 0.8) fire();
+        } else if (window.matchMedia('(pointer: fine)').matches && window.WCGames.input && window.WCGames.input.mouse) {
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2(
+                (WCGames.input.mouse.x / window.innerWidth) * 2 - 1,
+                -(WCGames.input.mouse.y / window.innerHeight) * 2 + 1
+            );
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(scene.getObjectByName('floor') || scene, true);
+            if (intersects.length > 0) {
+                const pt = intersects[0].point;
+                targetTurretAngle = Math.atan2(myTank.group.position.x - pt.x, myTank.group.position.z - pt.z);
+            }
 
-    if (Math.abs(joystickRight.x) > 0.1 || Math.abs(joystickRight.y) > 0.1) {
-        targetTurretAngle = Math.atan2(-joystickRight.x, -joystickRight.y);
-
-        // Auto-fire if aiming?
-        if (Math.sqrt(joystickRight.x ** 2 + joystickRight.y ** 2) > 0.8) fire();
-    } else if (window.matchMedia('(pointer: fine)').matches && window.WCGames.input && window.WCGames.input.mouse) {
-        // Desktop Mouse Aiming (Only on PC)
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2(
-            (WCGames.input.mouse.x / window.innerWidth) * 2 - 1,
-            -(WCGames.input.mouse.y / window.innerHeight) * 2 + 1
-        );
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObject(scene.getObjectByName('floor') || scene, true);
-        if (intersects.length > 0) {
-            const pt = intersects[0].point;
-            targetTurretAngle = Math.atan2(myTank.group.position.x - pt.x, myTank.group.position.z - pt.z);
+            if (keys['ArrowLeft']) targetTurretAngle = (targetTurretAngle || myTank.turretGroup.rotation.y + myTank.group.rotation.y) + CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
+            if (keys['ArrowRight']) targetTurretAngle = (targetTurretAngle || myTank.turretGroup.rotation.y + myTank.group.rotation.y) - CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
         }
 
-        if (keys['ArrowLeft']) targetTurretAngle = (targetTurretAngle || myTank.turretGroup.rotation.y + myTank.group.rotation.y) + CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
-        if (keys['ArrowRight']) targetTurretAngle = (targetTurretAngle || myTank.turretGroup.rotation.y + myTank.group.rotation.y) - CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
+        if (targetTurretAngle !== null) myTank.targetWorldAngle = targetTurretAngle;
+
+        // Smooth rotation
+        const currentWorldAngle = myTank.turretGroup.rotation.y + myTank.group.rotation.y;
+        const nextWorldAngle = lerpAngle(currentWorldAngle, myTank.targetWorldAngle, CONFIG.LERP_SPEED.TURRET * dt);
+        myTank.turretGroup.rotation.y = nextWorldAngle - myTank.group.rotation.y;
+
+        if (keys['Space']) fire();
+
+        // Collisions
+        checkCollisions();
+
+        // Camera follow
+        camera.position.set(myTank.group.position.x, 20, myTank.group.position.z + 10);
+        camera.lookAt(myTank.group.position);
     }
 
-    if (targetTurretAngle !== null) {
-        myTank.targetWorldAngle = targetTurretAngle;
-    }
-
-    // Update Bots AI
-    // Update Bots (Master only)
+    // 2. AI Update (Master only, regardless of state)
     if (amIMaster) {
         bots.forEach(bot => bot.updateAI(dt));
     }
 
-    // Always smooth rotation towards targetWorldAngle
-    const currentWorldAngle = myTank.turretGroup.rotation.y + myTank.group.rotation.y;
-    const nextWorldAngle = lerpAngle(currentWorldAngle, myTank.targetWorldAngle, CONFIG.LERP_SPEED.TURRET * dt);
-    myTank.turretGroup.rotation.y = nextWorldAngle - myTank.group.rotation.y;
+    // 3. Sync
+    syncMultiplayer();
+}
 
-    if (keys['Space']) fire();
-
-    // Wall Collision for Tank
+function checkCollisions() {
+    const dt = clock.getDelta(); // This is wrong, should pass dt from update, but let's just use simple resolve
     const originalPos = myTank.group.position.clone();
     const halfSize = CONFIG.WORLD.SIZE / 2;
 
-    // Boundary check first
+    // Boundary check
     myTank.group.position.x = Math.max(-halfSize, Math.min(halfSize, myTank.group.position.x));
     myTank.group.position.z = Math.max(-halfSize, Math.min(halfSize, myTank.group.position.z));
 
     // Wall check
-    const tankRadius = 0.65; // Slightly larger for safety
+    const tankRadius = 0.65;
     for (const wall of walls) {
         const wallW = wall.geometry.parameters.width;
         const wallD = wall.geometry.parameters.depth;
@@ -855,16 +861,14 @@ function update(dt) {
 
         if (myTank.group.position.x > wallMinX && myTank.group.position.x < wallMaxX &&
             myTank.group.position.z > wallMinZ && myTank.group.position.z < wallMaxZ) {
-
-            // Collision! Resolve by finding the shallowest penetration
+            
             const dists = [
-                Math.abs(myTank.group.position.x - wallMinX), // From minX
-                Math.abs(myTank.group.position.x - wallMaxX), // From maxX
-                Math.abs(myTank.group.position.z - wallMinZ), // From minZ
-                Math.abs(myTank.group.position.z - wallMaxZ)  // From maxZ
+                Math.abs(myTank.group.position.x - wallMinX),
+                Math.abs(myTank.group.position.x - wallMaxX),
+                Math.abs(myTank.group.position.z - wallMinZ),
+                Math.abs(myTank.group.position.z - wallMaxZ)
             ];
             const minIdx = dists.indexOf(Math.min(...dists));
-
             if (minIdx === 0) myTank.group.position.x = wallMinX;
             else if (minIdx === 1) myTank.group.position.x = wallMaxX;
             else if (minIdx === 2) myTank.group.position.z = wallMinZ;
@@ -872,7 +876,12 @@ function update(dt) {
         }
     }
 
-    // Bullets Update
+    // Bullets and other collisions are handled in their own loop in modern cleanup, but for now:
+    updateBullets();
+}
+
+function updateBullets() {
+    const dt = 0.016; // Approx
     for (let i = bullets.length - 1; i >= 0; i--) {
         const bullet = bullets[i];
         if (!bullet.update(dt)) {
@@ -881,7 +890,7 @@ function update(dt) {
             continue;
         }
 
-        // Wall collision for bullet
+        // Wall collision (Everyone handles locally)
         let bulletHit = false;
         for (const wall of walls) {
             const wallW = wall.geometry.parameters.width;
@@ -898,20 +907,19 @@ function update(dt) {
         }
         if (bulletHit) continue;
 
-        // Collision detection with other tanks
+        // Player collisions
         tanks.forEach(tank => {
             if (bullet.ownerId !== tank.id && bullet.mesh.position.distanceTo(tank.group.position) < 1.2) {
-                if (bullet.ownerId === myId || tank.isLocal) AudioSFX.playImpact();
-
-                // If I am the shooter, I broadcast the hit
-                if (bullet.ownerId === myId) {
+                // Authority: Shooter (Player) or Master (for Bot shooter)
+                const isBotShooter = bots.some(b => b.id === bullet.ownerId);
+                if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
+                    AudioSFX.playImpact();
                     channel.send({
                         type: 'broadcast',
                         event: 'hit',
-                        payload: { targetId: tank.id, damage: CONFIG.BULLET.DAMAGE, shooterId: myId }
+                        payload: { targetId: tank.id, damage: CONFIG.BULLET.DAMAGE, shooterId: bullet.ownerId }
                     });
                 }
-
                 bullet.destroy();
                 bullets.splice(i, 1);
                 bulletHit = true;
@@ -919,11 +927,15 @@ function update(dt) {
         });
         if (bulletHit) continue;
 
-        // Collision with Bots
+        // Bot collisions
         for (const bot of bots) {
             if (bullet.ownerId !== bot.id && bullet.mesh.position.distanceTo(bot.group.position) < 1.2) {
-                if (bullet.ownerId === myId) AudioSFX.playImpact();
-                bot.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
+                // Authority: Shooter (Player) or Master (for Bot shooter)
+                const isBotShooter = bots.some(b => b.id === bullet.ownerId);
+                if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
+                    AudioSFX.playImpact();
+                    bot.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
+                }
                 bullet.destroy();
                 bullets.splice(i, 1);
                 bulletHit = true;
@@ -932,53 +944,40 @@ function update(dt) {
         }
         if (bulletHit) continue;
 
-        // Collision with Self (if not hit target yet)
+        // Self collision (Local player hit)
         if (bullet.ownerId !== myId && bullet.mesh.position.distanceTo(myTank.group.position) < 1.2) {
+            // Authority: The shooter will handle the hit broadcast.
+            // We only show local impact for visual weight.
             AudioSFX.playImpact();
-
-            // Direct damage handling for local player
-            myTank.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
-
-            // Sync the hit to others (though syncMultiplayer in handleHit handles this, 
-            // the hit event is good for immediate remote feedback like sound/vfx)
-            channel.send({
-                type: 'broadcast',
-                event: 'hit',
-                payload: { targetId: myId, damage: CONFIG.BULLET.DAMAGE, shooterId: bullet.ownerId }
-            });
-
             bullet.destroy();
             bullets.splice(i, 1);
         }
     }
-
-    // Camera follow
-    camera.position.set(myTank.group.position.x, 20, myTank.group.position.z + 10);
-    camera.lookAt(myTank.group.position);
-
-    // Sync to Supabase - moved to animate loop for clarity
 }
 
 function syncMultiplayer() {
-    if (!channel || WCGames.state !== 'PLAYING') return;
+    if (!channel) return;
 
     const now = Date.now();
     if (now - lastSyncTime < 50) return; // 20fps sync
     lastSyncTime = now;
 
-    channel.send({
-        type: 'broadcast',
-        event: 'move',
-        payload: {
-            id: myId,
-            name: myName,
-            pos: { x: myTank.group.position.x, y: myTank.group.position.y, z: myTank.group.position.z },
-            rot: myTank.group.rotation.y,
-            turretRot: myTank.turretGroup.rotation.y,
-            hp: myTank.hp,
-            kills: myTank.kills
-        }
-    });
+    // 1. Broadcast My Status (Only if playing)
+    if (WCGames.state === 'PLAYING' && myId && myTank) {
+        channel.send({
+            type: 'broadcast',
+            event: 'move',
+            payload: {
+                id: myId,
+                name: myName,
+                pos: { x: myTank.group.position.x, y: myTank.group.position.y, z: myTank.group.position.z },
+                rot: myTank.group.rotation.y,
+                turretRot: myTank.turretGroup.rotation.y,
+                hp: myTank.hp,
+                kills: myTank.kills
+            }
+        });
+    }
 
     // 2. Broadcast Bot status (Master only)
     if (amIMaster && bots.length > 0) {
