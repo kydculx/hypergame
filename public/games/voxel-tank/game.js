@@ -60,6 +60,12 @@ const CONFIG = {
     }
 };
 
+/* 1.5 Deterministic Random for World Sync */
+function seededRandom(seed) {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+}
+
 function lerpAngle(a, b, t) {
     let d = b - a;
     while (d < -Math.PI) d += Math.PI * 2;
@@ -706,9 +712,17 @@ function updateScoreboard() {
     if (myTank) players.push(myTank);
     bots.forEach(b => players.push(b));
 
+    // Online count
+    const onlineCount = Array.from(tanks.values()).length + 1;
+    const scoreboardTitle = document.querySelector('.scoreboard-title') || { textContent: '' };
+    
     players.sort((a, b) => b.kills - a.kills);
 
-    scoreboard.innerHTML = players.map(p => `
+    scoreboard.innerHTML = `
+        <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 5px; text-align: center;">
+            Online: ${onlineCount} | Room: Global
+        </div>
+    ` + players.map(p => `
         <div class="scoreboard-item" style="color: ${p.isLocal ? '#4d79ff' : '#ff4d4d'}">
             <span>${p.name || p.id}${p.isLocal ? ' (ME)' : ''}</span>
             <span style="margin-left: 20px">${p.kills} Kills</span>
@@ -1102,17 +1116,18 @@ const Game = {
         floor.receiveShadow = true;
         scene.add(floor);
 
-        // Add boundary pillars/props
+        // Add boundary pillars/props (Deterministic seed for same room experience)
+        let worldSeed = 1234.567; // Constant seed for "Global Room"
         for (let i = 0; i < 20; i++) {
-            const side = Math.floor(Math.random() * 4);
+            const side = Math.floor(seededRandom(worldSeed++) * 4);
             const dist = CONFIG.WORLD.SIZE / 2;
             let x = 0, z = 0;
-            if (side === 0) { x = (Math.random() - 0.5) * CONFIG.WORLD.SIZE; z = -dist; }
-            else if (side === 1) { x = (Math.random() - 0.5) * CONFIG.WORLD.SIZE; z = dist; }
-            else if (side === 2) { x = -dist; z = (Math.random() - 0.5) * CONFIG.WORLD.SIZE; }
-            else { x = dist; z = (Math.random() - 0.5) * CONFIG.WORLD.SIZE; }
+            if (side === 0) { x = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; z = -dist; }
+            else if (side === 1) { x = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; z = dist; }
+            else if (side === 2) { x = -dist; z = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; }
+            else { x = dist; z = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; }
 
-            const h = 2 + Math.random() * 5;
+            const h = 2 + seededRandom(worldSeed++) * 5;
             const pillar = createVoxelBox(2, h, 2, 0x444444);
             pillar.position.set(x, h / 2, z);
             pillar.castShadow = true;
