@@ -555,16 +555,16 @@ class Bot extends Tank {
 
     shoot() {
         const now = Date.now();
-        // Add random jitter to fire cooldown (+/- 200ms)
         const jitteredCooldown = CONFIG.BOT.FIRE_COOLDOWN + (Math.random() - 0.5) * 400;
         if (now - this.lastFireTime < jitteredCooldown) return;
         this.lastFireTime = now;
 
         const pos = new THREE.Vector3();
         this.barrel.getWorldPosition(pos);
-        const dir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y + this.turretGroup.rotation.y);
+        const dir = new THREE.Vector3();
+        this.barrel.getWorldDirection(dir);
 
-        const bullet = new Bullet(pos, dir.negate(), this.id);
+        const bullet = new Bullet(pos, dir.clone(), this.id);
         bullets.push(bullet);
 
         // Broadcast Bot fire (Master only)
@@ -574,7 +574,7 @@ class Bot extends Tank {
                 event: 'fire',
                 payload: {
                     pos: { x: pos.x, y: pos.y, z: pos.z },
-                    dir: { x: -dir.x, y: -dir.y, z: -dir.z }, // Need to negate for correct direction
+                    dir: { x: dir.x, y: dir.y, z: dir.z },
                     ownerId: this.id
                 }
             });
