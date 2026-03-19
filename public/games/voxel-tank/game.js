@@ -1006,22 +1006,53 @@ function syncMultiplayer() {
 function updateMasterStatus() {
     if (!channel) return;
     const state = channel.presenceState();
-    const keys = Object.keys(state).sort();
-    const newMasterId = keys[0];
+    
+    // Find all players and their states
+    const players = [];
+    Object.keys(state).forEach(id => {
+        const presences = state[id];
+        if (presences && presences.length > 0) {
+            players.push({ id, state: presences[0].game_state || 'INIT' });
+        }
+    });
+
+    if (players.length === 0) return;
+
+    // Prioritize 'PLAYING' state, then Sort by ID for stability
+    players.sort((a, b) => {
+        if (a.state === 'PLAYING' && b.state !== 'PLAYING') return -1;
+        if (a.state !== 'PLAYING' && b.state === 'PLAYING') return 1;
+        return a.id.localeCompare(b.id);
+    });
+
+    const newMasterId = players[0].id;
     const previousMaster = amIMaster;
     amIMaster = (newMasterId === myId);
+    
+    // If I just became Master, force an AI update immediately
+    if (amIMaster && !previousMaster) {
+        console.log("I am the new Master (Active).");
+    }
 
-    // UI Feedback for debugging/clarity
+    // UI Feedback
     const statusText = document.getElementById('status-text');
     if (statusText) {
         let masterIndicator = amIMaster ? " [MASTER]" : "";
-        statusText.textContent = `HP: ${myTank.hp} / ${CONFIG.TANK.MAX_HP}${masterIndicator}`;
+        statusText.textContent = `HP: ${myTank ? myTank.hp : 0} / ${CONFIG.TANK.MAX_HP}${masterIndicator}`;
     }
 
-    // If I am Master and there are no bots, spawn them (even if I was already Master, e.g. after restart)
     if (amIMaster && bots.length === 0) {
-        console.log("I am Master and no bots exist. Spawning...");
         spawnBots(CONFIG.BOT.COUNT);
+    }
+}
+
+function updatePresenceState() {
+    if (channel) {
+        channel.track({ 
+            online_at: new Date().toISOString(),
+            game_state: WCGames.state,
+            name: myName
+        });
     }
 }
 
@@ -1334,10 +1365,8 @@ const Game = {
 
             // Subscription
             channel.subscribe((status) => {
-                console.log('Channel Status:', status);
                 if (status === 'SUBSCRIBED') {
-                    channel.track({ online_at: new Date().toISOString() });
-                    // Initial master check
+                    updatePresenceState();
                     setTimeout(updateMasterStatus, 500); 
                 }
             });
@@ -1362,6 +1391,17 @@ WCGames.init({
         WCGames.Audio.init();
         AudioSFX.init();
         Game.init();
+        updatePresenceState();
+    },
+    onPause: () => {
+        updatePresenceState();
+    },
+    onResume: () => {
+        updatePresenceState();
+    },
+    onGameOver: () => {
+        updatePresenceState();
+        updateMasterStatus();
     },
     onRestart: () => {
         // Reset everything
@@ -1378,9 +1418,12 @@ WCGames.init({
             bots.length = 0;
         }
         const spawn = getRandomSpawnPoint();
-        myTank.group.position.set(spawn.x, 0, spawn.z);
-        myTank.updateHP(CONFIG.TANK.MAX_HP);
+        if (myTank) {
+            myTank.group.position.set(spawn.x, 0, spawn.z);
+            myTank.updateHP(CONFIG.TANK.MAX_HP);
+        }
 
+        updatePresenceState();
         updateMasterStatus();
         syncMultiplayer();
     }
