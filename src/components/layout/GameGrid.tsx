@@ -22,9 +22,9 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onGameSelect }) => {
         fetchPlayCounts();
     }, [fetchPlayCounts]);
 
-    const filteredGames = games.filter(game =>
-        activeCategory === 'all' ? true : game.categoryId === activeCategory
-    );
+    const filteredGames = games
+        .filter(game => activeCategory === 'all' ? true : game.categoryId === activeCategory)
+        .sort((a, b) => (playCounts[b.id] || 0) - (playCounts[a.id] || 0));
 
     return (
         <div className="w-full max-w-[1400px] mx-auto p-4 pt-12 pb-12">
