@@ -4,7 +4,7 @@ const CONFIG = {
         SPEED: 5,
         ROTATE_SPEED: 1,
         TURRET_ROTATE_SPEED: 2,
-        FIRE_COOLDOWN: 500, // ms
+        FIRE_COOLDOWN: 1000, // ms
         MAX_HP: 100
     },
     BULLET: {
@@ -22,8 +22,10 @@ const CONFIG = {
     COLORS: {
         SELF: 0x4d79ff, // Blue
         OTHER: 0xff4d4d, // Red
-        FLOOR_1: 0x666666, // Bright Gray (from 0x333333)
-        FLOOR_2: 0x777777,
+        FLOOR_1: 0x3d2b1f, // Dark Earth
+        FLOOR_2: 0x4b3621, // Muddy Brown
+        FLOOR_3: 0x5d4037, // Saddle Brown
+        FLOOR_4: 0x333333, // Rocky Gray
         BULLET: 0xffff00,
         WALL: 0x555555,
         BOT: 0x9933ff // Purple for bots
@@ -41,6 +43,11 @@ const CONFIG = {
             // Outer small cover
             { x: -40, z: 0, w: 4, d: 4 }, { x: 40, z: 0, w: 4, d: 4 },
             { x: 0, z: -40, w: 4, d: 4 }, { x: 0, z: 40, w: 4, d: 4 }
+        ],
+        WRECKS: [
+            { x: -15, z: -15 }, { x: 15, z: 15 },
+            { x: -18, z: 20 }, { x: 22, z: -12 },
+            { x: 5, z: 35 }, { x: -35, z: 8 }
         ]
     },
     BOT: {
@@ -111,39 +118,365 @@ let myTank;
 const tanks = new Map(); // ID -> Tank instance
 const bullets = [];
 const walls = []; // Array of wall meshes
+const trees = []; // Array of tree groups for animation
+const wrecks = []; // Array of destroyed tanks for smoke vfx
 const bots = []; // Array of Bot instances
+const wallBoxes = []; // NEW: Cache for world-space bounding boxes
 let supabaseClient;
 let channel;
 let amIMaster = false;
 let lastFireTime = 0;
 let lastSyncTime = 0;
 let animationId = null;
+let cameraShakeTime = 0;
+let wreckSmokeTimer = 0;
 
 /* 3. Utilities (Helper functions) */
-function createVoxelBox(w, h, d, color) {
+function createVoxelBox(w, h, d, color, metalness = 0.2, roughness = 0.8) {
     const geometry = new THREE.BoxGeometry(w, h, d);
-    const material = new THREE.MeshStandardMaterial({ color });
-    return new THREE.Mesh(geometry, material);
+    const material = new THREE.MeshStandardMaterial({
+        color,
+        metalness: metalness,
+        roughness: roughness
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = false; // PERFORMANCE: Only enable on important objects
+    mesh.receiveShadow = true;
+    return mesh;
 }
+
+function createVoxelCylinder(radiusTop, radiusBottom, height, color, metalness = 0.2, roughness = 0.8) {
+    const geometry = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 12);
+    const material = new THREE.MeshStandardMaterial({ color, metalness, roughness });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+}
+
+function createVoxelCone(radius, height, color) {
+    const geometry = new THREE.ConeGeometry(radius, height, 12);
+    const material = new THREE.MeshStandardMaterial({ color, roughness: 1 });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+}
+
+/* Particle System for VFX */
+class ParticleSystem {
+    constructor() {
+        this.particles = [];
+        this.MAX_PARTICLES = 1000;
+        this.group = new THREE.Group();
+        scene.add(this.group);
+
+        // --- PERFORMANCE: Shared objects ---
+        this.sharedGeo = new THREE.BoxGeometry(1, 1, 1);
+        this.materials = new Map(); // Cache for materials
+        // Pre-create common ones
+        this.getMat = (color, opacity = 1) => {
+            const key = `${color}_${opacity}`;
+            if (!this.materials.has(key)) {
+                this.materials.set(key, new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity }));
+            }
+            return this.materials.get(key);
+        };
+    }
+
+    spawn(pos, color, count = 10, speed = 2, size = 0.1, life = 1000) {
+        if (this.particles.length >= this.MAX_PARTICLES) return;
+        const mat = this.getMat(color);
+        for (let i = 0; i < count; i++) {
+            const p = new THREE.Mesh(this.sharedGeo, mat);
+            p.scale.setScalar(size);
+            p.position.copy(pos);
+
+            const vel = new THREE.Vector3(
+                (Math.random() - 0.5) * speed,
+                (Math.random()) * speed,
+                (Math.random() - 0.5) * speed
+            );
+
+            this.particles.push({
+                mesh: p,
+                vel: vel,
+                life: life,
+                maxLife: life,
+                gravity: 9.8
+            });
+            this.group.add(p);
+        }
+    }
+
+    // Specialized muzzle flash
+    spawnMuzzleFlash(pos, dir, color = 0xffaa00) {
+        for (let i = 0; i < 15; i++) {
+            const size = 0.05 + Math.random() * 0.15;
+            const geometry = new THREE.BoxGeometry(size, size, size);
+            const material = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
+            const p = new THREE.Mesh(geometry, material);
+            p.position.copy(pos);
+
+            // Spread direction
+            const spread = 0.5;
+            const vel = dir.clone().multiplyScalar(5 + Math.random() * 5);
+            vel.x += (Math.random() - 0.5) * spread * 10;
+            vel.y += (Math.random() - 0.5) * spread * 10;
+            vel.z += (Math.random() - 0.5) * spread * 10;
+
+            this.particles.push({
+                mesh: p,
+                vel: vel,
+                life: 150 + Math.random() * 150,
+                maxLife: 300,
+                gravity: 0,
+                friction: 0.9
+            });
+            this.group.add(p);
+        }
+
+        // Add white core flash
+        for (let i = 0; i < 5; i++) {
+            const size = 0.2 + Math.random() * 0.2;
+            const geometry = new THREE.BoxGeometry(size, size, size);
+            const material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+            const p = new THREE.Mesh(geometry, material);
+            p.position.copy(pos);
+            const vel = dir.clone().multiplyScalar(2 + Math.random() * 3);
+            this.particles.push({ mesh: p, vel: vel, life: 50 + Math.random() * 50, maxLife: 100, gravity: 0 });
+            this.group.add(p);
+        }
+    }
+
+    // Specialized smoke effect (연기 효과 - Shrinks over time)
+    spawnSmoke(pos, color, count = 1, speed = 0.5, size = 0.2, life = 2000) {
+        if (this.particles.length >= this.MAX_PARTICLES) return;
+        for (let i = 0; i < count; i++) {
+            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
+            const p = new THREE.Mesh(this.sharedGeo, mat);
+            p.scale.setScalar(size);
+            const offset = (Math.random() - 0.5) * 0.2;
+            p.position.set(pos.x + offset, pos.y, pos.z + offset);
+
+            const vel = new THREE.Vector3(
+                (Math.random() - 0.5) * speed * 0.3,
+                (Math.random() + 0.5) * speed,
+                (Math.random() - 0.5) * speed * 0.3
+            );
+
+            this.particles.push({
+                mesh: p,
+                vel: vel,
+                life: life * (0.8 + Math.random() * 0.4),
+                maxLife: life,
+                initialSize: size,
+                grow: false, // Default shrinking behavior
+                gravity: -1.5,
+                friction: 0.98
+            });
+            this.group.add(p);
+        }
+    }
+
+    // Specialized exhaust effect (배기 효과 - Grows over time)
+    spawnExhaust(pos, color, count = 1, speed = 0.5, size = 0.2, life = 2000) {
+        if (this.particles.length >= this.MAX_PARTICLES) return;
+        for (let i = 0; i < count; i++) {
+            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
+            const p = new THREE.Mesh(this.sharedGeo, mat);
+            p.scale.setScalar(size);
+            const offset = (Math.random() - 0.5) * 0.05;
+            p.position.set(pos.x + offset, pos.y, pos.z + offset);
+
+            const vel = new THREE.Vector3(
+                (Math.random() - 0.5) * speed * 0.2,
+                (Math.random() + 0.2) * speed * 0.5,
+                (Math.random() - 0.5) * speed * 0.2
+            );
+
+            this.particles.push({
+                mesh: p,
+                vel: vel,
+                life: life * (0.8 + Math.random() * 0.4),
+                maxLife: life,
+                initialSize: size,
+                grow: true, // Growth behavior
+                gravity: -0.5,
+                friction: 0.98
+            });
+            this.group.add(p);
+        }
+    }
+
+    // Specialized fire effect (화염 효과)
+    spawnFire(pos, count = 1, speed = 1.0, size = 0.2, life = 800) {
+        if (this.particles.length >= this.MAX_PARTICLES) return;
+        for (let i = 0; i < count; i++) {
+            const color = [0xffaa00, 0xff4400, 0xff0000][Math.floor(Math.random() * 3)];
+            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
+            const p = new THREE.Mesh(this.sharedGeo, mat);
+            p.scale.setScalar(size);
+            const offset = (Math.random() - 0.5) * 0.1;
+            p.position.set(pos.x + offset, pos.y, pos.z + offset);
+
+            const vel = new THREE.Vector3(
+                (Math.random() - 0.5) * speed * 0.2,
+                (Math.random() + 0.5) * speed,
+                (Math.random() - 0.5) * speed * 0.2
+            );
+
+            this.particles.push({
+                mesh: p,
+                vel: vel,
+                life: life * (0.6 + Math.random() * 0.4),
+                maxLife: life,
+                gravity: -2.0, // Rises faster than smoke
+                friction: 0.96
+            });
+            this.group.add(p);
+        }
+    }
+
+    // Specialized impact effect (착탄 효과)
+    spawnImpact(pos, normal, color = 0xffaa00) {
+        // 1. Flash (짧고 강한 섬광)
+        const flashSize = 0.5;
+        const flashGeo = new THREE.SphereGeometry(flashSize, 8, 8);
+        const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
+        const flash = new THREE.Mesh(flashGeo, flashMat);
+        flash.position.copy(pos);
+        this.group.add(flash);
+        this.particles.push({ mesh: flash, vel: new THREE.Vector3(), life: 100, maxLife: 100, gravity: 0 });
+
+        // 2. Debris (튀는 파편들)
+        for (let i = 0; i < 10; i++) {
+            const size = 0.05 + Math.random() * 0.1;
+            const p = createVoxelBox(size, size, size, color);
+            p.position.copy(pos);
+            const vel = normal.clone().multiplyScalar(2 + Math.random() * 3);
+            vel.x += (Math.random() - 0.5) * 2;
+            vel.y += (Math.random() - 0.5) * 2;
+            vel.z += (Math.random() - 0.5) * 2;
+            this.particles.push({
+                mesh: p,
+                vel: vel,
+                life: 300 + Math.random() * 300,
+                maxLife: 600,
+                gravity: 9.8,
+                friction: 0.95
+            });
+            this.group.add(p);
+        }
+    }
+
+    // Specialized explosion (대폭발 효과)
+    spawnExplosion(pos) {
+        // 1. Fireball (거대한 화염)
+        for (let i = 0; i < 25; i++) {
+            const size = 0.5 + Math.random() * 0.8;
+            const color = [0xffaa00, 0xff4400, 0xffff00][Math.floor(Math.random() * 3)];
+            const geometry = new THREE.BoxGeometry(size, size, size);
+            const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+            const p = new THREE.Mesh(geometry, material);
+            p.position.set(pos.x + (Math.random() - 0.5) * 1.5, pos.y + (Math.random() - 0.5) * 1.5, pos.z + (Math.random() - 0.5) * 1.5);
+            const vel = new THREE.Vector3((Math.random() - 0.5) * 10, (Math.random()) * 8, (Math.random() - 0.5) * 10);
+            this.particles.push({ mesh: p, vel: vel, life: 600 + Math.random() * 400, maxLife: 1000, gravity: 2, friction: 0.92 });
+            this.group.add(p);
+        }
+        // 2. Smoke Pillar (웅장한 연기)
+        for (let i = 0; i < 15; i++) {
+            const size = 0.8 + Math.random() * 1.5;
+            const geometry = new THREE.BoxGeometry(size, size, size);
+            const material = new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.8 });
+            const p = new THREE.Mesh(geometry, material);
+            p.position.set(pos.x + (Math.random() - 0.5) * 2, pos.y + 0.5, pos.z + (Math.random() - 0.5) * 2);
+            const vel = new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() + 1) * 4, (Math.random() - 0.5) * 3);
+            this.particles.push({ mesh: p, vel: vel, life: 3000 + Math.random() * 1500, maxLife: 4500, gravity: -1.2, friction: 0.97 });
+            this.group.add(p);
+        }
+        // 3. Heavy Debris (무거운 파편)
+        for (let i = 0; i < 15; i++) {
+            const size = 0.2 + Math.random() * 0.3;
+            const p = createVoxelBox(size, size, size, 0x111111);
+            p.position.copy(pos);
+            const vel = new THREE.Vector3((Math.random() - 0.5) * 15, (Math.random() + 0.5) * 12, (Math.random() - 0.5) * 15);
+            this.particles.push({ mesh: p, vel: vel, life: 1500 + Math.random() * 1000, maxLife: 2500, gravity: 15, friction: 0.99 });
+            this.group.add(p);
+        }
+    }
+
+    update(dt) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= dt * 1000;
+
+            if (p.life <= 0) {
+                this.group.remove(p.mesh);
+                // Only dispose unique materials (smoke/fire), shared ones are in this.materials map
+                const isShared = Array.from(this.materials.values()).includes(p.mesh.material);
+                if (!isShared) p.mesh.material.dispose();
+                this.particles.splice(i, 1);
+                continue;
+            }
+
+            if (p.gravity) p.vel.y -= p.gravity * dt;
+            if (p.friction) p.vel.multiplyScalar(p.friction);
+
+            // In-place addition to avoid .clone()
+            p.mesh.position.x += p.vel.x * dt;
+            p.mesh.position.y += p.vel.y * dt;
+            p.mesh.position.z += p.vel.z * dt;
+
+            p.mesh.material.opacity = p.life / p.maxLife;
+            if (p.grow) {
+                // Growth for Exhaust
+                const growth = 1.0 + (1.0 - p.life / p.maxLife) * 1.5;
+                p.mesh.scale.setScalar(growth * (p.initialSize || 1));
+            } else {
+                // Shrink for Smoke/Fire
+                p.mesh.scale.setScalar((p.life / p.maxLife) * (p.initialSize || 1));
+            }
+        }
+    }
+}
+
+let vfx;
 
 /* Audio System (Web Audio API) */
 const AudioSFX = {
     ctx: null,
     master: null,
-    bgmStep: 0,
-    bgmTimer: null,
+    buffers: {}, // Cache for loaded sounds
 
     init() {
-        if (this.ctx) return;
+        if (this.ctx) return this.ctx;
         try {
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             this.master = this.ctx.createGain();
-            this.master.gain.value = 0.4;
-            const comp = this.ctx.createDynamicsCompressor();
-            this.master.connect(comp);
-            comp.connect(this.ctx.destination);
+            this.master.gain.setValueAtTime(0.5, this.ctx.currentTime);
+
+            this.limiter = this.ctx.createDynamicsCompressor();
+            this.master.connect(this.limiter);
+            this.limiter.connect(this.ctx.destination);
+
+            // Preload sounds (Async in background)
+            this.load('cannon_shot.mp3', 'cannon');
+            this.load('tank_move.mp3', 'engine');
+            this.load('explosion.mp3', 'explosion'); // NEW: Explosion sound
         } catch (e) {
-            console.warn("AudioContext init failed", e);
+            console.warn("Audio init failed", e);
+        }
+        return this.ctx;
+    },
+    async load(url, name) {
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+            this.buffers[name] = audioBuffer;
+        } catch (e) {
+            console.error(`Failed to load sound: ${url}`, e);
         }
     },
 
@@ -155,18 +488,30 @@ const AudioSFX = {
         if (!this.ctx) return;
         this.resume();
         const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-        osc.connect(gain);
-        gain.connect(this.master);
-        osc.start();
-        osc.stop(now + 0.2);
-        this.playNoise(0.1, 0.4, 1200);
+
+        if (this.buffers['cannon']) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.buffers['cannon'];
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(1.0, now);
+            source.connect(gain);
+            gain.connect(this.master);
+            source.start(now);
+        } else {
+            // Fallback synthesis if not loaded yet
+            const lowOsc = this.ctx.createOscillator();
+            const lowGain = this.ctx.createGain();
+            lowOsc.type = 'sine';
+            lowOsc.frequency.setValueAtTime(120, now);
+            lowOsc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+            lowGain.gain.setValueAtTime(0.8, now);
+            lowGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            lowOsc.connect(lowGain);
+            lowGain.connect(this.master);
+            lowOsc.start();
+            lowOsc.stop(now + 0.15);
+            this.playNoise(0.3, 0.6, 800, 0.4);
+        }
     },
 
     playImpact() {
@@ -176,113 +521,153 @@ const AudioSFX = {
 
     playExplosion() {
         if (!this.ctx) return;
-        this.playNoise(0.6, 1.5, 300);
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(100, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 1);
-        gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 1);
-        osc.connect(gain);
-        gain.connect(this.master);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 1);
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        if (this.buffers['explosion']) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.buffers['explosion'];
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(1.0, now);
+            source.connect(gain);
+            gain.connect(this.master);
+            source.start(now);
+        } else {
+            // High-quality fallback synthesis if not loaded/found
+            this.playNoise(0.6, 1.5, 300);
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(100, now);
+            osc.frequency.exponentialRampToValueAtTime(30, now + 1);
+            gain.gain.setValueAtTime(0.5, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 1);
+            osc.connect(gain);
+            gain.connect(this.master);
+            osc.start();
+            osc.stop(now + 1);
+        }
     },
 
-    playNoise(vol, dur, filterFreq = 1000) {
+    playNoise(vol, dur, filterFreq = 1000, decay = 0.3) {
         if (!this.ctx) return;
         const bufferSize = this.ctx.sampleRate * dur;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
 
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
-        const gain = this.ctx.createGain();
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = filterFreq;
+        filter.frequency.setValueAtTime(filterFreq, this.ctx.currentTime);
+
+        const gain = this.ctx.createGain();
         gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
-        noise.connect(filter);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + decay);
+        source.connect(filter);
         filter.connect(gain);
         gain.connect(this.master);
-        noise.start();
+        source.start();
+        source.stop(this.ctx.currentTime + dur);
     }
 };
+window.AudioSFX = AudioSFX; // Expose globally
 
 class TankEngineAudio {
     constructor() {
-        this.osc = null;
-        this.gain = null;
-        this.filter = null;
-
-        AudioSFX.init();
+        this.ctx = AudioSFX.init();
         if (!AudioSFX.ctx) return;
-        this.osc = AudioSFX.ctx.createOscillator();
-        this.gain = AudioSFX.ctx.createGain();
-        this.filter = AudioSFX.ctx.createBiquadFilter();
-
-        this.filter.type = 'lowpass';
-        this.filter.frequency.setValueAtTime(150, AudioSFX.ctx.currentTime); // Lowered from 400 for 'heavy' feel
-
-        this.osc.type = 'sawtooth';
-        this.osc.frequency.setTargetAtTime(30, AudioSFX.ctx.currentTime, 0); // Lowered from 40 for 'heavy' feel
-
-        this.osc.connect(this.filter);
-        this.filter.connect(this.gain);
+        this.source = null;
+        this.gain = this.ctx.createGain();
         this.gain.connect(AudioSFX.master);
-        this.gain.gain.setValueAtTime(0, AudioSFX.ctx.currentTime); // Start with 0 gain, ramp up in update
+        this.started = false;
     }
 
     start() {
-        if (this.osc) this.osc.start();
+        if (!this.ctx || this.started || !AudioSFX.buffers['engine']) return;
+        AudioSFX.resume();
+
+        this.source = this.ctx.createBufferSource();
+        this.source.buffer = AudioSFX.buffers['engine'];
+        this.source.loop = true;
+        this.source.connect(this.gain);
+        this.source.start(0);
+        this.started = true;
     }
 
     stop() {
-        if (this.osc) {
-            try { this.osc.stop(); } catch (e) { }
-            this.osc = null;
+        if (this.source) {
+            try { this.source.stop(); } catch (e) { }
+            try { this.source.disconnect(); } catch (e) { }
+            this.source = null;
         }
+        this.started = false;
     }
 
     update(speedRatio) {
-        if (!this.osc || !AudioSFX.ctx) return;
-        const now = AudioSFX.ctx.currentTime;
-        const freq = 30 + speedRatio * 40; // Reduced range for lower pitch
-        const gainVal = 0.02 + speedRatio * 0.03; // Significantly lowered volume
-        this.osc.frequency.setTargetAtTime(freq, now, 0.1);
-        this.gain.gain.setTargetAtTime(gainVal, now, 0.1);
+        if (!this.ctx) return;
+        if (!this.started && AudioSFX.buffers['engine']) this.start();
 
-        // Dynamic filter based on speed
-        if (this.filter) {
-            this.filter.frequency.setTargetAtTime(150 + speedRatio * 200, now, 0.1);
+        const now = this.ctx.currentTime;
+        const smooth = 0.05;
+
+        // Pure pitch and volume range (No Filter)
+        const pitch = 0.5 + speedRatio * 1.5;
+        const volume = 0.3 + Math.pow(speedRatio, 0.8) * 0.7; // 0.3 (30%) to 1.0
+
+        if (this.source) {
+            this.source.playbackRate.setTargetAtTime(pitch, now, smooth);
         }
+        this.gain.gain.setTargetAtTime(volume, now, smooth);
     }
 }
 class Bullet {
     constructor(position, direction, ownerId) {
-        this.mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(0.2, 8, 8),
-            new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.BULLET })
-        );
-        this.mesh.position.copy(position);
+        this.group = new THREE.Group();
+
+        // 1. Shell Body (탄체)
+        const body = createVoxelCylinder(0.12, 0.12, 0.4, 0xffcc00);
+        body.rotation.x = Math.PI / 2; // Align axis with -Z
+        this.group.add(body);
+
+        // 2. Shell Tip (탄두)
+        const tip = createVoxelCone(0.12, 0.25, 0xffd54f);
+        tip.position.z = -0.32; // Forward offset
+        tip.rotation.x = Math.PI / 2; // Point toward -Z
+        this.group.add(tip);
+
+        // 3. Shell Base (탄저부)
+        const base = createVoxelCylinder(0.13, 0.13, 0.05, 0x8d6e63);
+        base.position.z = 0.22; // Backward offset
+        base.rotation.x = Math.PI / 2;
+        this.group.add(base);
+
+        this.group.position.copy(position);
+        this.group.lookAt(position.clone().add(direction));
+
+        // Use this.mesh for existing collision logic consistency (refers to the group)
+        this.mesh = this.group;
+
         this.direction = direction.clone();
         this.ownerId = ownerId;
         this.startTime = Date.now();
-        scene.add(this.mesh);
+        scene.add(this.group);
     }
 
     update(dt) {
-        this.mesh.position.add(this.direction.clone().multiplyScalar(CONFIG.BULLET.SPEED * dt));
+        this.group.position.add(this.direction.clone().multiplyScalar(CONFIG.BULLET.SPEED * dt));
         return Date.now() - this.startTime < CONFIG.BULLET.LIFE_TIME;
     }
 
     destroy() {
-        scene.remove(this.mesh);
-        this.mesh.geometry.dispose();
-        this.mesh.material.dispose();
+        scene.remove(this.group);
+        this.group.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
     }
 }
 
@@ -292,60 +677,286 @@ class Tank {
         this.name = name || id;
         this.isLocal = isLocal;
         this.hp = CONFIG.TANK.MAX_HP;
-        this.kills = 0; // Added
-        this.lastSeen = Date.now(); // Added
+        this.kills = 0;
+        this.lastSeen = Date.now();
         this.group = new THREE.Group();
 
+        const mainColor = isLocal ? CONFIG.COLORS.SELF : CONFIG.COLORS.OTHER;
+        const detailColor = 0x333333;
+
+        // 1. Hull Group (for shaking/recoil)
+        this.hullGroup = new THREE.Group();
+        this.group.add(this.hullGroup);
+
         // Body
-        this.body = createVoxelBox(1.2, 0.6, 1.8, isLocal ? CONFIG.COLORS.SELF : CONFIG.COLORS.OTHER);
-        this.body.position.y = 0.3;
-        this.group.add(this.body);
+        this.body = createVoxelBox(1.2, 0.5, 1.8, mainColor, 0.4, 0.6);
+        this.body.position.y = 0.45;
+        this.hullGroup.add(this.body);
+
+        // Side Skirts (디테일 추가)
+        const skirtL = createVoxelBox(0.1, 0.35, 1.8, mainColor, 0.4, 0.6);
+        skirtL.position.set(-0.6, 0.35, 0);
+        this.hullGroup.add(skirtL);
+
+        const skirtR = createVoxelBox(0.1, 0.35, 1.8, mainColor, 0.4, 0.6);
+        skirtR.position.set(0.6, 0.35, 0);
+        this.hullGroup.add(skirtR);
+
+        // Side Rivets (Bolts) 디테일 추가
+        for (let side of [-0.66, 0.66]) {
+            for (let z = -0.7; z <= 0.8; z += 0.4) {
+                const rivet = createVoxelBox(0.04, 0.04, 0.04, detailColor);
+                rivet.position.set(side, 0.4, z);
+                this.hullGroup.add(rivet);
+            }
+        }
+
+        const guardR = createVoxelBox(0.4, 0.05, 0.4, 0x333333);
+        guardR.position.set(0.45, 0.42, -0.8);
+        this.hullGroup.add(guardR);
+
+        // --- NEW: Front Details (탱크 전면 디테일 강화) ---
+        // 1. Lower Glacis (전면 하부 장갑 - Slanted feel)
+        const glacis = createVoxelBox(1.1, 0.25, 0.2, mainColor);
+        glacis.position.set(0, 0.35, -0.9);
+        glacis.rotation.x = -Math.PI / 6;
+        this.hullGroup.add(glacis);
+
+        // 2. Headlights (헤드라이트)
+        const headlightColor = 0xffffaa;
+        const lightL = createVoxelBox(0.12, 0.12, 0.08, headlightColor);
+        lightL.position.set(-0.5, 0.55, -0.9);
+        this.hullGroup.add(lightL);
+        const lightR = createVoxelBox(0.12, 0.12, 0.08, headlightColor);
+        lightR.position.set(0.5, 0.55, -0.9);
+        this.hullGroup.add(lightR);
+
+        // 3. Hull Machine Gun (전면 부기관총)
+        const hullMgMount = createVoxelBox(0.15, 0.15, 0.1, 0x222222);
+        hullMgMount.position.set(0.3, 0.55, -0.9);
+        this.hullGroup.add(hullMgMount);
+        const hullMgBarrel = createVoxelCylinder(0.03, 0.03, 0.2, 0x111111);
+        hullMgBarrel.position.set(0.3, 0.55, -0.95);
+        hullMgBarrel.rotation.x = Math.PI / 2;
+        this.hullGroup.add(hullMgBarrel);
+
+        // 4. Tow Hooks (견인 고리)
+        const hookColor = 0x222222;
+        for (let x of [-0.4, 0.4]) {
+            const hook = createVoxelBox(0.08, 0.15, 0.1, hookColor);
+            hook.position.set(x, 0.25, -0.95);
+            this.hullGroup.add(hook);
+        }
+        // ----------------------------------------
+
+        // Rear Fuel Barrels (보조 연료통 - Cylinder로 교체)
+        const barrel1 = createVoxelCylinder(0.18, 0.18, 0.6, 0x2d3436, 0.5, 0.5);
+        barrel1.position.set(-0.35, 0.5, 0.95);
+        barrel1.rotation.x = Math.PI / 2;
+        this.hullGroup.add(barrel1);
+
+        const barrel2 = createVoxelCylinder(0.18, 0.18, 0.6, 0x2d3436, 0.5, 0.5);
+        barrel2.position.set(0.35, 0.5, 0.95);
+        barrel2.rotation.x = Math.PI / 2;
+        this.hullGroup.add(barrel2);
+
+        // Rear Decor (배기구 - Cylinder로 교체)
+        const exhaustL = createVoxelCylinder(0.08, 0.08, 0.3, 0x111111);
+        exhaustL.position.set(-0.42, 0.35, 1.1);
+        exhaustL.rotation.x = Math.PI / 2;
+        this.hullGroup.add(exhaustL);
+
+        const exhaustR = createVoxelCylinder(0.08, 0.08, 0.3, 0x111111);
+        exhaustR.position.set(0.42, 0.35, 1.1);
+        exhaustR.rotation.x = Math.PI / 2;
+        this.hullGroup.add(exhaustR);
 
         // Treads
         this.treads = [
-            createVoxelBox(0.3, 0.4, 1.8, 0x222222),
-            createVoxelBox(0.3, 0.4, 1.8, 0x222222)
+            createVoxelBox(0.38, 0.42, 1.95, 0x1a1a1a, 0.1, 0.9),
+            createVoxelBox(0.38, 0.42, 1.95, 0x1a1a1a, 0.1, 0.9)
         ];
-        this.treads[0].position.set(-0.45, 0.2, 0);
-        this.treads[1].position.set(0.45, 0.2, 0);
-        this.group.add(this.treads[0], this.treads[1]);
+        this.treads[0].position.set(-0.45, 0.22, 0);
+        this.treads[1].position.set(0.45, 0.22, 0);
+        this.hullGroup.add(this.treads[0], this.treads[1]);
 
-        // Turret Group
+        // Road Wheels (기동륜 추가)
+        this.wheels = [];
+        for (let side of [-0.45, 0.45]) {
+            for (let i = 0; i < 4; i++) {
+                const wheel = createVoxelCylinder(0.16, 0.16, 0.42, 0x333333);
+                wheel.position.set(side, 0.18, -0.6 + i * 0.4);
+                wheel.rotation.z = Math.PI / 2;
+                this.hullGroup.add(wheel);
+                this.wheels.push(wheel);
+            }
+        }
+
+        // 2. Turret Group
         this.turretGroup = new THREE.Group();
-        this.turretGroup.position.y = 0.6;
+        this.turretGroup.position.y = 0.7; // Raised slightly
         this.group.add(this.turretGroup);
 
-        this.turret = createVoxelBox(0.8, 0.4, 0.8, isLocal ? CONFIG.COLORS.SELF : CONFIG.COLORS.OTHER);
-        this.turretGroup.add(this.turret);
+        this.turretMain = createVoxelBox(0.9, 0.45, 0.95, mainColor, 0.4, 0.6);
+        this.turretMain.position.y = 0.15;
+        this.turretMain.castShadow = true; // Important: Tank casts shadow
+        this.turretGroup.add(this.turretMain);
 
-        this.barrel = createVoxelBox(0.2, 0.2, 1.0, 0x333333);
-        this.barrel.position.set(0, 0, -0.8);
-        this.barrel.rotation.y = Math.PI; // Point its +Z towards world -Z
-        this.turretGroup.add(this.barrel);
+        // Turret Armor Plates (Cheeks)
+        const cheekL = createVoxelBox(0.1, 0.3, 0.6, mainColor, 0.5, 0.5);
+        cheekL.position.set(-0.45, 0.15, -0.1);
+        cheekL.rotation.y = 0.2;
+        this.turretGroup.add(cheekL);
 
-        // Health Bar (Floating)
+        const cheekR = createVoxelBox(0.1, 0.3, 0.6, mainColor, 0.5, 0.5);
+        cheekR.position.set(0.45, 0.15, -0.1);
+        cheekR.rotation.y = -0.2;
+        this.turretGroup.add(cheekR);
+
+        // Hatch on turret
+        const hatch = createVoxelBox(0.4, 0.1, 0.4, detailColor);
+        hatch.position.set(0.18, 0.4, 0.05);
+        this.turretGroup.add(hatch);
+
+        // Machine Gun (대공 기관총)
+        this.mgGroup = new THREE.Group();
+        this.mgGroup.position.set(-0.2, 0.4, 0.1);
+        this.turretGroup.add(this.mgGroup);
+
+        const mgBody = createVoxelBox(0.1, 0.12, 0.25, 0x111111, 0.8, 0.2);
+        this.mgGroup.add(mgBody);
+
+        const aaMgBarrel = createVoxelBox(0.04, 0.04, 0.4, 0x222222, 0.8, 0.2);
+        aaMgBarrel.position.set(0, 0, -0.25);
+        this.mgGroup.add(aaMgBarrel);
+
+        // Antenna
+        const antenna = createVoxelBox(0.015, 0.9, 0.015, 0x000000);
+        antenna.position.set(-0.35, 0.7, 0.3);
+        this.turretGroup.add(antenna);
+
+        // 3. Barrel Group (for individual recoil)
+        this.barrelGroup = new THREE.Group();
+        this.barrelGroup.position.set(0, 0.15, -0.4);
+        this.turretGroup.add(this.barrelGroup);
+
+        // Main Barrel (Cylinder로 교체 - 정면(-Z)을 향하도록 -PI/2 회전)
+        this.barrel = createVoxelCylinder(0.1, 0.12, 1.3, detailColor, 0.6, 0.4);
+        this.barrel.position.set(0, 0, -0.65);
+        this.barrel.rotation.x = -Math.PI / 2; // Point forward (-Z)
+        this.barrelGroup.add(this.barrel);
+
+        // Muzzle Brake (Cylinder 기반으로 고도화)
+        const brakeMain = createVoxelCylinder(0.14, 0.14, 0.2, 0x111111, 0.6, 0.4);
+        brakeMain.position.y = 0.65; // 'height' direction in Cylinder space
+        this.barrel.add(brakeMain);
+
+        const brakeRing = createVoxelCylinder(0.16, 0.16, 0.05, 0x222222);
+        brakeRing.position.y = 0.72;
+        this.barrel.add(brakeRing);
+
+        // Muzzle end point for VFX
+        this.muzzlePoint = new THREE.Object3D();
+        this.muzzlePoint.position.set(0, 0.7, 0); // Corrected for Cylinder (radius-based top)
+        this.barrel.add(this.muzzlePoint);
+
+        // UI & Indicators
         if (!isLocal) {
             this.createOverlayUI();
         } else {
-            // Direction Indicator (Triangle)
             this.indicator = new THREE.Mesh(
-                new THREE.ConeGeometry(0.2, 0.4, 3),
-                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+                new THREE.ConeGeometry(0.15, 0.3, 3),
+                new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.6 })
             );
-            this.indicator.rotation.x = -Math.PI / 2; // Point towards -Z
-            this.indicator.position.set(0, 0.8, -1.2); // Move forward (-Z)
+            this.indicator.rotation.x = -Math.PI / 2;
+            this.indicator.position.set(0, 1.5, -1.5);
             this.group.add(this.indicator);
         }
 
         scene.add(this.group);
 
-        // Audio
-        this.engineAudio = new TankEngineAudio();
+        // Audio (Only for local player to avoid sound clutter)
         if (isLocal) {
+            this.engineAudio = new TankEngineAudio();
             this.engineAudio.start();
         }
 
+        // Animation States
+        this.recoil = 0;
+        this.shake = 0;
+        this.dustTimer = 0;
+        this.damageSmokeTimer = 0;
+        this.exhaustTimer = 0; // NEW: Timer for exhaust smoke
         this.targetWorldAngle = this.group.rotation.y;
+    }
+
+    updateAnims(dt, isMoving) {
+        // 1. Handle Recoil Recovery
+        if (this.recoil > 0) {
+            this.recoil = Math.max(0, this.recoil - dt * 5);
+            this.barrelGroup.position.z = -0.4 + this.recoil * 0.4; // Push back
+            this.hullGroup.position.z = this.recoil * 0.1;
+            this.hullGroup.rotation.x = -this.recoil * 0.05; // Tilt up
+        } else {
+            this.barrelGroup.position.z = THREE.MathUtils.lerp(this.barrelGroup.position.z, -0.4, 0.1);
+            this.hullGroup.position.z = THREE.MathUtils.lerp(this.hullGroup.position.z, 0, 0.1);
+            this.hullGroup.rotation.x = THREE.MathUtils.lerp(this.hullGroup.rotation.x, 0, 0.1);
+        }
+
+        // Wheel Rotation
+        if (isMoving && this.wheels) {
+            this.wheels.forEach(w => w.rotation.x += dt * 10);
+        }
+
+        // 2. Idle / Moving Shake (Heavy feel)
+        this.shake += dt * (isMoving ? 20 : 10);
+        const shakeAmp = isMoving ? 0.015 : 0.005;
+        this.hullGroup.position.y = Math.sin(this.shake) * shakeAmp;
+
+        // 3. Premium Exhaust Smoke when moving
+        if (isMoving && vfx) {
+            this.exhaustTimer += dt;
+            if (this.exhaustTimer > 0.08) { // High frequency
+                this.exhaustTimer = 0;
+                
+                // Real-wheel displacement for velocity calc
+                const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.group.quaternion);
+                const exhaustVel = forward.multiplyScalar(2.0); // Push smoke backwards
+
+                // Dual Exhaust Pipes
+                for (let xOff of [-0.4, 0.4]) {
+                    const exhaustPos = new THREE.Vector3(xOff, 0.65, 0.95).applyMatrix4(this.group.matrixWorld);
+                    
+                    // Main Smoke (Premium Growth)
+                    vfx.spawnExhaust(exhaustPos, 0x99aabb, 1, 0.4, 0.3, 1500);
+                    
+                    // Hot Exhaust Core
+                    if (Math.random() < 0.4) {
+                        vfx.spawnExhaust(exhaustPos, 0x555555, 1, 0.6, 0.25, 800);
+                    }
+                }
+            }
+        }
+    }
+
+    playShootEffect() {
+        this.recoil = 1.0;
+        if (this.isLocal) {
+            cameraShakeTime = 0.5;
+            AudioSFX.playFire();
+        }
+        if (vfx) {
+            const worldPos = new THREE.Vector3();
+            this.muzzlePoint.getWorldPosition(worldPos);
+            const pivotPos = new THREE.Vector3();
+            this.barrelGroup.getWorldPosition(pivotPos);
+            const worldDir = worldPos.clone().sub(pivotPos).normalize();
+            vfx.spawnMuzzleFlash(worldPos, worldDir, 0xffcc00);
+            vfx.spawn(worldPos, 0x555555, 5, 2, 0.1, 800); // Smoke
+        }
+        if (this.isLocal && camera) {
+            cameraShakeTime = 0.3;
+        }
     }
 
     createOverlayUI() {
@@ -378,9 +989,17 @@ class Tank {
                         payload: { victimId: myId, shooterId: shooterId }
                     });
                 }
-                if (window.AudioSFX) AudioSFX.playExplosion();
-                WCGames.gameOver(myTank.kills);
+                
+                // Give 3 seconds to watch the explosion before showing game over screen
+                setTimeout(() => {
+                    WCGames.gameOver(this.kills);
+                }, 3000);
             }
+        }
+        // Explosion sound and VFX for ANY tank dying
+        if (this.hp <= 0) {
+            if (window.AudioSFX) window.AudioSFX.playExplosion();
+            if (vfx) vfx.spawnExplosion(this.group.position);
         }
     }
 
@@ -547,7 +1166,6 @@ class Bot extends Tank {
 
         if (isPositionSafe(nextPos.x, nextPos.z)) {
             this.group.position.copy(nextPos);
-            this.engineAudio.update(Math.abs(dir));
             return true;
         }
         return false;
@@ -560,14 +1178,16 @@ class Bot extends Tank {
         this.lastFireTime = now;
 
         const pos = new THREE.Vector3();
-        this.barrel.getWorldPosition(pos);
-        const dir = new THREE.Vector3();
-        this.barrel.getWorldDirection(dir);
+        this.muzzlePoint.getWorldPosition(pos);
+        const pivotPos = new THREE.Vector3();
+        this.barrelGroup.getWorldPosition(pivotPos);
+        const dir = pos.clone().sub(pivotPos).normalize();
 
-        const bullet = new Bullet(pos, dir.clone(), this.id);
+        const bullet = new Bullet(pos, dir, this.id);
         bullets.push(bullet);
 
-        if (window.AudioSFX) AudioSFX.playShoot();
+        this.playShootEffect();
+        if (window.AudioSFX) AudioSFX.playFire();
     }
 
     handleHit(damage, shooterId) {
@@ -579,9 +1199,11 @@ class Bot extends Tank {
             this.strafeDir *= -1;
             this.strafeTimer = 1 + Math.random();
             this.wanderAngle = (Math.random() - 0.5) * Math.PI * 2;
+            if (this.isLocal && camera) cameraShakeTime = 0.2;
         }
 
         if (this.hp <= 0) {
+            if (vfx) vfx.spawnExplosion(this.group.position);
             // Find who shot this
             const allTanks = [myTank, ...Array.from(tanks.values()), ...bots];
             const killer = allTanks.find(t => t && t.id === shooterId);
@@ -627,87 +1249,90 @@ if (!window.WCGames.input) {
 }
 
 function setupJoysticks() {
-    const setup = (id, target) => {
-        const el = document.getElementById(id);
-        let active = false;
-        let startPos = { x: 0, y: 0 };
-        let touchId = null;
-        const knob = el.querySelector('.joystick-knob');
+    const el = document.getElementById('joystick-left');
+    if (el) { // Check if element exists before setting up
+        const setup = (id, target) => {
+            const el = document.getElementById(id);
+            let active = false;
+            let startPos = { x: 0, y: 0 };
+            let touchId = null;
+            const knob = el.querySelector('.joystick-knob');
 
-        const handleMove = (e) => {
-            if (!active) return;
-            let touch = null;
-            if (e.touches) {
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === touchId) {
-                        touch = e.changedTouches[i];
-                        break;
+            const handleMove = (e) => {
+                if (!active) return;
+                let touch = null;
+                if (e.touches) {
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        if (e.changedTouches[i].identifier === touchId) {
+                            touch = e.changedTouches[i];
+                            break;
+                        }
                     }
+                } else {
+                    touch = e;
                 }
-            } else {
-                touch = e;
-            }
-            if (!touch) return;
+                if (!touch) return;
 
-            const dx = touch.clientX - startPos.x;
-            const dy = touch.clientY - startPos.y;
-            const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
-            const angle = Math.atan2(dy, dx);
+                const dx = touch.clientX - startPos.x;
+                const dy = touch.clientY - startPos.y;
+                const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
+                const angle = Math.atan2(dy, dx);
 
-            const moveX = Math.cos(angle) * dist;
-            const moveY = Math.sin(angle) * dist;
-            knob.style.transform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
+                const moveX = Math.cos(angle) * dist;
+                const moveY = Math.sin(angle) * dist;
+                knob.style.transform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
 
-            target.x = moveX / 60;
-            target.y = moveY / 60;
+                target.x = moveX / 60;
+                target.y = moveY / 60;
 
-            if (e.cancelable) e.preventDefault();
-        };
+                if (e.cancelable) e.preventDefault();
+            };
 
-        const handleStart = (e) => {
-            if (active) return;
-            const touch = e.touches ? e.changedTouches[0] : e;
-            if (e.touches) touchId = touch.identifier;
+            const handleStart = (e) => {
+                if (active) return;
+                const touch = e.touches ? e.changedTouches[0] : e;
+                if (e.touches) touchId = touch.identifier;
 
-            active = true;
-            const rect = el.getBoundingClientRect();
-            startPos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-            handleMove(e);
-            if (e.cancelable) e.preventDefault();
-        };
+                active = true;
+                const rect = el.getBoundingClientRect();
+                startPos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                handleMove(e);
+                if (e.cancelable) e.preventDefault();
+            };
 
-        const handleEnd = (e) => {
-            if (!active) return;
-            if (e.touches) {
-                let found = false;
-                for (let i = 0; i < e.touches.length; i++) {
-                    if (e.touches[i].identifier === touchId) {
-                        found = true;
-                        break;
+            const handleEnd = (e) => {
+                if (!active) return;
+                if (e.touches) {
+                    let found = false;
+                    for (let i = 0; i < e.touches.length; i++) {
+                        if (e.touches[i].identifier === touchId) {
+                            found = true;
+                            break;
+                        }
                     }
+                    if (found) return; // This touch is still active
                 }
-                if (found) return; // This touch is still active
-            }
 
-            active = false;
-            touchId = null;
-            knob.style.transform = `translate(-50%, -50%)`;
-            target.x = 0;
-            target.y = 0;
+                active = false;
+                touchId = null;
+                knob.style.transform = `translate(-50%, -50%)`;
+                target.x = 0;
+                target.y = 0;
+            };
+
+            el.addEventListener('touchstart', handleStart, { passive: false });
+            window.addEventListener('touchmove', handleMove, { passive: false });
+            window.addEventListener('touchend', handleEnd);
+            window.addEventListener('touchcancel', handleEnd);
+
+            el.addEventListener('mousedown', handleStart);
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', handleEnd);
         };
 
-        el.addEventListener('touchstart', handleStart, { passive: false });
-        window.addEventListener('touchmove', handleMove, { passive: false });
-        window.addEventListener('touchend', handleEnd);
-        window.addEventListener('touchcancel', handleEnd);
-
-        el.addEventListener('mousedown', handleStart);
-        window.addEventListener('mousemove', handleMove);
-        window.addEventListener('mouseup', handleEnd);
-    };
-
-    setup('joystick-left', joystickLeft);
-    setup('joystick-right', joystickRight);
+        setup('joystick-left', joystickLeft);
+        setup('joystick-right', joystickRight);
+    }
 }
 
 function spawnBots(count) {
@@ -722,7 +1347,12 @@ function spawnBots(count) {
 }
 
 /* 6. Game Logic (Update, Collision) */
+let lastScoreUpdate = 0;
 function updateScoreboard() {
+    const now = Date.now();
+    if (now - lastScoreUpdate < 200) return; // Performance: Throttle DOM updates
+    lastScoreUpdate = now;
+
     const scoreboard = document.getElementById('scoreboard');
     if (!scoreboard) return;
 
@@ -751,24 +1381,30 @@ function updateScoreboard() {
 
 function fire() {
     const now = Date.now();
+    if (!myTank || myTank.hp <= 0) return; // Cannot fire if dead
     if (now - lastFireTime < CONFIG.TANK.FIRE_COOLDOWN) return;
     lastFireTime = now;
 
     AudioSFX.playFire();
     const pos = new THREE.Vector3();
-    myTank.barrel.getWorldPosition(pos);
-    const dir = new THREE.Vector3();
-    myTank.barrel.getWorldDirection(dir);
+    myTank.muzzlePoint.getWorldPosition(pos);
+    const pivotPos = new THREE.Vector3();
+    myTank.barrelGroup.getWorldPosition(pivotPos);
 
-    const bullet = new Bullet(pos, dir, myId);
+    // Always fire from pivot to muzzle point
+    const worldDir = pos.clone().sub(pivotPos).normalize();
+
+    const bullet = new Bullet(pos, worldDir, myId);
     bullets.push(bullet);
+
+    myTank.playShootEffect();
 
     // Broadcast fire
     if (channel) {
         channel.send({
             type: 'broadcast',
             event: 'fire',
-            payload: { pos: { x: pos.x, y: pos.y, z: pos.z }, dir: { x: dir.x, y: dir.y, z: dir.z }, ownerId: myId }
+            payload: { pos: { x: pos.x, y: pos.y, z: pos.z }, dir: { x: worldDir.x, y: worldDir.y, z: worldDir.z }, ownerId: myId }
         });
     }
 
@@ -776,8 +1412,8 @@ function fire() {
 }
 
 function update(dt) {
-    // 1. My Tank Update (Only while playing)
-    if (WCGames.state === 'PLAYING' && myTank) {
+    // 1. My Tank Update (Only while playing and alive)
+    if (WCGames.state === 'PLAYING' && myTank && myTank.hp > 0) {
         let moveDir = 0;
         let rotateDir = 0;
 
@@ -792,9 +1428,23 @@ function update(dt) {
 
         myTank.group.rotation.y += rotateDir * CONFIG.TANK.ROTATE_SPEED * dt;
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(myTank.group.quaternion);
-        myTank.group.position.add(forward.multiplyScalar(moveDir * CONFIG.TANK.SPEED * dt));
 
-        if (myTank.engineAudio) myTank.engineAudio.update(Math.abs(moveDir));
+        // Calculate actual movement
+        const actualMove = moveDir * CONFIG.TANK.SPEED * dt;
+        const prevPos = myTank.group.position.clone();
+        myTank.group.position.add(forward.multiplyScalar(actualMove));
+
+        // Calculate real speed ratio based on actual displacement
+        const distanceMoved = myTank.group.position.distanceTo(prevPos);
+        const maxExpectedDist = CONFIG.TANK.SPEED * dt;
+        const actualSpeedRatio = maxExpectedDist > 0 ? Math.min(1.0, distanceMoved / maxExpectedDist) : 0;
+
+        if (myTank.engineAudio) {
+            // Include rotation speed in audio too for more 'busy' feel
+            const rotationRatio = Math.abs(rotateDir) * 0.3;
+            const finalAudioRatio = Math.max(actualSpeedRatio, rotationRatio);
+            myTank.engineAudio.update(finalAudioRatio);
+        }
 
         // Turret Rotation (Mouse / Right Joystick)
         let targetTurretAngle = null;
@@ -809,7 +1459,7 @@ function update(dt) {
                 -(WCGames.input.mouse.y / window.innerHeight) * 2 + 1
             );
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(scene.getObjectByName('floor') || scene, true);
+            const intersects = raycaster.intersectObject(scene.getObjectByName('raycast-floor'), true);
             if (intersects.length > 0) {
                 const pt = intersects[0].point;
                 targetTurretAngle = Math.atan2(myTank.group.position.x - pt.x, myTank.group.position.z - pt.z);
@@ -831,15 +1481,83 @@ function update(dt) {
         // Collisions
         checkCollisions();
 
-        // Camera follow
-        camera.position.set(myTank.group.position.x, 20, myTank.group.position.z + 10);
+        // Update Animations
+        const isMoving = Math.abs(moveDir) > 0.1 || Math.abs(rotateDir) > 0.1;
+        myTank.updateAnims(dt, isMoving);
+
+        // 8. Reverted Camera Follow (Top-down Fixed Offset)
+        camera.fov = 60;
+        camera.updateProjectionMatrix();
+
+        let camX = myTank.group.position.x;
+        let camY = 20;
+        let camZ = myTank.group.position.z + 10;
+
+        // Add Screen Shake
+        if (cameraShakeTime > 0) {
+            cameraShakeTime -= dt;
+            const shake = 0.3;
+            camX += (Math.random() - 0.5) * shake;
+            camY += (Math.random() - 0.5) * shake;
+            camZ += (Math.random() - 0.5) * shake;
+        }
+
+        camera.position.set(camX, camY, camZ);
         camera.lookAt(myTank.group.position);
     }
 
-    // 2. AI Update (Every client handles their own local bots)
-    bots.forEach(bot => bot.updateAI(dt));
+    // 2. Other Tanks Anim Update
+    // 2. Update Tanks & Bots
+    tanks.forEach(tank => {
+        tank.updateAnims(dt, true);
+    });
 
-    // 3. Sync
+    if (amIMaster) {
+        bots.forEach(bot => {
+            bot.updateAnims(dt, true);
+            bot.updateAI(dt);
+        });
+    } else {
+        // Clients only update animations, positions come from sync
+        bots.forEach(bot => {
+            bot.updateAnims(dt, true);
+        });
+    }
+
+    if (vfx) vfx.update(dt);
+
+    // 3. Update Trees (Shake animation)
+    trees.forEach(tree => {
+        if (tree.userData.shakeAmount > 0) {
+            tree.userData.shakeAmount -= dt * 2.0; // Decay
+            if (tree.userData.shakeAmount < 0) tree.userData.shakeAmount = 0;
+
+            // Apply oscillating rotation (Shake)
+            const shake = Math.sin(Date.now() * 0.05) * tree.userData.shakeAmount * 0.2;
+            tree.rotation.x = shake;
+            tree.rotation.z = shake * 0.5;
+        } else {
+            tree.rotation.x = 0;
+            tree.rotation.z = 0;
+        }
+    });
+
+    // 4. Update VFX System & Wreck Effects
+    if (vfx) {
+        vfx.update(dt);
+        
+        wreckSmokeTimer += dt;
+        if (wreckSmokeTimer > 0.15) {
+            wreckSmokeTimer = 0;
+            wrecks.forEach(wreck => {
+                const smokePos = new THREE.Vector3(0, 0.8, 0).add(wreck.position);
+                vfx.spawnFire(smokePos, 1, 1.0, 0.25, 800); // Constant fire
+                vfx.spawnSmoke(smokePos, 0x333333, 1, 0.5, 0.4, 2500); // Constant smoke
+            });
+        }
+    }
+
+    // 5. Sync
     syncMultiplayer();
 }
 
@@ -885,7 +1603,7 @@ function checkCollisions() {
 }
 
 function updateBullets() {
-    const dt = 0.016; // Approx
+    const dt = 0.016;
     for (let i = bullets.length - 1; i >= 0; i--) {
         const bullet = bullets[i];
         if (!bullet.update(dt)) {
@@ -894,67 +1612,100 @@ function updateBullets() {
             continue;
         }
 
-        // Wall collision (Everyone handles locally)
-        let bulletHit = false;
+        let hit = false;
+
+        // Wall collision
         for (const wall of walls) {
             const wallW = wall.geometry.parameters.width;
             const wallD = wall.geometry.parameters.depth;
-            const buffer = 0.2;
-            if (Math.abs(bullet.mesh.position.x - wall.position.x) < wallW / 2 + buffer &&
-                Math.abs(bullet.mesh.position.z - wall.position.z) < wallD / 2 + buffer) {
+            const wallH = wall.geometry.parameters.height || 1;
+
+            if (Math.abs(bullet.mesh.position.x - wall.position.x) < wallW / 2 + 0.2 &&
+                Math.abs(bullet.mesh.position.z - wall.position.z) < wallD / 2 + 0.2 &&
+                Math.abs(bullet.mesh.position.y - wall.position.y) < wallH / 2 + 0.5) {
+
+                if (vfx) {
+                    const normal = bullet.mesh.position.clone().sub(wall.position).normalize();
+                    vfx.spawnImpact(bullet.mesh.position, normal, 0xaaaaaa);
+
+                    // If hit tree, start shaking
+                    if (wall.userData && wall.userData.type === 'tree' && wall.userData.parentTree) {
+                        wall.userData.parentTree.userData.shakeAmount = 1.0;
+                    }
+
+                    // Breakable props logic
+                    if (wall.userData && wall.userData.isBreakable) {
+                        // Big explosion for props
+                        for (let j = 0; j < 3; j++) {
+                            vfx.spawnImpact(wall.position, new THREE.Vector3(0, 1, 0), wall.userData.type === 'barrel' ? 0xc62828 : 0x5d4037);
+                        }
+                        AudioSFX.playImpact();
+
+                        // Remove from scene and walls array
+                        scene.remove(wall);
+                        wall.traverse(child => {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) child.material.dispose();
+                        });
+                        const wallIdx = walls.indexOf(wall);
+                        if (wallIdx !== -1) walls.splice(wallIdx, 1);
+                    }
+                }
                 if (bullet.ownerId === myId) AudioSFX.playImpact();
-                bullet.destroy();
-                bullets.splice(i, 1);
-                bulletHit = true;
+                hit = true;
                 break;
             }
         }
-        if (bulletHit) continue;
+        if (hit) {
+            bullet.destroy();
+            bullets.splice(i, 1);
+            continue;
+        }
 
-        // Player collisions (Including self)
+        // Player collisions
         const allPlayers = [myTank, ...Array.from(tanks.values())];
-        allPlayers.forEach(tank => {
-            if (!tank || bullet.ownerId === tank.id) return;
+        for (const tank of allPlayers) {
+            if (!tank || bullet.ownerId === tank.id) continue;
             if (bullet.mesh.position.distanceTo(tank.group.position) < 1.2) {
-                // Authority: Shooter (Player) or Master (for Bot shooter)
                 const isBotShooter = bots.some(b => b.id === bullet.ownerId);
                 if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
                     AudioSFX.playImpact();
-
-                    // Apply locally if target is self
-                    if (tank === myTank) {
-                        tank.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
-                    }
-
+                    if (vfx) vfx.spawnImpact(bullet.mesh.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
+                    if (tank === myTank) tank.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
                     channel.send({
                         type: 'broadcast',
                         event: 'hit',
                         payload: { targetId: tank.id, damage: CONFIG.BULLET.DAMAGE, shooterId: bullet.ownerId }
                     });
                 }
-                bullet.destroy();
-                bullets.splice(i, 1);
-                bulletHit = true;
+                hit = true;
+                break;
             }
-        });
-        if (bulletHit) continue;
+        }
+        if (hit) {
+            bullet.destroy();
+            bullets.splice(i, 1);
+            continue;
+        }
 
         // Bot collisions
         for (const bot of bots) {
             if (bullet.ownerId !== bot.id && bullet.mesh.position.distanceTo(bot.group.position) < 1.2) {
-                // Authority: Shooter (Player) or Master (for Bot shooter)
                 const isBotShooter = bots.some(b => b.id === bullet.ownerId);
                 if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
                     AudioSFX.playImpact();
+                    if (vfx) vfx.spawnImpact(bullet.mesh.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
                     bot.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
                 }
-                bullet.destroy();
-                bullets.splice(i, 1);
-                bulletHit = true;
+                hit = true;
                 break;
             }
         }
-        if (bulletHit) continue;
+        if (hit) {
+            bullet.destroy();
+            bullets.splice(i, 1);
+            continue;
+        }
     }
 }
 
@@ -980,6 +1731,28 @@ function syncMultiplayer() {
                 kills: myTank.kills
             }
         });
+    }
+
+    // 2. Broadcast ALL Bots at once (Batch update for better performance)
+    if (amIMaster && bots.length > 0) {
+        const botUpdates = bots.filter(b => b.hp > 0).map(bot => ({
+            id: bot.id,
+            name: bot.name,
+            pos: { x: bot.group.position.x, y: bot.group.position.y, z: bot.group.position.z },
+            rot: bot.group.rotation.y,
+            turretRot: bot.turretGroup.rotation.y,
+            hp: bot.hp,
+            kills: bot.kills,
+            isBot: true
+        }));
+
+        if (botUpdates.length > 0) {
+            channel.send({
+                type: 'broadcast',
+                event: 'bots_move',
+                payload: { bots: botUpdates }
+            });
+        }
     }
 
     updateScoreboard();
@@ -1053,18 +1826,17 @@ function animate() {
 
 /* 7. Collision & Spawn Utils */
 function isPositionSafe(x, z) {
-    const tankRadius = 1.2; // matching hardcoded collision radius
+    const tankRadius = 1.8;
     const halfSize = (CONFIG.WORLD.SIZE / 2) - 5;
-
     if (Math.abs(x) > halfSize || Math.abs(z) > halfSize) return false;
 
-    for (const wallDef of CONFIG.MAP.LAYOUT) {
-        const wallMinX = wallDef.x - wallDef.w / 2 - tankRadius;
-        const wallMaxX = wallDef.x + wallDef.w / 2 + tankRadius;
-        const wallMinZ = wallDef.z - wallDef.d / 2 - tankRadius;
-        const wallMaxZ = wallDef.z + wallDef.d / 2 + tankRadius;
+    const tankBox = new THREE.Box3(
+        new THREE.Vector3(x - tankRadius, 0, z - tankRadius),
+        new THREE.Vector3(x + tankRadius, 2, z + tankRadius)
+    );
 
-        if (x > wallMinX && x < wallMaxX && z > wallMinZ && z < wallMaxZ) {
+    for (const wallBox of wallBoxes) {
+        if (tankBox.intersectsBox(wallBox)) {
             return false;
         }
     }
@@ -1092,6 +1864,10 @@ const Game = {
 
     init() {
         // Clear old state and scene
+        if (typeof myTank !== 'undefined' && myTank) {
+            myTank.destroy();
+            myTank = null;
+        }
         if (typeof tanks !== 'undefined') {
             tanks.forEach(t => t.destroy());
             tanks.clear();
@@ -1107,8 +1883,14 @@ const Game = {
             bots.forEach(b => b.destroy());
             bots.length = 0;
         }
+        if (typeof wallBoxes !== 'undefined') {
+            wallBoxes.length = 0;
+        }
 
         scene = new THREE.Scene();
+
+        vfx = new ParticleSystem();
+        cameraShakeTime = 0;
         scene.background = new THREE.Color(0x1a1a1a);
         scene.fog = new THREE.FogExp2(0x1a1a1a, 0.015); // Add depth with fog
 
@@ -1120,6 +1902,7 @@ const Game = {
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         if (clock) clock.stop();
@@ -1132,24 +1915,264 @@ const Game = {
         const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
         scene.add(hemisphereLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 20, 10);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(30, 50, 20);
         directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        directionalLight.shadow.camera.left = -60;
+        directionalLight.shadow.camera.right = 60;
+        directionalLight.shadow.camera.top = 60;
+        directionalLight.shadow.camera.bottom = -60;
+        directionalLight.shadow.camera.near = 0.5;
+        directionalLight.shadow.camera.far = 200;
         scene.add(directionalLight);
 
-        // Floor (Voxel style)
+        // Floor (Rugged Ground/Earth style)
+        const tileSize = 5;
+        const tilesPerSide = CONFIG.WORLD.SIZE / tileSize;
+        const groundColors = [CONFIG.COLORS.FLOOR_1, CONFIG.COLORS.FLOOR_2, CONFIG.COLORS.FLOOR_3, CONFIG.COLORS.FLOOR_4];
 
-        const floorGeo = new THREE.PlaneGeometry(CONFIG.WORLD.SIZE, CONFIG.WORLD.SIZE);
-        const floorMat = new THREE.MeshStandardMaterial({ color: CONFIG.COLORS.FLOOR_1 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.name = 'floor';
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        scene.add(floor);
+        for (let ix = 0; ix < tilesPerSide; ix++) {
+            for (let iz = 0; iz < tilesPerSide; iz++) {
+                // Randomly pick from earthy colors
+                const colorIdx = Math.floor(seededRandom(ix * 13 + iz * 7) * groundColors.length);
+                const color = groundColors[colorIdx];
+
+                // Rugged height variation
+                const hVar = seededRandom(ix * 31 + iz * 17) * 0.4;
+                const tile = createVoxelBox(tileSize, 0.2 + hVar, tileSize, color, 0.1, 0.9);
+                tile.position.set(
+                    (ix - tilesPerSide / 2 + 0.5) * tileSize,
+                    (0.2 + hVar) / 2 - 0.1,
+                    (iz - tilesPerSide / 2 + 0.5) * tileSize
+                );
+                tile.receiveShadow = true;
+                scene.add(tile);
+
+                // Add occasional pebbles (잔돌)
+                if (seededRandom(ix * 55 + iz * 23) < 0.15) {
+                    const pSize = 0.1 + seededRandom(ix + iz) * 0.2;
+                    const pebble = createVoxelBox(pSize, pSize, pSize, 0x555555);
+                    pebble.position.set(
+                        tile.position.x + (seededRandom(ix * 2) - 0.5) * (tileSize - 1),
+                        0.1 + hVar,
+                        tile.position.z + (seededRandom(iz * 2) - 0.5) * (tileSize - 1)
+                    );
+                    scene.add(pebble);
+                }
+            }
+        }
+
+        // Invisible Raycast Plane (포신 제어용 투명 평면)
+        const raycastFloor = new THREE.Mesh(
+            new THREE.PlaneGeometry(CONFIG.WORLD.SIZE, CONFIG.WORLD.SIZE),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        raycastFloor.rotation.x = -Math.PI / 2;
+        raycastFloor.name = 'raycast-floor';
+        scene.add(raycastFloor);
+
+        // Helper: Create Czech Hedgehog (대전차 장애물)
+        function createHedgehog(x, z) {
+            const group = new THREE.Group();
+            const color = 0x222222;
+            const s = 1.2;
+            const b1 = createVoxelBox(s, 0.15, 0.15, color, 0.7, 0.3); // Metallic hedgehog
+            const b2 = createVoxelBox(s, 0.15, 0.15, color, 0.7, 0.3); // Metallic hedgehog
+            const b3 = createVoxelBox(s, 0.15, 0.15, color, 0.7, 0.3); // Metallic hedgehog
+            b1.rotation.set(Math.PI / 4, 0, 0);
+            b2.rotation.set(-Math.PI / 4, 0, 0);
+            b3.rotation.set(0, 0, Math.PI / 2);
+            group.add(b1, b2, b3);
+            group.position.set(x, 0.4, z);
+            scene.add(group);
+
+            // Add invisible collision box for hedgehog
+            const col = createVoxelBox(0.8, 0.8, 0.8, 0x000000, 0, 1); // Matte, invisible collision box
+            col.position.set(x, 0.4, z);
+            col.visible = false;
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // Helper: Create Props (Crates & Barrels)
+        function createProp(type, x, z) {
+            if (type === 'crate') {
+                const crate = createVoxelBox(0.8, 0.8, 0.8, 0x5d4037, 0, 0.8); // Matte wood crate
+                crate.position.set(x, 0.4, z);
+                crate.userData = { isBreakable: true, type: 'crate' };
+                scene.add(crate);
+                walls.push(crate);
+
+                // Rivet details on crate
+                for (let i = 0; i < 4; i++) {
+                    const d = createVoxelBox(0.82, 0.1, 0.1, 0x3e2723, 0, 0.8); // Matte wood details
+                    d.position.set(x, 0.4 + (i % 2 ? 0.3 : -0.3), z);
+                    crate.add(d); // Attach to crate for easier removal
+                }
+            } else if (type === 'barrel') {
+                const barrel = createVoxelCylinder(0.3, 0.3, 0.9, 0xc62828, 0.6, 0.4); // Metallic barrel
+                barrel.position.set(x, 0.45, z);
+                barrel.userData = { isBreakable: true, type: 'barrel' };
+                scene.add(barrel);
+                walls.push(barrel);
+
+                // Barrel rings
+                const r1 = createVoxelCylinder(0.32, 0.32, 0.05, 0x333333, 0.7, 0.3); // Metallic rings
+                r1.position.y = 0.2;
+                barrel.add(r1);
+                const r2 = createVoxelCylinder(0.32, 0.32, 0.05, 0x333333, 0.7, 0.3); // Metallic rings
+                r2.position.y = -0.2;
+                barrel.add(r2);
+            }
+        }
+
+        // Helper: Create Destroyed Tank (Wreck)
+        function createWreck(x, z) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = seededRandom(x * 7 + z) * Math.PI * 2;
+            scene.add(group);
+            wrecks.push(group);
+
+            // Burnt/Rusty Materials
+            const burntColor = 0x1a1a1a;
+            const rustColor = 0x5d4037;
+
+            // 1. Hull (slightly tilted)
+            const hull = createVoxelBox(1.2, 0.5, 1.8, burntColor, 0, 1);
+            hull.position.y = 0.45;
+            hull.rotation.z = 0.05;
+            group.add(hull);
+
+            // 2. Turret (damaged/misaligned)
+            const turret = createVoxelBox(0.9, 0.45, 0.95, burntColor, 0, 1);
+            turret.position.set(0.1, 0.85, 0);
+            turret.rotation.set(0.1, 0.5, 0.05);
+            group.add(turret);
+
+            // 3. Barrel (broken/tilted)
+            const barrel = createVoxelCylinder(0.08, 0.08, 1.2, rustColor, 0, 1);
+            barrel.position.set(0.5, 0.9, -0.6);
+            barrel.rotation.set(1.2, 0, -0.2);
+            group.add(barrel);
+
+            // 4. Detail: Tracks (slightly off)
+            const trackL = createVoxelBox(0.38, 0.42, 1.95, 0x111111);
+            trackL.position.set(-0.45, 0.22, 0);
+            group.add(trackL);
+            const trackR = createVoxelBox(0.38, 0.42, 1.95, 0x111111);
+            trackR.position.set(0.48, 0.2, 0.05);
+            trackR.rotation.y = 0.05;
+            group.add(trackR);
+
+            // Add to walls for collision
+            const col = createVoxelBox(1.5, 1.5, 2.0, 0x000000);
+            col.position.set(x, 0.75, z);
+            col.rotation.y = group.rotation.y;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col); // CRITICAL: Must be in scene to update world matrices
+            walls.push(col);
+        }
+
+        // Helper: Create Voxel Trees
+        function createTree(x, z) {
+            const treeGroup = new THREE.Group();
+            treeGroup.position.set(x, 0, z);
+            treeGroup.userData = { type: 'tree', shakeAmount: 0, initialRotation: 0 };
+            scene.add(treeGroup);
+            trees.push(treeGroup);
+
+            const trunk = createVoxelCylinder(0.2, 0.2, 1.0, 0x5d4037, 0, 0.8);
+            trunk.position.y = 0.5;
+            treeGroup.add(trunk);
+
+            const foliage = createVoxelCone(1.0, 2.0, 0x2e7d32, 0, 0.9);
+            foliage.position.y = 1.8;
+            treeGroup.add(foliage);
+
+            const cap = createVoxelCone(0.7, 1.5, 0x388e3c);
+            cap.position.y = 2.8;
+            treeGroup.add(cap);
+
+            // Add invisible collision box to walls
+            const col = createVoxelBox(0.8, 3.5, 0.8, 0x000000);
+            col.position.set(x, 1.75, z);
+            col.visible = false;
+            col.userData = { type: 'tree', parentTree: treeGroup };
+            scene.add(col); // CRITICAL: Must be in scene to update world matrices
+            walls.push(col);
+        }
+
+        // Helper: Create Fortress Wall (단조로움 해결을 위한 다층 구조 장벽)
+        function createFortressWall(wallDef) {
+            const { x, z, w, d } = wallDef;
+            const h = 2.4; // Slightly taller
+            const color = CONFIG.COLORS.WALL;
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            scene.add(group);
+
+            // 1. Foundation (기초부 - Slightly wider and darker)
+            const foundation = createVoxelBox(w + 0.4, 0.4, d + 0.4, 0x333333);
+            foundation.position.y = 0.2;
+            group.add(foundation);
+
+            // 2. Main Wall Body
+            const main = createVoxelBox(w, h - 0.4, d, color);
+            main.position.y = h / 2 + 0.2;
+            group.add(main);
+
+            // 3. Crenelations (상단 총안구 - Jagged top)
+            const cSize = 0.4;
+            const isHorizontal = w > d;
+            if (isHorizontal) {
+                const count = Math.floor(w / (cSize * 2));
+                for (let i = 0; i < count; i++) {
+                    const c = createVoxelBox(cSize, cSize, d, color);
+                    c.position.set(-w / 2 + cSize + i * cSize * 2, h + 0.2, 0);
+                    group.add(c);
+                }
+            } else {
+                const count = Math.floor(d / (cSize * 2));
+                for (let i = 0; i < count; i++) {
+                    const c = createVoxelBox(w, cSize, cSize, color);
+                    c.position.set(0, h + 0.2, -d / 2 + cSize + i * cSize * 2);
+                    group.add(c);
+                }
+            }
+
+            // 4. Detail: Reinforcement Pillars (보강 필러)
+            const pillarW = isHorizontal ? 0.3 : w + 0.1;
+            const pillarD = isHorizontal ? d + 0.1 : 0.3;
+            for (let i of [-1, 1]) {
+                const p = createVoxelBox(pillarW, h, pillarD, 0x444444);
+                if (isHorizontal) p.position.set(i * (w / 2 - 0.2), h / 2, 0);
+                else p.position.set(0, h / 2, i * (d / 2 - 0.2));
+                group.add(p);
+            }
+
+            // 5. Warning Stripe (중앙 노란 띠)
+            const sW = isHorizontal ? 0.1 : w + 0.05;
+            const sD = isHorizontal ? d + 0.05 : 0.1;
+            const stripe = createVoxelBox(sW, h - 0.8, sD, 0xffaa00, 0.5, 0.5);
+            stripe.position.y = h / 2 + 0.2;
+            group.add(stripe);
+
+            // Add invisible collision box to walls array
+            const col = createVoxelBox(w + 0.2, h + 0.5, d + 0.2, 0x000000);
+            col.position.set(x, h / 2 + 0.2, z);
+            col.visible = false;
+            col.userData = { type: 'fortress' };
+            scene.add(col); // CRITICAL: Must be in scene to update world matrices
+            walls.push(col);
+        }
 
         // Add boundary pillars/props (Deterministic seed for same room experience)
-        let worldSeed = 1234.567; // Constant seed for "Global Room"
-        for (let i = 0; i < 20; i++) {
+        let worldSeed = 1234.567;
+        for (let i = 0; i < 24; i++) {
             const side = Math.floor(seededRandom(worldSeed++) * 4);
             const dist = CONFIG.WORLD.SIZE / 2;
             let x = 0, z = 0;
@@ -1158,22 +2181,65 @@ const Game = {
             else if (side === 2) { x = -dist; z = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; }
             else { x = dist; z = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; }
 
-            const h = 2 + seededRandom(worldSeed++) * 5;
-            const pillar = createVoxelBox(2, h, 2, 0x444444);
+            const h = 4 + seededRandom(worldSeed++) * 8;
+            const pillar = createVoxelBox(2, h, 2, 0x333333);
             pillar.position.set(x, h / 2, z);
-            pillar.castShadow = true;
-            pillar.receiveShadow = true;
             scene.add(pillar);
+
+            // Add orange point lights to some pillars
+            if (i % 6 === 0) {
+                const lamp = createVoxelBox(0.4, 0.4, 0.4, 0xffaa00);
+                lamp.position.set(x * 0.95, h - 0.5, z * 0.95);
+                scene.add(lamp);
+                const light = new THREE.PointLight(0xffaa00, 10, 20);
+                light.position.set(x * 0.95, h - 1, z * 0.95);
+                light.castShadow = false; // CRITICAL: PointLight shadows are extremely expensive
+                scene.add(light);
+            }
         }
 
-        // Fixed Internal Walls
+        // Add Background Skyline (빌딩 실루엣)
+        for (let i = 0; i < 40; i++) {
+            const r = 80 + seededRandom(worldSeed++) * 50;
+            const ang = seededRandom(worldSeed++) * Math.PI * 2;
+            const x = Math.cos(ang) * r;
+            const z = Math.sin(ang) * r;
+            const w = 5 + seededRandom(worldSeed++) * 10;
+            const h = 20 + seededRandom(worldSeed++) * 60;
+            const building = createVoxelBox(w, h, w, 0x111111, 0, 1);
+            building.position.set(x, h / 2 - 5, z);
+            scene.add(building);
+        }
+
+        // Scatter props deterministically (Increased density, excluding wrecks)
+        for (let i = 0; i < 60; i++) {
+            const rx = (seededRandom(worldSeed++) - 0.5) * (CONFIG.WORLD.SIZE - 10);
+            const rz = (seededRandom(worldSeed++) - 0.5) * (CONFIG.WORLD.SIZE - 10);
+            if (isPositionSafe(rx, rz)) {
+                const type = seededRandom(worldSeed++);
+                if (type < 0.2) createHedgehog(rx, rz);
+                else if (type < 0.4) createProp('crate', rx, rz);
+                else if (type < 0.6) createProp('barrel', rx, rz);
+                else createTree(rx, rz); // Higher tree density
+            }
+        }
+
+        // Fixed Destroyed Tanks (Wrecks)
+        CONFIG.MAP.WRECKS.forEach(pos => {
+            createWreck(pos.x, pos.z);
+        });
+
         CONFIG.MAP.LAYOUT.forEach(wallDef => {
-            const wall = createVoxelBox(wallDef.w, 2, wallDef.d, CONFIG.COLORS.WALL);
-            wall.position.set(wallDef.x, 1, wallDef.z);
-            wall.castShadow = true;
-            wall.receiveShadow = true;
-            scene.add(wall);
-            walls.push(wall);
+            createFortressWall(wallDef);
+        });
+
+        // CRITICAL: Update all world matrices before any safety checks (getRandomSpawnPoint uses these)
+        scene.updateMatrixWorld(true);
+
+        // BAKE all collision boxes once for performance
+        walls.forEach(wall => {
+            const box = new THREE.Box3().setFromObject(wall);
+            wallBoxes.push(box);
         });
 
         // My Tank
@@ -1238,6 +2304,22 @@ function setupChannelListeners() {
         updateMasterStatus();
     });
 
+    channel.on('broadcast', { event: 'bots_move' }, ({ payload }) => {
+        if (!payload.bots) return;
+        payload.bots.forEach(botData => {
+            let bot = bots.find(b => b.id === botData.id);
+            if (bot && bot.group) {
+                const targetPos = new THREE.Vector3(botData.pos.x, botData.pos.y, botData.pos.z);
+                bot.group.position.lerp(targetPos, 0.4);
+                bot.group.rotation.y = botData.rot;
+                if (bot.turretGroup) bot.turretGroup.rotation.y = botData.turretRot;
+                bot.updateHP(botData.hp);
+                bot.kills = botData.kills || 0;
+            }
+        });
+        updateScoreboard();
+    });
+
     channel.on('broadcast', { event: 'move' }, ({ payload }) => {
         if (payload.id === myId) return;
         let tank = tanks.get(payload.id);
@@ -1255,7 +2337,6 @@ function setupChannelListeners() {
             tank.updateHP(payload.hp);
             tank.kills = payload.kills || 0;
             tank.lastSeen = Date.now();
-            updateScoreboard();
         }
     });
 
@@ -1265,6 +2346,10 @@ function setupChannelListeners() {
         const bDir = new THREE.Vector3(payload.dir.x, payload.dir.y, payload.dir.z);
         const bullet = new Bullet(bPos, bDir, payload.ownerId);
         bullets.push(bullet);
+
+        // Show firing effect for other players
+        const tank = tanks.get(payload.ownerId);
+        if (tank) tank.playShootEffect();
     });
 
 
@@ -1279,16 +2364,33 @@ function setupChannelListeners() {
     });
 
     channel.on('broadcast', { event: 'death' }, ({ payload }) => {
+        const isBot = payload.victimId.startsWith('bot_');
+        const victim = (payload.victimId === myId) ? myTank : (isBot ? bots.find(b => b.id === payload.victimId) : tanks.get(payload.victimId));
+
+        if (victim) {
+            // Only show explosion if I killed them OR I am the one who died
+            if ((payload.shooterId === myId || payload.victimId === myId) && vfx) {
+                vfx.spawnExplosion(victim.group.position);
+            }
+
+            if (victim !== myTank) {
+                victim.destroy();
+                if (isBot) {
+                    const idx = bots.indexOf(victim);
+                    if (idx !== -1) bots.splice(idx, 1);
+                    setTimeout(() => spawnBots(1), 5000);
+                } else {
+                    tanks.delete(payload.victimId);
+                }
+            }
+            updateScoreboard();
+        }
+
         const killer = [myTank, ...Array.from(tanks.values()), ...bots].find(t => t && t.id === payload.shooterId);
         if (killer) {
             killer.kills++;
             updateScoreboard();
             if (killer.isLocal) syncMultiplayer();
-        }
-        if (tanks.has(payload.victimId)) {
-            tanks.get(payload.victimId).destroy();
-            tanks.delete(payload.victimId);
-            updateScoreboard();
         }
     });
 
