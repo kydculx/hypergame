@@ -79,10 +79,20 @@ function getPlayerIdentity() {
         const u = window.location.search;
         const nMatch = u.match(/[?&]n=([^&]+)/);
         const uidMatch = u.match(/[?&]uid=([^&]+)/);
+        const skMatch = u.match(/[?&]sk=([^&]+)/);
         let name = nMatch ? decodeURIComponent(nMatch[1]).trim() : '';
-        let id = uidMatch ? decodeURIComponent(uidMatch[1]).trim() : '';
-        if (!id) id = Math.random().toString(36).substring(2, 9);
-        if (!name) name = id;
+        let idBase = uidMatch ? decodeURIComponent(uidMatch[1]).trim() : '';
+        let sk = skMatch ? decodeURIComponent(skMatch[1]).trim() : '';
+        
+        if (!idBase) idBase = Math.random().toString(36).substring(2, 9);
+        
+        // Append session key to ensure uniqueness for same user in multiple tabs
+        let id = idBase;
+        if (sk) {
+            id = `${idBase}_${sk.substring(0, 4)}`;
+        }
+
+        if (!name) name = idBase;
 
         // Safety: id should be alphanumeric, name can have Korean
         id = id.replace(/[^a-zA-Z0-9]/g, '_');
