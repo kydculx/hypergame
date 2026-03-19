@@ -98,6 +98,7 @@ const walls = []; // Array of wall meshes
 const bots = []; // Array of Bot instances
 let supabaseClient;
 let channel;
+let amIMaster = false;
 let lastFireTime = 0;
 let lastSyncTime = 0;
 let animationId = null;
@@ -777,7 +778,10 @@ function update(dt) {
     }
 
     // Update Bots AI
-    bots.forEach(bot => bot.updateAI(dt));
+    // Update Bots (Master only)
+    if (amIMaster) {
+        bots.forEach(bot => bot.updateAI(dt));
+    }
 
     // Always smooth rotation towards targetWorldAngle
     const currentWorldAngle = myTank.turretGroup.rotation.y + myTank.group.rotation.y;
@@ -932,7 +936,41 @@ function syncMultiplayer() {
         }
     });
 
+    // 2. Broadcast Bot status (Master only)
+    if (amIMaster && bots.length > 0) {
+        channel.send({
+            type: 'broadcast',
+            event: 'bot_sync',
+            payload: {
+                bots: bots.map(b => ({
+                    id: b.id,
+                    name: b.name,
+                    pos: { x: b.group.position.x, y: b.group.position.y, z: b.group.position.z },
+                    rot: b.group.rotation.y,
+                    turretRot: b.turretGroup.rotation.y,
+                    hp: b.hp,
+                    kills: b.kills
+                }))
+            }
+        });
+    }
+
     updateScoreboard();
+}
+
+function updateMasterStatus() {
+    if (!channel) return;
+    const state = channel.presenceState();
+    const keys = Object.keys(state).sort();
+    const newMasterId = keys[0];
+    const previousMaster = amIMaster;
+    amIMaster = (newMasterId === myId);
+
+    // If I became Master and there are no bots, spawn them
+    if (amIMaster && !previousMaster && bots.length === 0) {
+        console.log("I am now Master. Spawning bots...");
+        spawnBots(CONFIG.BOT.COUNT);
+    }
 }
 
 /* 7. Rendering */
@@ -1074,8 +1112,7 @@ const Game = {
         myTank.group.position.set(spawn.x, 0, spawn.z);
         myTank.updateHP(CONFIG.TANK.MAX_HP);
 
-        // Bots
-        spawnBots(CONFIG.BOT.COUNT);
+        // Bots (Now handled by updateMasterStatus once multi-channel is ready)
 
         // Supabase Init
         const config = window.WCGamesConfig;
@@ -1098,10 +1135,12 @@ const Game = {
             channel.on('presence', { event: 'sync' }, () => {
                 const state = channel.presenceState();
                 console.log('Presence sync:', state);
+                updateMasterStatus();
             });
 
             channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
                 console.log('Player joined:', key, newPresences);
+                updateMasterStatus();
             });
 
             channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
@@ -1110,6 +1149,7 @@ const Game = {
                     tanks.get(key).destroy();
                     tanks.delete(key);
                 }
+                updateMasterStatus();
             });
 
             channel.on('broadcast', { event: 'move' }, ({ payload }) => {
@@ -1148,6 +1188,38 @@ const Game = {
                 bullets.push(bullet);
             });
 
+            channel.on('broadcast', { event: 'bot_sync' }, ({ payload }) => {
+                if (amIMaster) return; // Master ignores sync
+                
+                const receivedBotIds = new Set(payload.bots.map(b => b.id));
+                
+                // 1. Update existing/New bots
+                payload.bots.forEach(bData => {
+                    let bot = bots.find(b => b.id === bData.id);
+                    if (!bot) {
+                        bot = new Bot(bData.id, bData.name);
+                        bots.push(bot);
+                    }
+                    if (bot && bot.group) {
+                        const targetPos = new THREE.Vector3(bData.pos.x, bData.pos.y, bData.pos.z);
+                        bot.group.position.lerp(targetPos, 0.4);
+                        bot.group.rotation.y = bData.rot;
+                        bot.turretGroup.rotation.y = bData.turretRot;
+                        bot.updateHP(bData.hp);
+                        bot.kills = bData.kills;
+                    }
+                });
+                
+                // 2. Remove bots not in payload
+                for (let i = bots.length - 1; i >= 0; i--) {
+                    if (!receivedBotIds.has(bots[i].id)) {
+                        bots[i].destroy();
+                        bots.splice(i, 1);
+                    }
+                }
+                updateScoreboard();
+            });
+
             channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
                 if (payload.shooterId === myId) return; // Already handled locally if I was the shooter
 
@@ -1155,11 +1227,17 @@ const Game = {
                 if (payload.targetId === myId) {
                     target = myTank;
                 } else {
-                    target = tanks.get(payload.targetId);
+                    target = tanks.get(payload.targetId) || bots.find(b => b.id === payload.targetId);
                 }
 
                 if (target) {
-                    target.handleHit(payload.damage, payload.shooterId);
+                    // Only the Master (if it's a bot) or the Target itself (if it's a player) should handle the damage calculation
+                    // Here we let the target handle it locally if they are the target, 
+                    // OR if it's a bot, everyone updates it? No, if we have Master sync, 
+                    // Master updates it and everyone receives the result.
+                    if (target === myTank || (amIMaster && target.isBot)) {
+                        target.handleHit(payload.damage, payload.shooterId);
+                    }
                 }
             });
 
@@ -1196,6 +1274,8 @@ const Game = {
                 console.log('Channel Status:', status);
                 if (status === 'SUBSCRIBED') {
                     channel.track({ online_at: new Date().toISOString() });
+                    // Initial master check
+                    setTimeout(updateMasterStatus, 500); 
                 }
             });
         }
@@ -1238,7 +1318,7 @@ WCGames.init({
         myTank.group.position.set(spawn.x, 0, spawn.z);
         myTank.updateHP(CONFIG.TANK.MAX_HP);
 
-        spawnBots(CONFIG.BOT.COUNT);
+        updateMasterStatus();
         syncMultiplayer();
     }
 });
