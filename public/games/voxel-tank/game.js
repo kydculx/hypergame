@@ -935,6 +935,12 @@ function updateBullets() {
                 const isBotShooter = bots.some(b => b.id === bullet.ownerId);
                 if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
                     AudioSFX.playImpact();
+                    
+                    // Apply locally if target is self
+                    if (tank === myTank) {
+                        tank.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
+                    }
+
                     channel.send({
                         type: 'broadcast',
                         event: 'hit',
