@@ -45,7 +45,7 @@ const CONFIG = {
     },
     BOT: {
         COUNT: 10,
-        SPEED: 5,
+        SPEED: 3,
         ROTATE_SPEED: 1,
         FIRE_COOLDOWN: 2000,
         DETECTION_RANGE: 50,
@@ -345,15 +345,17 @@ class Tank {
         if (this.isLocal) {
             syncMultiplayer();
 
-            // If I died, I broadcast the death event so the shooter gets the kill
+            // If I died, I broadcast the death event so everyone knows who killed me
             if (this.hp <= 0) {
-                channel.send({
-                    type: 'broadcast',
-                    event: 'death',
-                    payload: { victimId: myId, shooterId: shooterId }
-                });
+                if (channel) {
+                    channel.send({
+                        type: 'broadcast',
+                        event: 'death',
+                        payload: { victimId: myId, shooterId: shooterId }
+                    });
+                }
                 if (window.AudioSFX) AudioSFX.playExplosion();
-                WCGames.gameOver(myTank.kills); // End game for me
+                WCGames.gameOver(myTank.kills);
             }
         }
     }
@@ -382,16 +384,23 @@ class Bot extends Tank {
     updateAI(dt) {
         if (this.hp <= 0) return;
 
-        // 1. Target Selection (Nearest player)
+        // 1. Target Selection (Nearest player or bot)
         let nearestDist = CONFIG.BOT.DETECTION_RANGE;
         let potentialTarget = null;
 
-        // Check local player
-        if (myTank && myTank.hp > 0) {
-            const d = this.group.position.distanceTo(myTank.group.position);
+        // Check all potential targets
+        const possibleTargets = [];
+        if (myTank && myTank.hp > 0) possibleTargets.push(myTank);
+        tanks.forEach(t => { if (t.hp > 0) possibleTargets.push(t); });
+        bots.forEach(b => { 
+            if (b !== this && b.hp > 0) possibleTargets.push(b); 
+        });
+
+        for (const target of possibleTargets) {
+            const d = this.group.position.distanceTo(target.group.position);
             if (d < nearestDist) {
                 nearestDist = d;
-                potentialTarget = myTank;
+                potentialTarget = target;
             }
         }
 
@@ -408,7 +417,7 @@ class Bot extends Tank {
             const targetPos = this.target.group.position;
             const dx = targetPos.x - this.group.position.x;
             const dz = targetPos.z - this.group.position.z;
-            
+
             // Correct angle to point -Z towards (dx, dz)
             const angleToTarget = Math.atan2(-dx, -dz);
 
@@ -428,7 +437,7 @@ class Bot extends Tank {
             const currentDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
             const targetDirRaw = new THREE.Vector3(dx, 0, dz).normalize();
             const dot = currentDir.dot(targetDirRaw);
-            
+
             if (dot > 0.95 && dist < CONFIG.BOT.ATTACK_RANGE) {
                 this.shoot();
             }
@@ -489,10 +498,13 @@ class Bot extends Tank {
         super.updateHP(this.hp - damage);
 
         if (this.hp <= 0) {
-            if (shooterId === myId) {
-                myTank.kills++;
+            // Find who shot this
+            const allTanks = [myTank, ...Array.from(tanks.values()), ...bots];
+            const killer = allTanks.find(t => t && t.id === shooterId);
+            if (killer) {
+                killer.kills++;
                 updateScoreboard();
-                syncMultiplayer();
+                if (killer.isLocal) syncMultiplayer();
             }
             if (window.AudioSFX) AudioSFX.playExplosion();
             this.destroy();
@@ -1100,17 +1112,18 @@ const Game = {
             });
 
             channel.on('broadcast', { event: 'death' }, ({ payload }) => {
-                // If I was the shooter, I get a kill
-                if (payload.shooterId === myId) {
-                    myTank.kills++;
+                const allTanks = [myTank, ...Array.from(tanks.values()), ...bots];
+                const killer = allTanks.find(t => t && t.id === payload.shooterId);
+                if (killer) {
+                    killer.kills++;
                     updateScoreboard();
-                    syncMultiplayer();
+                    if (killer.isLocal) syncMultiplayer();
                 }
 
-                // Everyone removes the victim's tank
                 if (tanks.has(payload.victimId)) {
                     tanks.get(payload.victimId).destroy();
                     tanks.delete(payload.victimId);
+                    updateScoreboard();
                 }
             });
 
