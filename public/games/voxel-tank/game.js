@@ -44,15 +44,15 @@ const CONFIG = {
         ]
     },
     BOT: {
-        COUNT: 8,
+        COUNT: 5,
         SPEED: 3.5,
-        ROTATE_SPEED: 1.2,
+        ROTATE_SPEED: 1,
         FIRE_COOLDOWN: 1800,
         DETECTION_RANGE: 60,
         ATTACK_RANGE: 40,
         NICKNAMES: [
-            "SuperTanker", "VoxelKing", "NoobMaster69", "TankCommander", "IronFist", 
-            "SwiftShadow", "MetalBeast", "Alpha", "Bravo", "Charlie", "Delta", 
+            "SuperTanker", "VoxelKing", "NoobMaster69", "TankCommander", "IronFist",
+            "SwiftShadow", "MetalBeast", "Alpha", "Bravo", "Charlie", "Delta",
             "GhostShell", "SteelRain", "DesertRat", "BlueDragon", "RedDragon",
             "KoreanPro", "Expert_X", "HiddenTiger", "FlyingEagle", "SniperJoe"
         ],
@@ -428,7 +428,7 @@ class Bot extends Tank {
             const dx = targetPos.x - this.group.position.x;
             const dz = targetPos.z - this.group.position.z;
             const dist = this.group.position.distanceTo(targetPos);
-            
+
             // 1. Calculate Target Angle for Hull (to circle)
             // We want to point the hull roughly sideways (PI/2 or -PI/2 relative to target)
             this.strafeTimer -= dt;
@@ -441,13 +441,13 @@ class Bot extends Tank {
             let offset = (Math.PI / 2) * this.strafeDir;
             if (dist > 15) offset *= 0.5; // Turn more towards target
             else if (dist < 8) offset *= 1.5; // Turn more away
-            
+
             const angleToTarget = Math.atan2(-dx, -dz);
             const hullTargetAngle = angleToTarget + offset;
 
             // Rotate hull
             this.group.rotation.y = lerpAngle(this.group.rotation.y, hullTargetAngle, dt * 2.5);
-            
+
             // 2. Rotate turret independently to point at Target (with slight jitter)
             this.aimJitterTimer += dt;
             if (this.aimJitterTimer > 1) {
@@ -470,7 +470,7 @@ class Bot extends Tank {
             const currentDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), turretWorldAngle);
             const targetDirRaw = new THREE.Vector3(dx, 0, dz).normalize();
             const dot = currentDir.dot(targetDirRaw);
-            
+
             if (dot > 0.96 && dist < CONFIG.BOT.ATTACK_RANGE) {
                 this.shoot();
             }
