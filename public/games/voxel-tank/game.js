@@ -1000,6 +1000,20 @@ class Tank {
         if (this.hp <= 0) {
             if (window.AudioSFX) window.AudioSFX.playExplosion();
             if (vfx) vfx.spawnExplosion(this.group.position);
+
+            // Find who shot this and increment their kills
+            const allTanks = [myTank, ...Array.from(tanks.values()), ...bots];
+            const killer = allTanks.find(t => t && t.id === shooterId);
+            if (killer) {
+                killer.kills++;
+                updateScoreboard();
+                if (killer.isLocal) {
+                    syncMultiplayer();
+                    if (window.WCGames && window.WCGames.submitScore) {
+                        window.WCGames.submitScore(killer.kills);
+                    }
+                }
+            }
         }
     }
 
@@ -1210,7 +1224,12 @@ class Bot extends Tank {
             if (killer) {
                 killer.kills++;
                 updateScoreboard();
-                if (killer.isLocal) syncMultiplayer();
+                if (killer.isLocal) {
+                    syncMultiplayer();
+                    if (window.WCGames && window.WCGames.submitScore) {
+                        window.WCGames.submitScore(killer.kills);
+                    }
+                }
             }
             if (window.AudioSFX) AudioSFX.playExplosion();
             this.destroy();
@@ -1417,16 +1436,26 @@ function update(dt) {
         let moveDir = 0;
         let rotateDir = 0;
 
-        if (keys['KeyW'] || keys['w'] || keys['ArrowUp']) moveDir += 1;
-        if (keys['KeyS'] || keys['s'] || keys['ArrowDown']) moveDir -= 1;
-        if (keys['KeyA'] || keys['a'] || keys['ArrowLeft']) rotateDir += 1;
-        if (keys['KeyD'] || keys['d'] || keys['ArrowRight']) rotateDir -= 1;
+        const joystickDist = Math.sqrt(joystickLeft.x * joystickLeft.x + joystickLeft.y * joystickLeft.y);
 
-        // Merge Joystick
-        if (Math.abs(joystickLeft.y) > 0.1) moveDir -= joystickLeft.y;
-        if (Math.abs(joystickLeft.x) > 0.1) rotateDir -= joystickLeft.x;
-
-        myTank.group.rotation.y += rotateDir * CONFIG.TANK.ROTATE_SPEED * dt;
+        if (joystickDist > 0.1) {
+            // Modern Mobile: Absolute Directional Movement
+            // Tank naturally turns to face the joystick direction and moves forward
+            const targetHullAngle = Math.atan2(-joystickLeft.x, -joystickLeft.y);
+            
+            // Turn hull smoothly towards target directional angle
+            myTank.group.rotation.y = lerpAngle(myTank.group.rotation.y, targetHullAngle, dt * 8);
+            
+            // Movement is based on joystick distance from center
+            moveDir = Math.min(1.0, joystickDist);
+        } else {
+            // Desktop/Classic: Tank Controls (WASD)
+            if (keys['KeyW'] || keys['w'] || keys['ArrowUp']) moveDir += 1;
+            if (keys['KeyS'] || keys['s'] || keys['ArrowDown']) moveDir -= 1;
+            if (keys['KeyA'] || keys['a'] || keys['ArrowLeft']) rotateDir += 1;
+            if (keys['KeyD'] || keys['d'] || keys['ArrowRight']) rotateDir -= 1;
+            myTank.group.rotation.y += rotateDir * CONFIG.TANK.ROTATE_SPEED * dt;
+        }
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(myTank.group.quaternion);
 
         // Calculate actual movement
