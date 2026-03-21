@@ -918,7 +918,7 @@ class Tank {
             this.exhaustTimer += dt;
             if (this.exhaustTimer > 0.08) { // High frequency
                 this.exhaustTimer = 0;
-                
+
                 // Real-wheel displacement for velocity calc
                 const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.group.quaternion);
                 const exhaustVel = forward.multiplyScalar(2.0); // Push smoke backwards
@@ -926,10 +926,10 @@ class Tank {
                 // Dual Exhaust Pipes
                 for (let xOff of [-0.4, 0.4]) {
                     const exhaustPos = new THREE.Vector3(xOff, 0.65, 0.95).applyMatrix4(this.group.matrixWorld);
-                    
+
                     // Main Smoke (Premium Growth)
                     vfx.spawnExhaust(exhaustPos, 0x99aabb, 1, 0.4, 0.3, 1500);
-                    
+
                     // Hot Exhaust Core
                     if (Math.random() < 0.4) {
                         vfx.spawnExhaust(exhaustPos, 0x555555, 1, 0.6, 0.25, 800);
@@ -989,7 +989,7 @@ class Tank {
                         payload: { victimId: myId, shooterId: shooterId }
                     });
                 }
-                
+
                 // Give 3 seconds to watch the explosion before showing game over screen
                 setTimeout(() => {
                     WCGames.gameOver(this.kills);
@@ -1102,8 +1102,12 @@ class Bot extends Tank {
             const angleToTarget = Math.atan2(-dx, -dz);
             const hullTargetAngle = angleToTarget + offset;
 
-            // Rotate hull
-            this.group.rotation.y = lerpAngle(this.group.rotation.y, hullTargetAngle, dt * 2.5);
+            // Rotate hull (Linear, matching player speed)
+            let hullRotDiff = hullTargetAngle - this.group.rotation.y;
+            while (hullRotDiff < -Math.PI) hullRotDiff += Math.PI * 2;
+            while (hullRotDiff > Math.PI) hullRotDiff -= Math.PI * 2;
+            const hullStep = CONFIG.TANK.ROTATE_SPEED * dt;
+            this.group.rotation.y += Math.max(-hullStep, Math.min(hullStep, hullRotDiff));
 
             // 2. Rotate turret independently to point at Target (with slight jitter)
             this.aimJitterTimer += dt;
@@ -1113,7 +1117,11 @@ class Bot extends Tank {
             }
             const turretDesiredGlobalAngle = angleToTarget + this.aimJitter;
             const turretLocalTargetAngle = turretDesiredGlobalAngle - this.group.rotation.y;
-            this.turretGroup.rotation.y = lerpAngle(this.turretGroup.rotation.y, turretLocalTargetAngle, dt * 5);
+            let turretRotDiff = turretLocalTargetAngle - this.turretGroup.rotation.y;
+            while (turretRotDiff < -Math.PI) turretRotDiff += Math.PI * 2;
+            while (turretRotDiff > Math.PI) turretRotDiff -= Math.PI * 2;
+            const turretStep = CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
+            this.turretGroup.rotation.y += Math.max(-turretStep, Math.min(turretStep, turretRotDiff));
 
             // 3. Constant movement
             if (!this.move(1, dt)) {
@@ -1139,7 +1147,11 @@ class Bot extends Tank {
                 this.wanderAngle = (Math.random() - 0.5) * Math.PI * 2;
             }
 
-            this.group.rotation.y = lerpAngle(this.group.rotation.y, this.wanderAngle, dt * 2);
+            let wanderRotDiff = this.wanderAngle - this.group.rotation.y;
+            while (wanderRotDiff < -Math.PI) wanderRotDiff += Math.PI * 2;
+            while (wanderRotDiff > Math.PI) wanderRotDiff -= Math.PI * 2;
+            const wanderStep = CONFIG.TANK.ROTATE_SPEED * dt;
+            this.group.rotation.y += Math.max(-wanderStep, Math.min(wanderStep, wanderRotDiff));
 
             // Move forward, but check for walls
             if (!this.move(1, dt)) {
@@ -1439,15 +1451,37 @@ function update(dt) {
         const joystickDist = Math.sqrt(joystickLeft.x * joystickLeft.x + joystickLeft.y * joystickLeft.y);
 
         if (joystickDist > 0.1) {
-            // Modern Mobile: Absolute Directional Movement
-            // Tank naturally turns to face the joystick direction and moves forward
-            const targetHullAngle = Math.atan2(-joystickLeft.x, -joystickLeft.y);
+            // Intelligent Mobile Steering (Forward/Reverse Auto-switch)
+            const joystickAngle = Math.atan2(-joystickLeft.x, -joystickLeft.y);
             
-            // Turn hull smoothly towards target directional angle
-            myTank.group.rotation.y = lerpAngle(myTank.group.rotation.y, targetHullAngle, dt * 8);
-            
-            // Movement is based on joystick distance from center
-            moveDir = Math.min(1.0, joystickDist);
+            // Calculate relative angle to determine forward/reverse
+            let angleDiff = joystickAngle - myTank.group.rotation.y;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+
+            if (Math.abs(angleDiff) <= Math.PI / 2) {
+                // Forward Sector: Point hull to joystick
+                const targetAngle = joystickAngle;
+                let rotDiff = targetAngle - myTank.group.rotation.y;
+                while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+                while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+                
+                // Linear Rotation Step (Exactly matching PC ROTATE_SPEED)
+                const step = CONFIG.TANK.ROTATE_SPEED * dt;
+                myTank.group.rotation.y += Math.max(-step, Math.min(step, rotDiff));
+                moveDir = joystickDist;
+            } else {
+                // Backward Sector: Point hull's REAR to joystick
+                const targetAngle = joystickAngle + Math.PI;
+                let rotDiff = targetAngle - myTank.group.rotation.y;
+                while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+                while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+                
+                // Linear Rotation Step (Exactly matching PC ROTATE_SPEED)
+                const step = CONFIG.TANK.ROTATE_SPEED * dt;
+                myTank.group.rotation.y += Math.max(-step, Math.min(step, rotDiff));
+                moveDir = -joystickDist; // Use negative for reverse
+            }
         } else {
             // Desktop/Classic: Tank Controls (WASD)
             if (keys['KeyW'] || keys['w'] || keys['ArrowUp']) moveDir += 1;
@@ -1574,7 +1608,7 @@ function update(dt) {
     // 4. Update VFX System & Wreck Effects
     if (vfx) {
         vfx.update(dt);
-        
+
         wreckSmokeTimer += dt;
         if (wreckSmokeTimer > 0.15) {
             wreckSmokeTimer = 0;
