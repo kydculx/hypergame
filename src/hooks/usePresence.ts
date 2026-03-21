@@ -4,6 +4,7 @@ import { useUserStore } from './useUserStore';
 
 export const usePresence = () => {
     const [onlineCount, setOnlineCount] = useState(1);
+    const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
     const userName = useUserStore((state) => state.userName);
 
     useEffect(() => {
@@ -18,8 +19,16 @@ export const usePresence = () => {
         channel
             .on('presence', { event: 'sync' }, () => {
                 const state = channel.presenceState();
-                const count = Object.keys(state).length;
-                setOnlineCount(count > 0 ? count : 1);
+                
+                // Convert presence state object to a flat list of users
+                // In Supabase, state is { [key: string]: [{ presence_ref: string, ...userData }] }
+                const users = Object.entries(state).map(([key, presences]: [string, any]) => ({
+                    key: key,
+                    ...presences[0] // Take the first presence instance for this key (username)
+                }));
+                
+                setOnlineUsers(users);
+                setOnlineCount(users.length > 0 ? users.length : 1);
             })
             .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
@@ -35,5 +44,5 @@ export const usePresence = () => {
         };
     }, [userName]);
 
-    return { onlineCount };
+    return { onlineCount, onlineUsers };
 };

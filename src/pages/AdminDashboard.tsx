@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../hooks/useGameStore';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, BarChart2, Gamepad2, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, BarChart2, Gamepad2, TrendingUp, ChevronDown, ChevronUp, Users, Clock } from 'lucide-react';
+import { usePresence } from '../hooks/usePresence';
 import { PortalBackground } from '../components/layout/PortalBackground';
 import { Header } from '../components/layout/Header';
 import { GameStatsChart } from '../components/stats/GameStatsChart';
@@ -15,6 +16,7 @@ const AdminDashboard: React.FC = () => {
     const dailyStats = useGameStore((state) => state.dailyStats);
     const fetchPlayCounts = useGameStore((state) => state.fetchPlayCounts);
     const fetchDailyStats = useGameStore((state) => state.fetchDailyStats);
+    const { onlineCount, onlineUsers } = usePresence();
     
     const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
 
@@ -96,6 +98,46 @@ const AdminDashboard: React.FC = () => {
                                 <p className="text-2xl font-black text-white">
                                     {Math.round(totalPlays / (games.length || 1)).toLocaleString()}
                                 </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Online Users Card */}
+                    <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 backdrop-blur-md border border-cyan-500/20 p-6 rounded-3xl shadow-xl md:col-span-3">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-cyan-500/20 rounded-2xl relative">
+                                    <Users className="text-cyan-400" size={24} />
+                                    <span className="absolute top-2 right-2 flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                                    </span>
+                                </div>
+                                <div>
+                                    <p className="text-slate-400 text-xs uppercase font-bold tracking-wider">Real-time Online</p>
+                                    <p className="text-3xl font-black text-white flex items-baseline gap-2">
+                                        {onlineCount} <span className="text-slate-500 text-sm font-normal uppercase tracking-widest">Users Live</span>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto pr-2 custom-scrollbar">
+                                {onlineUsers.length > 0 ? (
+                                    onlineUsers.map((user, idx) => (
+                                        <div 
+                                            key={`${user.key}-${idx}`}
+                                            className="px-4 py-2 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-2 group hover:bg-white/10 transition-all"
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.5)]"></div>
+                                            <span className="text-sm font-bold text-slate-300 group-hover:text-white">{user.key || 'Anonymous'}</span>
+                                            <span className="text-[10px] text-slate-500 font-mono hidden lg:inline">
+                                                {user.online_at ? new Date(user.online_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-slate-500 text-sm italic">접속 중인 유저가 없습니다.</p>
+                                )}
                             </div>
                         </div>
                     </div>
