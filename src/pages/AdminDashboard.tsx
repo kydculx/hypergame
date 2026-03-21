@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../hooks/useGameStore';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, BarChart2, Gamepad2, TrendingUp, ChevronDown, ChevronUp, Users, Clock } from 'lucide-react';
+import { ArrowLeft, BarChart2, Gamepad2, TrendingUp, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { usePresence } from '../hooks/usePresence';
 import { PortalBackground } from '../components/layout/PortalBackground';
 import { Header } from '../components/layout/Header';
