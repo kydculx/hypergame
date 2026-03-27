@@ -1266,6 +1266,17 @@ window.addEventListener('keyup', e => {
     keys[e.key.toLowerCase()] = false;
 });
 
+// Mouse Button Handling
+const mouseButtons = { left: false, right: false };
+window.addEventListener('mousedown', e => {
+    if (e.button === 0) mouseButtons.left = true;
+    if (e.button === 2) mouseButtons.right = true;
+});
+window.addEventListener('mouseup', e => {
+    if (e.button === 0) mouseButtons.left = false;
+    if (e.button === 2) mouseButtons.right = false;
+});
+
 // Mobile Joysticks
 const joystickLeft = { x: 0, y: 0 };
 const joystickRight = { x: 0, y: 0 };
@@ -1453,7 +1464,7 @@ function update(dt) {
         if (joystickDist > 0.1) {
             // Intelligent Mobile Steering (Forward/Reverse Auto-switch)
             const joystickAngle = Math.atan2(-joystickLeft.x, -joystickLeft.y);
-            
+
             // Calculate relative angle to determine forward/reverse
             let angleDiff = joystickAngle - myTank.group.rotation.y;
             while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
@@ -1465,7 +1476,7 @@ function update(dt) {
                 let rotDiff = targetAngle - myTank.group.rotation.y;
                 while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
                 while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
-                
+
                 // Linear Rotation Step (Exactly matching PC ROTATE_SPEED)
                 const step = CONFIG.TANK.ROTATE_SPEED * dt;
                 myTank.group.rotation.y += Math.max(-step, Math.min(step, rotDiff));
@@ -1476,7 +1487,7 @@ function update(dt) {
                 let rotDiff = targetAngle - myTank.group.rotation.y;
                 while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
                 while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
-                
+
                 // Linear Rotation Step (Exactly matching PC ROTATE_SPEED)
                 const step = CONFIG.TANK.ROTATE_SPEED * dt;
                 myTank.group.rotation.y += Math.max(-step, Math.min(step, rotDiff));
@@ -1539,7 +1550,7 @@ function update(dt) {
         const nextWorldAngle = lerpAngle(currentWorldAngle, myTank.targetWorldAngle, CONFIG.LERP_SPEED.TURRET * dt);
         myTank.turretGroup.rotation.y = nextWorldAngle - myTank.group.rotation.y;
 
-        if (keys['Space']) fire();
+        if (keys['Space'] || mouseButtons.left) fire();
 
         // Collisions
         checkCollisions();

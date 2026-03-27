@@ -149,7 +149,7 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/piano-tiles/index.html',
           categoryId: 'action',
           orientation: 'portrait',
-          hidden: true
+          hidden: false
         },
         {
           id: 'voxel-tank',
