@@ -1,23 +1,24 @@
 /* 1. Constant Configuration (Balance, Styles) */
 const CONFIG = {
     TANK: {
-        SPEED: 5,
-        ROTATE_SPEED: 1,
-        TURRET_ROTATE_SPEED: 2,
+        FORWARD_SPEED: 5,
+        BACKWARD_SPEED: 0,
+        ROTATE_SPEED: 4,
+        TURRET_ROTATE_SPEED: 4,
         FIRE_COOLDOWN: 1000, // ms
         MAX_HP: 100
     },
     BULLET: {
-        SPEED: 15,
+        SPEED: 30,
         LIFE_TIME: 2000, // ms
         DAMAGE: 10
     },
     WORLD: {
-        SIZE: 100,
+        SIZE: 150,
         GRID_SIZE: 1
     },
     LERP_SPEED: {
-        TURRET: 1.0 // Smoothness factor
+        TURRET: 4.0 // Smoothness factor
     },
     COLORS: {
         SELF: 0x4d79ff, // Blue
@@ -51,19 +52,29 @@ const CONFIG = {
         ]
     },
     BOT: {
-        COUNT: 5,
-        SPEED: 3.5,
-        ROTATE_SPEED: 1,
+        COUNT: 10,
+        FORWARD_SPEED: 5,
+        BACKWARD_SPEED: 3,
+        ROTATE_SPEED: 4,
         FIRE_COOLDOWN: 1800,
-        DETECTION_RANGE: 60,
-        ATTACK_RANGE: 40,
-        NICKNAMES: [
-            "SuperTanker", "VoxelKing", "NoobMaster69", "TankCommander", "IronFist",
-            "SwiftShadow", "MetalBeast", "Alpha", "Bravo", "Charlie", "Delta",
-            "GhostShell", "SteelRain", "DesertRat", "BlueDragon", "RedDragon",
-            "KoreanPro", "Expert_X", "HiddenTiger", "FlyingEagle", "SniperJoe"
-        ],
+        DETECTION_RANGE: 30,
+        ATTACK_RANGE: 20,
+        // NICKNAMES is now generated dynamically as GuestXXXX
+        NAME_PREFIX: "Guest",
         COLORS: [0x9933ff, 0xff9900, 0x00ffcc, 0xff0066, 0x33cc33, 0xffdd00]
+    },
+    POWERUP: {
+        HEAL_AMOUNT: 30,
+        SPAWN_INTERVAL: 60,
+        MAX_COUNT: 10
+    },
+    UPGRADE: {
+        SPAWN_INTERVAL: 30,
+        MAX_COUNT: 10,
+        TYPES: ['CANNON', 'SPEED', 'ARMOR'],
+        CANNON: { DAMAGE_INC: 2, SCALE_INC: 0.1 },
+        SPEED: { MOVE_INC: 0.4, ROT_INC: 0.15 },
+        ARMOR: { HP_INC: 20 }
     }
 };
 
@@ -78,6 +89,12 @@ function lerpAngle(a, b, t) {
     while (d < -Math.PI) d += Math.PI * 2;
     while (d > Math.PI) d -= Math.PI * 2;
     return a + d * t;
+}
+
+function normalizeAngle(angle) {
+    while (angle <= -Math.PI) angle += Math.PI * 2;
+    while (angle > Math.PI) angle -= Math.PI * 2;
+    return angle;
 }
 
 /* 2. State & Variables (Runtime variables) */
@@ -99,15 +116,19 @@ function getPlayerIdentity() {
             id = `${idBase}_${sk.substring(0, 4)}`;
         }
 
-        if (!name) name = idBase;
+        if (!name) {
+            const guestNum = Math.floor(10000 + Math.random() * 89999);
+            name = `Guest${guestNum}`;
+        }
 
         // Safety: id should be alphanumeric, name can have Korean
         id = id.replace(/[^a-zA-Z0-9]/g, '_');
         name = name.replace(/[^a-zA-Z0-9가-힣\s]/g, '');
         return { id, name };
     } catch (e) {
-        const fallback = Math.random().toString(36).substring(2, 9);
-        return { id: fallback, name: fallback };
+        const guestNum = Math.floor(10000 + Math.random() * 89999);
+        const fallbackId = Math.random().toString(36).substring(2, 9);
+        return { id: fallbackId, name: `Guest${guestNum}` };
     }
 }
 const identity = getPlayerIdentity();
@@ -121,12 +142,16 @@ const walls = []; // Array of wall meshes
 const trees = []; // Array of tree groups for animation
 const wrecks = []; // Array of destroyed tanks for smoke vfx
 const bots = []; // Array of Bot instances
+const powerups = []; // NEW: Array of active HealthPotion instances
+const upgradeItems = []; // NEW: Array of active UpgradeItem instances
 const wallBoxes = []; // NEW: Cache for world-space bounding boxes
 let supabaseClient;
 let channel;
 let amIMaster = false;
 let lastFireTime = 0;
 let lastSyncTime = 0;
+let lastPowerupSpawnTime = 0; // NEW: Timer for master node powerup spawning
+let lastUpgradeSpawnTime = 0; // NEW: Timer for master node upgrade spawning
 let animationId = null;
 let cameraShakeTime = 0;
 let wreckSmokeTimer = 0;
@@ -161,6 +186,24 @@ function createVoxelCone(radius, height, color) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     return mesh;
+}
+
+/* Helper to create floating emoji labels for items */
+function createItemLabel(emoji) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.font = '80px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, 64, 64);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(1, 1, 1);
+    return sprite;
 }
 
 /* Particle System for VFX */
@@ -245,6 +288,44 @@ class ParticleSystem {
             p.position.copy(pos);
             const vel = dir.clone().multiplyScalar(2 + Math.random() * 3);
             this.particles.push({ mesh: p, vel: vel, life: 50 + Math.random() * 50, maxLife: 100, gravity: 0 });
+            this.group.add(p);
+        }
+    }
+
+    // NEW: Specialized heal burst effect (정제된 힐 이펙트)
+    spawnHeal(pos) {
+        const color = 0x00ff00; // Pure Green
+        const count = 12; // Reduced from 30
+        const mat = this.getMat(color, 0.7);
+        for (let i = 0; i < count; i++) {
+            const p = new THREE.Mesh(this.sharedGeo, mat);
+            const size = 0.08 + Math.random() * 0.1; // Slightly smaller
+            p.scale.setScalar(size);
+
+            // Start closer to the tank
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 0.4 + Math.random() * 0.4;
+            p.position.set(
+                pos.x + Math.cos(angle) * radius,
+                pos.y + Math.random() * 0.5,
+                pos.z + Math.sin(angle) * radius
+            );
+
+            // Gentler upward movement
+            const vel = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.3,
+                1.0 + Math.random() * 1.5, // Slower
+                (Math.random() - 0.5) * 0.3
+            );
+
+            this.particles.push({
+                mesh: p,
+                vel: vel,
+                life: 600 + Math.random() * 400, // Shorter life
+                maxLife: 1000,
+                gravity: -0.5, // Less anti-gravity
+                friction: 0.96
+            });
             this.group.add(p);
         }
     }
@@ -572,6 +653,26 @@ const AudioSFX = {
         gain.connect(this.master);
         source.start();
         source.stop(this.ctx.currentTime + dur);
+    },
+
+    playHeal() {
+        if (!this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+        osc.connect(gain);
+        gain.connect(this.master);
+        osc.start();
+        osc.stop(now + 0.3);
     }
 };
 window.AudioSFX = AudioSFX; // Expose globally
@@ -624,6 +725,194 @@ class TankEngineAudio {
         this.gain.gain.setTargetAtTime(volume, now, smooth);
     }
 }
+
+/* 4. PowerUp & Item Classes */
+class HealthPotion {
+    constructor(id, position) {
+        this.id = id;
+        this.group = new THREE.Group();
+        this.healAmount = CONFIG.POWERUP.HEAL_AMOUNT;
+
+        // --- Premium High-Tech Medbox ---
+        const silver = 0xbdc3c7;
+        const white = 0xffffff;
+        const red = 0xff1744;
+
+        // 1. Main Case (Advanced shape)
+        const body = createVoxelBox(0.8, 0.6, 0.5, white, 0.1, 0.9);
+        body.position.y = 0.3;
+        this.group.add(body);
+
+        // 2. Side Latches (Detailed parts)
+        for (let x of [-0.41, 0.41]) {
+            const latch = createVoxelBox(0.05, 0.2, 0.2, silver, 0.8, 0.2);
+            latch.position.set(x, 0.3, 0);
+            this.group.add(latch);
+        }
+
+        // 3. Ergonomic Handle
+        const handleL = createVoxelBox(0.05, 0.15, 0.1, silver);
+        handleL.position.set(-0.15, 0.65, 0);
+        this.group.add(handleL);
+        const handleR = createVoxelBox(0.05, 0.15, 0.1, silver);
+        handleR.position.set(0.15, 0.65, 0);
+        this.group.add(handleR);
+        const handleBar = createVoxelBox(0.35, 0.05, 0.1, silver);
+        handleBar.position.set(0, 0.73, 0);
+        this.group.add(handleBar);
+
+        // 4. Glowing Red Cross Core
+        const crossH = createVoxelBox(0.4, 0.12, 0.52, red);
+        crossH.position.y = 0.3;
+        this.group.add(crossH);
+        const crossV = createVoxelBox(0.12, 0.4, 0.52, red);
+        crossV.position.y = 0.3;
+        this.group.add(crossV);
+
+        this.group.position.copy(position);
+        this.group.position.y = 0.8;
+        scene.add(this.group);
+    }
+
+    update(dt, time) {
+        this.group.rotation.y += dt * 1.5;
+        this.group.position.y = 0.8 + Math.sin(time * 2.5) * 0.12;
+    }
+
+    destroy() {
+        scene.remove(this.group);
+        this.group.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+    }
+}
+class UpgradeItem {
+    constructor(id, type, position) {
+        this.id = id;
+        this.type = type;
+        this.group = new THREE.Group();
+        this.subParts = [];
+
+        if (type === 'CANNON') {
+            // --- 1:1 Visual Match with Bullet (Horizontal) ---
+            const s = 1.8;
+            const gold = 0xffcc00;
+            const copper = 0x8d6e63;
+            const yellowTip = 0xffd54f;
+
+            // Use same material params as Bullet (Default matte)
+            const body = createVoxelCylinder(0.12 * s, 0.12 * s, 0.4 * s, gold, 0.2, 0.8);
+            body.rotation.x = Math.PI / 2;
+            this.group.add(body);
+
+            const tip = createVoxelCone(0.12 * s, 0.25 * s, yellowTip, 0.2, 0.8);
+            tip.position.z = -0.32 * s;
+            tip.rotation.x = Math.PI / 2;
+            this.group.add(tip);
+
+            const base = createVoxelCylinder(0.13 * s, 0.13 * s, 0.05 * s, copper, 0.2, 0.8);
+            base.position.z = 0.22 * s;
+            base.rotation.x = Math.PI / 2;
+            this.group.add(base);
+        } else if (type === 'SPEED') {
+            // --- Tactical Off-road Wheel ---
+            const dark = 0x2c3e50;
+            const silver = 0xbdc3c7;
+            const cyan = 0x00e5ff;
+
+            // 1. Tire Tread
+            const tire = createVoxelCylinder(0.4, 0.4, 0.25, dark, 0.1, 0.7);
+            tire.rotation.x = Math.PI / 2;
+            this.group.add(tire);
+
+            // 2. Stylish Rim (X-spokes)
+            const rim = new THREE.Group();
+            for (let i = 0; i < 2; i++) {
+                const spoke = createVoxelBox(0.65, 0.08, 0.08, silver, 0.8, 0.2);
+                spoke.rotation.z = (Math.PI / 2) * i + Math.PI / 4;
+                rim.add(spoke);
+            }
+            rim.position.z = 0.05; // Front side
+            this.group.add(rim);
+
+            const rimBack = rim.clone();
+            rimBack.position.z = -0.05; // Back side
+            this.group.add(rimBack);
+
+            // 3. Glowing Hub
+            const hub = createVoxelBox(0.15, 0.15, 0.3, cyan);
+            this.group.add(hub);
+
+            this.wheelParts = [tire, rim, rimBack, hub];
+        } else if (type === 'ARMOR') {
+            // --- Heavy Industrial Steel Panel ---
+            const steel = 0x7f8c8d;
+            const darkSteel = 0x34495e;
+            const screwColor = 0xbdc3c7;
+
+            this.plates = new THREE.Group();
+
+            // 1. Main Thick Panel
+            const mainBody = createVoxelBox(0.8, 0.8, 0.2, steel, 0.9, 0.1);
+            this.plates.add(mainBody);
+
+            // 2. Surface Reinforcement Ribs (Industrial look)
+            const ribH = createVoxelBox(0.84, 0.1, 0.22, darkSteel);
+            this.plates.add(ribH);
+            const ribV = createVoxelBox(0.1, 0.84, 0.22, darkSteel);
+            this.plates.add(ribV);
+
+            // 3. Corner Rivets/Screws
+            const positions = [
+                { x: 0.3, y: 0.3 }, { x: -0.3, y: 0.3 },
+                { x: 0.3, y: -0.3 }, { x: -0.3, y: -0.3 }
+            ];
+            positions.forEach(pos => {
+                const screw = createVoxelBox(0.1, 0.1, 0.25, screwColor, 1.0, 0.1);
+                screw.position.set(pos.x, pos.y, 0);
+                this.plates.add(screw);
+            });
+
+            this.group.add(this.plates);
+            this.subParts.push(this.plates);
+
+            // 4. Energy Glow Core (Subtle)
+            const core = createVoxelBox(0.2, 0.2, 0.1, 0x27ae60);
+            core.position.z = 0.05;
+            this.group.add(core);
+        }
+
+        this.group.position.copy(position);
+        this.group.position.y = 0.8;
+        scene.add(this.group);
+    }
+
+    update(dt, time) {
+        this.group.rotation.y += dt * 1.2;
+        this.group.position.y = 0.9 + Math.sin(time * 3.5) * 0.15;
+
+        if (this.type === 'SPEED') {
+            // Spin the entire group around its main axis (Y already rotates the group)
+            // But for a wheel effect, spinning around its local axial axis looks better
+            this.group.rotation.z += dt * 8.0;
+        }
+        if (this.type === 'ARMOR' && this.plates) {
+            const scale = 1.0 + Math.sin(time * 4) * 0.1;
+            this.plates.scale.set(scale, scale, scale);
+        }
+    }
+
+    destroy() {
+        scene.remove(this.group);
+        this.group.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+    }
+}
+
+
 class Bullet {
     constructor(position, direction, ownerId) {
         this.group = new THREE.Group();
@@ -676,10 +965,18 @@ class Tank {
         this.id = id;
         this.name = name || id;
         this.isLocal = isLocal;
-        this.hp = CONFIG.TANK.MAX_HP;
         this.kills = 0;
         this.lastSeen = Date.now();
         this.group = new THREE.Group();
+
+        // Upgrade Levels (0 to 9)
+        this.levelCannon = 0;
+        this.levelSpeed = 0;
+        this.levelArmor = 0;
+
+        // Base Stats
+        this.hp = CONFIG.TANK.MAX_HP;
+        this.maxHp = CONFIG.TANK.MAX_HP;
 
         const mainColor = isLocal ? CONFIG.COLORS.SELF : CONFIG.COLORS.OTHER;
         const detailColor = 0x333333;
@@ -888,6 +1185,201 @@ class Tank {
         this.damageSmokeTimer = 0;
         this.exhaustTimer = 0; // NEW: Timer for exhaust smoke
         this.targetWorldAngle = this.group.rotation.y;
+        this.lastFireTime = 0; // NEW: Initialize lastFireTime for shooting logic
+
+        // Armor Visual Group
+        this.armorGroup = new THREE.Group();
+        this.group.add(this.armorGroup);
+    }
+
+    applyUpgrade(type) {
+        if (type === 'CANNON') this.levelCannon = Math.min(9, this.levelCannon + 1);
+        if (type === 'SPEED') this.levelSpeed = Math.min(9, this.levelSpeed + 1);
+        if (type === 'ARMOR') {
+            this.levelArmor = Math.min(9, this.levelArmor + 1);
+            // Increase Max HP and heal
+            const prevMax = this.maxHp;
+            this.maxHp = CONFIG.TANK.MAX_HP + (this.levelArmor * CONFIG.UPGRADE.ARMOR.HP_INC);
+            this.heal(this.maxHp - prevMax); // Increase current HP by the bonus amount
+        }
+
+        this.updateStats();
+        this.updateArmorVisual();
+        if (this.isLocal) this.updateUpgradeUI();
+    }
+
+    updateUpgradeUI() {
+        if (!this.isLocal) return;
+        
+        const updateItem = (id, level) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            
+            const levelText = el.querySelector('.level-text');
+            const prevLevel = parseInt(levelText?.innerText || "0");
+            
+            if (levelText) levelText.innerText = level;
+            
+            // Update gauge dots (assuming 5 max levels as shown in HTML)
+            const dots = el.querySelectorAll('.gauge-dot');
+            dots.forEach((dot, index) => {
+                if (index < level) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+            
+            // Level-up feedback animation
+            if (level > prevLevel) {
+                el.classList.remove('level-up');
+                void el.offsetWidth; // Force reflow for CSS animation
+                el.classList.add('level-up');
+                setTimeout(() => el.classList.remove('level-up'), 600);
+            }
+        };
+
+        updateItem('up-cannon', this.levelCannon);
+        updateItem('up-speed', this.levelSpeed);
+        updateItem('up-armor', this.levelArmor);
+
+        // Update HP text as well in case maxHp changed
+        this.updateHP(this.hp);
+    }
+
+    updateStats() {
+        // Upgrade bonuses
+        this.moveSpeedBonus = this.levelSpeed * CONFIG.UPGRADE.SPEED.MOVE_INC;
+        this.rotSpeedBonus = this.levelSpeed * CONFIG.UPGRADE.SPEED.ROT_INC;
+    }
+
+    updateArmorVisual() {
+        // Clear existing armor parts
+        while (this.armorGroup.children.length > 0) {
+            const child = this.armorGroup.children[0];
+            this.armorGroup.remove(child);
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        }
+
+        const armorColor = 0x7b87a0; // Steel Gunmetal
+        const rivetColor = 0x333333;
+        const metal = 0.7;
+        const rough = 0.3;
+
+        // Level 1-3: Reinforced Side Skirts with Rivets
+        if (this.levelArmor >= 1) {
+            for (let side of [-0.68, 0.68]) {
+                // Segmented Skirts for more detail
+                for (let z = -0.6; z <= 0.6; z += 0.4) {
+                    const skirt = createVoxelBox(0.12, 0.4, 0.35, armorColor, metal, rough);
+                    skirt.position.set(side, 0.35, z + (Math.random() - 0.5) * 0.05);
+                    this.armorGroup.add(skirt);
+
+                    // Add rivets to each segment
+                    const rivet = createVoxelBox(0.04, 0.04, 0.04, rivetColor);
+                    rivet.position.set(side * 1.05, 0.45, z);
+                    this.armorGroup.add(rivet);
+                }
+            }
+        }
+
+        // Level 4-6: Front Reactive Armor (ERA Bricks)
+        if (this.levelArmor >= 4) {
+            for (let x = -0.45; x <= 0.45; x += 0.22) {
+                // Front Hull Bricks (Slanted)
+                const eraHull = createVoxelBox(0.18, 0.1, 0.25, armorColor, metal, rough);
+                eraHull.position.set(x, 0.65, -0.9);
+                eraHull.rotation.x = -Math.PI / 6;
+                this.armorGroup.add(eraHull);
+
+                // Turret Front Bricks (Reactive pattern)
+                const eraTurret = createVoxelBox(0.15, 0.15, 0.1, armorColor, metal, rough);
+                eraTurret.position.set(x, 0.95, -0.45);
+                this.armorGroup.add(eraTurret);
+            }
+        }
+
+        // Level 7-9: Turret Spaced Armor & Rear Slat/Cage Armor
+        if (this.levelArmor >= 7) {
+            // Large Spaced Plates on Turret Sides
+            for (let side of [-0.6, 0.6]) {
+                const turretPlate = createVoxelBox(0.08, 0.45, 0.9, armorColor, metal, rough);
+                turretPlate.position.set(side, 0.9, 0);
+                turretPlate.rotation.y = side > 0 ? -0.15 : 0.15;
+                this.armorGroup.add(turretPlate);
+            }
+
+            // Rear Slat Armor (Cage effect) - Vertical bars
+            for (let x = -0.6; x <= 0.6; x += 0.1) {
+                const bar = createVoxelBox(0.05, 0.4, 0.05, rivetColor, 0.5, 0.5);
+                bar.position.set(x, 0.4, 1.0);
+                this.armorGroup.add(bar);
+            }
+            const horizontalBar = createVoxelBox(1.3, 0.05, 0.06, armorColor, metal, rough);
+            horizontalBar.position.set(0, 0.5, 1.01);
+            this.armorGroup.add(horizontalBar);
+        }
+    }
+
+    shoot(jitter = 0) {
+        const now = Date.now();
+        const cooldown = (this.isBot ? CONFIG.BOT.FIRE_COOLDOWN : CONFIG.TANK.FIRE_COOLDOWN) + jitter;
+        if (now - this.lastFireTime < cooldown) return;
+        this.lastFireTime = now;
+
+        const pos = new THREE.Vector3();
+        this.muzzlePoint.getWorldPosition(pos);
+        const pivotPos = new THREE.Vector3();
+        this.barrelGroup.getWorldPosition(pivotPos);
+        const dir = pos.clone().sub(pivotPos).normalize();
+
+        // --- Cannon Upgrades: Scale & Multi-shot ---
+        let bulletScale = 1.0 + (Math.min(3, this.levelCannon) * CONFIG.UPGRADE.CANNON.SCALE_INC);
+        let bulletDamage = CONFIG.TANK.DAMAGE + (this.levelCannon * CONFIG.UPGRADE.CANNON.DAMAGE_INC);
+
+        const spawnBullet = (startPos, direction) => {
+            const bullet = new Bullet(startPos, direction, this.id);
+            bullet.damage = bulletDamage;
+            bullet.group.scale.setScalar(bulletScale);
+            bullets.push(bullet);
+            return bullet;
+        };
+
+        if (this.levelCannon < 4) {
+            // Level 0-3: Single Shot (Scales up)
+            spawnBullet(pos, dir);
+        } else if (this.levelCannon < 7) {
+            // Level 4-6: Double Shot (Parallel)
+            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.turretGroup.getWorldQuaternion(new THREE.Quaternion()));
+            const posL = pos.clone().add(right.clone().multiplyScalar(-0.2));
+            const posR = pos.clone().add(right.clone().multiplyScalar(0.2));
+            spawnBullet(posL, dir);
+            spawnBullet(posR, dir);
+        } else {
+            // Level 7-9: Triple Shot (Spread)
+            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.turretGroup.getWorldQuaternion(new THREE.Quaternion()));
+            spawnBullet(pos, dir);
+
+            const dirL = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.15);
+            const dirR = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.15);
+            spawnBullet(pos, dirL);
+            spawnBullet(pos, dirR);
+        }
+
+        this.playShootEffect();
+        if (window.AudioSFX) AudioSFX.playFire();
+
+        // Broadcast if local
+        if (this.isLocal && channel) {
+            channel.send({
+                type: 'broadcast',
+                event: 'fire',
+                payload: {
+                    pos: { x: pos.x, y: pos.y, z: pos.z },
+                    dir: { x: dir.x, y: dir.y, z: dir.z },
+                    ownerId: this.id,
+                    level: this.levelCannon
+                }
+            });
+        }
     }
 
     updateAnims(dt, isMoving) {
@@ -964,10 +1456,28 @@ class Tank {
     }
 
     updateHP(hp) {
-        this.hp = Math.max(0, hp);
+        this.hp = Math.max(0, Math.min(this.maxHp, hp));
         if (this.isLocal) {
-            document.getElementById('hp-fill').style.width = `${(this.hp / CONFIG.TANK.MAX_HP) * 100}%`;
-            document.getElementById('status-text').textContent = `HP: ${this.hp} / ${CONFIG.TANK.MAX_HP}`;
+            const fillEl = document.getElementById('hp-fill');
+            const textEl = document.getElementById('status-text');
+            if (fillEl) fillEl.style.width = `${(this.hp / this.maxHp) * 100}%`;
+            if (textEl) textEl.textContent = Math.round(this.hp);
+        }
+    }
+
+    heal(amount) {
+        if (this.hp <= 0) return;
+        this.updateHP(this.hp + amount);
+
+        // --- Enhanced Effects ---
+        if (vfx) vfx.spawnHeal(this.group.position);
+        if (window.AudioSFX) AudioSFX.playHeal();
+
+        // Visual text feedback
+        spawnFloatingText(this.group.position.clone().add(new THREE.Vector3(0, 1.5, 0)), `+${Math.round(amount)}`);
+
+        if (this.isLocal) {
+            syncMultiplayer();
         }
     }
 
@@ -1007,6 +1517,10 @@ class Tank {
             if (killer) {
                 killer.kills++;
                 updateScoreboard();
+
+                // NEW: Grant kill reward
+                grantKillReward(killer);
+
                 if (killer.isLocal) {
                     syncMultiplayer();
                     if (window.WCGames && window.WCGames.submitScore) {
@@ -1086,34 +1600,40 @@ class Bot extends Tank {
             const dz = targetPos.z - this.group.position.z;
             const dist = this.group.position.distanceTo(targetPos);
 
-            // 1. Calculate Target Angle for Hull (to circle)
-            // We want to point the hull roughly sideways (PI/2 or -PI/2 relative to target)
+            // 1. Calculate Target Angle for Hull (Strafing & Distance control)
             this.strafeTimer -= dt;
             if (this.strafeTimer <= 0) {
-                this.strafeTimer = 2 + Math.random() * 3;
+                this.strafeTimer = 1 + Math.random() * 2;
                 this.strafeDir = Math.random() < 0.5 ? 1 : -1;
             }
 
-            // Dist control: if too far, point slightly more towards target. If too near, point slightly more away.
+            // Dist control: steer more towards or away depending on range
             let offset = (Math.PI / 2) * this.strafeDir;
-            if (dist > 15) offset *= 0.5; // Turn more towards target
-            else if (dist < 8) offset *= 1.5; // Turn more away
+            let moveDir = 1; // Default to forward
+
+            if (dist > 30) {
+                offset *= 0.3; // Point more towards target
+            } else if (dist < 15) {
+                // If too close, try to maintain distance while strafing
+                offset *= 1.2;
+                if (dist < 10) moveDir = -0.5; // Back up slowly if very close
+            }
 
             const angleToTarget = Math.atan2(-dx, -dz);
             const hullTargetAngle = angleToTarget + offset;
 
-            // Rotate hull (Linear, matching player speed)
+            // Rotate hull (Using BOT speed now)
             let hullRotDiff = hullTargetAngle - this.group.rotation.y;
             while (hullRotDiff < -Math.PI) hullRotDiff += Math.PI * 2;
             while (hullRotDiff > Math.PI) hullRotDiff -= Math.PI * 2;
-            const hullStep = CONFIG.TANK.ROTATE_SPEED * dt;
+            const hullStep = CONFIG.BOT.ROTATE_SPEED * dt;
             this.group.rotation.y += Math.max(-hullStep, Math.min(hullStep, hullRotDiff));
 
-            // 2. Rotate turret independently to point at Target (with slight jitter)
+            // 2. Rotate turret independently (Aim at target)
             this.aimJitterTimer += dt;
             if (this.aimJitterTimer > 1) {
                 this.aimJitterTimer = 0;
-                this.aimJitter = (Math.random() - 0.5) * 0.2; // Slight miss
+                this.aimJitter = (Math.random() - 0.5) * 0.15;
             }
             const turretDesiredGlobalAngle = angleToTarget + this.aimJitter;
             const turretLocalTargetAngle = turretDesiredGlobalAngle - this.group.rotation.y;
@@ -1123,21 +1643,39 @@ class Bot extends Tank {
             const turretStep = CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
             this.turretGroup.rotation.y += Math.max(-turretStep, Math.min(turretStep, turretRotDiff));
 
-            // 3. Constant movement
-            if (!this.move(1, dt)) {
-                // If blocked, reverse strafe
-                this.strafeDir *= -1;
-                this.strafeTimer = 2;
+            // 3. Movement with better wall handling (Curved Steering for Bots)
+            const botAlignment = Math.max(0, Math.cos(hullRotDiff));
+            const botSpeedScale = Math.pow(botAlignment, 0.4);
+
+            if (botSpeedScale > 0.05 || moveDir < 0) {
+                // Blend forward and target directions for curved steering
+                const targetVec = new THREE.Vector3(-Math.sin(hullTargetAngle), 0, -Math.cos(hullTargetAngle));
+                const currentForward = new THREE.Vector3(-Math.sin(this.group.rotation.y), 0, -Math.cos(this.group.rotation.y));
+                const blendedDir = currentForward.clone().multiplyScalar(0.8).add(targetVec.multiplyScalar(0.2)).normalize();
+
+                const effectiveDir = moveDir > 0 ? moveDir * botSpeedScale : moveDir;
+                if (!this.move(effectiveDir, dt, blendedDir)) {
+                    // Blocked! Try to escape intelligently
+                    this.group.rotation.y += (this.strafeDir * 2.0) * dt; // Turn harder
+                    this.move(-0.5, dt); // Try backing up (Directly backwards)
+                }
             }
 
-            // 4. Shoot if turret aimed well
+            // 4. Intelligence: Shoot only if turret aimed well AND line of sight is clear
             const turretWorldAngle = this.group.rotation.y + this.turretGroup.rotation.y;
             const currentDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), turretWorldAngle);
             const targetDirRaw = new THREE.Vector3(dx, 0, dz).normalize();
             const dot = currentDir.dot(targetDirRaw);
 
-            if (dot > 0.96 && dist < CONFIG.BOT.ATTACK_RANGE) {
-                this.shoot();
+            if (dot > 0.97 && dist < CONFIG.BOT.ATTACK_RANGE) {
+                // Line of Sight Check before shooting
+                const firePos = new THREE.Vector3();
+                this.muzzlePoint.getWorldPosition(firePos);
+                const targetCenterPos = targetPos.clone().add(new THREE.Vector3(0, 0.5, 0)); // Aim at body center
+
+                if (checkLineOfSight(firePos, targetCenterPos)) {
+                    this.shoot();
+                }
             }
         } else {
             // WANDER
@@ -1150,14 +1688,23 @@ class Bot extends Tank {
             let wanderRotDiff = this.wanderAngle - this.group.rotation.y;
             while (wanderRotDiff < -Math.PI) wanderRotDiff += Math.PI * 2;
             while (wanderRotDiff > Math.PI) wanderRotDiff -= Math.PI * 2;
-            const wanderStep = CONFIG.TANK.ROTATE_SPEED * dt;
+            const wanderStep = (CONFIG.TANK.ROTATE_SPEED + (this.rotSpeedBonus || 0)) * dt;
             this.group.rotation.y += Math.max(-wanderStep, Math.min(wanderStep, wanderRotDiff));
 
-            // Move forward, but check for walls
-            if (!this.move(1, dt)) {
-                // If blocked, pick a new random angle immediately and try to move away
-                this.wanderAngle = (Math.random() - 0.5) * Math.PI * 2;
-                this.stateTimer = 0.5;
+            // Move forward with Curved Steering during wandering
+            const wanderAlignment = Math.max(0, Math.cos(wanderRotDiff));
+            const wanderSpeedScale = Math.pow(wanderAlignment, 0.4);
+
+            if (wanderSpeedScale > 0.1) {
+                const wanderTargetVec = new THREE.Vector3(-Math.sin(this.wanderAngle), 0, -Math.cos(this.wanderAngle));
+                const wanderForward = new THREE.Vector3(-Math.sin(this.group.rotation.y), 0, -Math.cos(this.group.rotation.y));
+                const blendedWanderDir = wanderForward.clone().multiplyScalar(0.8).add(wanderTargetVec.multiplyScalar(0.2)).normalize();
+
+                if (!this.move(1.0 * wanderSpeedScale, dt, blendedWanderDir)) {
+                    // If blocked, pick a new random angle immediately and try to move away
+                    this.wanderAngle = (Math.random() - 0.5) * Math.PI * 2;
+                    this.stateTimer = 0.5;
+                }
             }
         }
 
@@ -1174,7 +1721,7 @@ class Bot extends Tank {
         if (!isPositionSafe(probePos.x, probePos.z)) {
             this.blockedTimer += dt;
             // Force rotation away from the wall
-            this.group.rotation.y += this.strafeDir * dt * 3.0; // Turn faster when sensing wall
+            this.group.rotation.y += this.strafeDir * dt * (3.0 + (this.rotSpeedBonus || 0)); // Turn faster when sensing wall
 
             if (this.blockedTimer > 0.5) {
                 // Emergency Reserve
@@ -1185,35 +1732,17 @@ class Bot extends Tank {
         }
     }
 
-    move(dir, dt) {
-        const speed = CONFIG.BOT.SPEED * dir;
-        const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
-        const nextPos = this.group.position.clone().add(forward.multiplyScalar(speed * dt));
+    move(dir, dt, customDir = null) {
+        const moveSpeed = (dir >= 0 ? CONFIG.BOT.FORWARD_SPEED : CONFIG.BOT.BACKWARD_SPEED) + (this.moveSpeedBonus || 0);
+        const speed = moveSpeed * dir;
+        const moveVec = customDir ? customDir.clone() : new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
+        const nextPos = this.group.position.clone().add(moveVec.multiplyScalar(speed * dt));
 
         if (isPositionSafe(nextPos.x, nextPos.z)) {
             this.group.position.copy(nextPos);
             return true;
         }
         return false;
-    }
-
-    shoot() {
-        const now = Date.now();
-        const jitteredCooldown = CONFIG.BOT.FIRE_COOLDOWN + (Math.random() - 0.5) * 400;
-        if (now - this.lastFireTime < jitteredCooldown) return;
-        this.lastFireTime = now;
-
-        const pos = new THREE.Vector3();
-        this.muzzlePoint.getWorldPosition(pos);
-        const pivotPos = new THREE.Vector3();
-        this.barrelGroup.getWorldPosition(pivotPos);
-        const dir = pos.clone().sub(pivotPos).normalize();
-
-        const bullet = new Bullet(pos, dir, this.id);
-        bullets.push(bullet);
-
-        this.playShootEffect();
-        if (window.AudioSFX) AudioSFX.playFire();
     }
 
     handleHit(damage, shooterId) {
@@ -1236,6 +1765,10 @@ class Bot extends Tank {
             if (killer) {
                 killer.kills++;
                 updateScoreboard();
+
+                // NEW: Grant kill reward
+                grantKillReward(killer);
+
                 if (killer.isLocal) {
                     syncMultiplayer();
                     if (window.WCGames && window.WCGames.submitScore) {
@@ -1295,6 +1828,7 @@ function setupJoysticks() {
     if (el) { // Check if element exists before setting up
         const setup = (id, target) => {
             const el = document.getElementById(id);
+            if (!el) return; // UI 요소가 제거된 경우를 대비한 안전 코드
             let active = false;
             let startPos = { x: 0, y: 0 };
             let touchId = null;
@@ -1373,7 +1907,7 @@ function setupJoysticks() {
         };
 
         setup('joystick-left', joystickLeft);
-        setup('joystick-right', joystickRight);
+        // joystick-right는 사용자의 요청에 의해 제거됨 (모바일 자동 조준 활용)
     }
 }
 
@@ -1381,7 +1915,8 @@ function spawnBots(count) {
     for (let i = 0; i < count; i++) {
         const spawn = getRandomSpawnPoint();
         const botId = `bot_${Math.random().toString(36).substring(2, 7)}`;
-        const botName = CONFIG.BOT.NICKNAMES[Math.floor(Math.random() * CONFIG.BOT.NICKNAMES.length)];
+        const botNum = Math.floor(10000 + Math.random() * 89999);
+        const botName = `${CONFIG.BOT.NAME_PREFIX}${botNum}`;
         const bot = new Bot(botId, botName);
         bot.group.position.set(spawn.x, 0, spawn.z);
         bots.push(bot);
@@ -1410,138 +1945,148 @@ function updateScoreboard() {
 
     scoreboard.innerHTML = `
         <div style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px;">
-            ${CONFIG.BOT.NICKNAMES.length > 0 ? 'Scoreboard' : ''}
+            Kills
         </div>
         ${players.map(p => `
             <div class="scoreboard-item" style="color: ${p.isLocal ? '#4d79ff' : (p.isBot ? '#e0e0e0' : '#ff4d4d')}">
                 <span>${p.name || p.id}${p.isLocal ? ' (ME)' : ''}</span>
-                <span style="font-size: 0.8em; opacity: 0.6; margin-left:10px;">${p.kills} K</span>
+                <span style="font-size: 0.8em; opacity: 0.6; margin-left:10px;">${p.kills}</span>
             </div>
         `).join('')}
     `;
 }
 
 function fire() {
-    const now = Date.now();
-    if (!myTank || myTank.hp <= 0) return; // Cannot fire if dead
-    if (now - lastFireTime < CONFIG.TANK.FIRE_COOLDOWN) return;
-    lastFireTime = now;
-
-    AudioSFX.playFire();
-    const pos = new THREE.Vector3();
-    myTank.muzzlePoint.getWorldPosition(pos);
-    const pivotPos = new THREE.Vector3();
-    myTank.barrelGroup.getWorldPosition(pivotPos);
-
-    // Always fire from pivot to muzzle point
-    const worldDir = pos.clone().sub(pivotPos).normalize();
-
-    const bullet = new Bullet(pos, worldDir, myId);
-    bullets.push(bullet);
-
-    myTank.playShootEffect();
-
-    // Broadcast fire
-    if (channel) {
-        channel.send({
-            type: 'broadcast',
-            event: 'fire',
-            payload: { pos: { x: pos.x, y: pos.y, z: pos.z }, dir: { x: worldDir.x, y: worldDir.y, z: worldDir.z }, ownerId: myId }
-        });
-    }
-
-    // WCGames.Audio.play(200, 'square', 0.1, 0.05); // Replaced by AudioSFX.playFire()
+    if (!myTank || myTank.hp <= 0) return;
+    myTank.shoot();
 }
 
 function update(dt) {
+    const now = Date.now(); // NEW: define now
     // 1. My Tank Update (Only while playing and alive)
     if (WCGames.state === 'PLAYING' && myTank && myTank.hp > 0) {
-        let moveDir = 0;
-        let rotateDir = 0;
+        // 1. Input Detection & Source Selection
+        const isJoystickActive = Math.abs(joystickLeft.x) > 0.1 || Math.abs(joystickLeft.y) > 0.1;
+        const isKeyboardMoving = keys['w'] || keys['KeyW'] || keys['ArrowUp'] || keys['s'] || keys['KeyS'] || keys['ArrowDown'];
+        const isKeyboardRotating = keys['a'] || keys['KeyA'] || keys['ArrowLeft'] || keys['d'] || keys['KeyD'] || keys['ArrowRight'];
 
-        const joystickDist = Math.sqrt(joystickLeft.x * joystickLeft.x + joystickLeft.y * joystickLeft.y);
+        if (isJoystickActive) {
+            // --- MOBILE/JOYSTICK LOGIC (Absolute Directional Control) ---
+            const nx = joystickLeft.x;
+            const nz = joystickLeft.y;
+            const inputMag = Math.sqrt(nx * nx + nz * nz);
+            const moveMag = Math.min(1.0, inputMag);
+            const targetAngle = Math.atan2(-nx, -nz);
+            
+            const rotBoost = 1.0 + (moveMag * 0.2);
+            myTank.group.rotation.y = lerpAngle(myTank.group.rotation.y, targetAngle, CONFIG.TANK.ROTATE_SPEED * rotBoost * dt);
+            
+            const currentAngle = myTank.group.rotation.y;
+            const angleDiff = Math.abs(normalizeAngle(targetAngle - currentAngle));
+            const alignmentFactor = Math.max(0, Math.cos(angleDiff));
+            const speedScale = Math.pow(alignmentFactor, 0.4); 
 
-        if (joystickDist > 0.1) {
-            // Intelligent Mobile Steering (Forward/Reverse Auto-switch)
-            const joystickAngle = Math.atan2(-joystickLeft.x, -joystickLeft.y);
+            if (speedScale > 0.05) {
+                const currentSpeed = (CONFIG.TANK.FORWARD_SPEED + (myTank.moveSpeedBonus || 0));
+                const forwardX = -Math.sin(currentAngle);
+                const forwardZ = -Math.cos(currentAngle);
+                
+                let moveX = (forwardX * 0.8) + (nx * 0.2);
+                let moveZ = (forwardZ * 0.8) + (nz * 0.2);
+                const moveLen = Math.sqrt(moveX * moveX + moveZ * moveZ);
+                moveX /= moveLen;
+                moveZ /= moveLen;
 
-            // Calculate relative angle to determine forward/reverse
-            let angleDiff = joystickAngle - myTank.group.rotation.y;
-            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-
-            if (Math.abs(angleDiff) <= Math.PI / 2) {
-                // Forward Sector: Point hull to joystick
-                const targetAngle = joystickAngle;
-                let rotDiff = targetAngle - myTank.group.rotation.y;
-                while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
-                while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
-
-                // Linear Rotation Step (Exactly matching PC ROTATE_SPEED)
-                const step = CONFIG.TANK.ROTATE_SPEED * dt;
-                myTank.group.rotation.y += Math.max(-step, Math.min(step, rotDiff));
-                moveDir = joystickDist;
+                const actualMove = moveMag * currentSpeed * dt * speedScale;
+                myTank.group.position.x += moveX * actualMove;
+                myTank.group.position.z += moveZ * actualMove;
+                
+                if (myTank.engineAudio) myTank.engineAudio.update(moveMag * speedScale);
+                myTank.updateAnims(dt, true);
             } else {
-                // Backward Sector: Point hull's REAR to joystick
-                const targetAngle = joystickAngle + Math.PI;
-                let rotDiff = targetAngle - myTank.group.rotation.y;
-                while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
-                while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
-
-                // Linear Rotation Step (Exactly matching PC ROTATE_SPEED)
-                const step = CONFIG.TANK.ROTATE_SPEED * dt;
-                myTank.group.rotation.y += Math.max(-step, Math.min(step, rotDiff));
-                moveDir = -joystickDist; // Use negative for reverse
+                if (myTank.engineAudio) myTank.engineAudio.update(0.2); 
+                myTank.updateAnims(dt, false);
             }
         } else {
-            // Desktop/Classic: Tank Controls (WASD)
-            if (keys['KeyW'] || keys['w'] || keys['ArrowUp']) moveDir += 1;
-            if (keys['KeyS'] || keys['s'] || keys['ArrowDown']) moveDir -= 1;
-            if (keys['KeyA'] || keys['a'] || keys['ArrowLeft']) rotateDir += 1;
-            if (keys['KeyD'] || keys['d'] || keys['ArrowRight']) rotateDir -= 1;
-            myTank.group.rotation.y += rotateDir * CONFIG.TANK.ROTATE_SPEED * dt;
+            // --- PC/KEYBOARD LOGIC (Traditional Tank Controls: W/S Move, A/D Rotate) ---
+            let moveDir = 0;
+            if (keys['w'] || keys['KeyW'] || keys['ArrowUp']) moveDir = 1.0;
+            else if (keys['s'] || keys['KeyS'] || keys['ArrowDown']) moveDir = -0.7; // Backwards is slower
+
+            // Direct rotation handle (A/D)
+            const rotSpeed = CONFIG.TANK.ROTATE_SPEED * (1.1 + (Math.abs(moveDir) * 0.2));
+            if (keys['a'] || keys['KeyA'] || keys['ArrowLeft']) myTank.group.rotation.y += rotSpeed * dt;
+            if (keys['d'] || keys['KeyD'] || keys['ArrowRight']) myTank.group.rotation.y -= rotSpeed * dt;
+
+            if (moveDir !== 0) {
+                const currentAngle = myTank.group.rotation.y;
+                const currentSpeed = (CONFIG.TANK.FORWARD_SPEED + (myTank.moveSpeedBonus || 0));
+                
+                // Move along the current heading
+                const dirX = -Math.sin(currentAngle) * moveDir;
+                const dirZ = -Math.cos(currentAngle) * moveDir;
+                const actualMove = currentSpeed * dt;
+                
+                myTank.group.position.x += dirX * actualMove;
+                myTank.group.position.z += dirZ * actualMove;
+                
+                if (myTank.engineAudio) myTank.engineAudio.update(1.0);
+                myTank.updateAnims(dt, true);
+            } else {
+                // Not moving, check if rotating for engine sound
+                const isRotating = (keys['a'] || keys['KeyA'] || keys['ArrowLeft'] || keys['d'] || keys['KeyD'] || keys['ArrowRight']);
+                if (myTank.engineAudio) myTank.engineAudio.update(isRotating ? 0.3 : 0.0);
+                myTank.updateAnims(dt, false);
+            }
         }
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(myTank.group.quaternion);
 
-        // Calculate actual movement
-        const actualMove = moveDir * CONFIG.TANK.SPEED * dt;
-        const prevPos = myTank.group.position.clone();
-        myTank.group.position.add(forward.multiplyScalar(actualMove));
-
-        // Calculate real speed ratio based on actual displacement
-        const distanceMoved = myTank.group.position.distanceTo(prevPos);
-        const maxExpectedDist = CONFIG.TANK.SPEED * dt;
-        const actualSpeedRatio = maxExpectedDist > 0 ? Math.min(1.0, distanceMoved / maxExpectedDist) : 0;
-
-        if (myTank.engineAudio) {
-            // Include rotation speed in audio too for more 'busy' feel
-            const rotationRatio = Math.abs(rotateDir) * 0.3;
-            const finalAudioRatio = Math.max(actualSpeedRatio, rotationRatio);
-            myTank.engineAudio.update(finalAudioRatio);
-        }
-
-        // Turret Rotation (Mouse / Right Joystick)
+        // Turret Rotation (Mouse / Right Joystick / Auto)
         let targetTurretAngle = null;
+        let isManualAim = false;
 
+        // 1. Right Joystick Aim
         if (Math.abs(joystickRight.x) > 0.1 || Math.abs(joystickRight.y) > 0.1) {
             targetTurretAngle = Math.atan2(-joystickRight.x, -joystickRight.y);
+            isManualAim = true;
             if (Math.sqrt(joystickRight.x ** 2 + joystickRight.y ** 2) > 0.8) fire();
-        } else if (window.matchMedia('(pointer: fine)').matches && window.WCGames.input && window.WCGames.input.mouse) {
+        }
+        // 2. Mouse Aim (PC)
+        else if (window.matchMedia('(pointer: fine)').matches && window.WCGames.input && window.WCGames.input.mouse) {
             const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2(
+            const mouseCoord = new THREE.Vector2(
                 (WCGames.input.mouse.x / window.innerWidth) * 2 - 1,
                 -(WCGames.input.mouse.y / window.innerHeight) * 2 + 1
             );
-            raycaster.setFromCamera(mouse, camera);
+            raycaster.setFromCamera(mouseCoord, camera);
             const intersects = raycaster.intersectObject(scene.getObjectByName('raycast-floor'), true);
             if (intersects.length > 0) {
                 const pt = intersects[0].point;
-                targetTurretAngle = Math.atan2(myTank.group.position.x - pt.x, myTank.group.position.z - pt.z);
+                // Only override if mouse button is pressed OR user is actively aiming far away
+                const distToMouse = myTank.group.position.distanceTo(pt);
+                if (mouseButtons.left || mouseButtons.right || distToMouse > 15) {
+                    targetTurretAngle = Math.atan2(myTank.group.position.x - pt.x, myTank.group.position.z - pt.z);
+                    isManualAim = true;
+                }
             }
-
-            if (keys['ArrowLeft']) targetTurretAngle = (targetTurretAngle || myTank.turretGroup.rotation.y + myTank.group.rotation.y) + CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
-            if (keys['ArrowRight']) targetTurretAngle = (targetTurretAngle || myTank.turretGroup.rotation.y + myTank.group.rotation.y) - CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
         }
+
+        // 3. Auto Aim (Priority if not actively overriding)
+        const nearestEnemyPos = findNearestEnemy(myTank.group.position, CONFIG.BOT.DETECTION_RANGE);
+
+        if (!isManualAim && nearestEnemyPos) {
+            targetTurretAngle = Math.atan2(myTank.group.position.x - nearestEnemyPos.x, myTank.group.position.z - nearestEnemyPos.z);
+
+            // Auto Fire Check
+            const currentWorldAngle = myTank.turretGroup.rotation.y + myTank.group.rotation.y;
+            const angleDiff = Math.abs(normalizeAngle(currentWorldAngle - targetTurretAngle));
+            const distToEnemy = myTank.group.position.distanceTo(nearestEnemyPos);
+
+            // Sync attack range with AI (CONFIG.BOT.ATTACK_RANGE)
+            if (angleDiff < 0.2 && distToEnemy < CONFIG.BOT.ATTACK_RANGE) {
+                fire();
+            }
+        }
+
 
         if (targetTurretAngle !== null) myTank.targetWorldAngle = targetTurretAngle;
 
@@ -1552,12 +2097,9 @@ function update(dt) {
 
         if (keys['Space'] || mouseButtons.left) fire();
 
+
         // Collisions
         checkCollisions();
-
-        // Update Animations
-        const isMoving = Math.abs(moveDir) > 0.1 || Math.abs(rotateDir) > 0.1;
-        myTank.updateAnims(dt, isMoving);
 
         // 8. Reverted Camera Follow (Top-down Fixed Offset)
         camera.fov = 60;
@@ -1581,7 +2123,6 @@ function update(dt) {
     }
 
     // 2. Other Tanks Anim Update
-    // 2. Update Tanks & Bots
     tanks.forEach(tank => {
         tank.updateAnims(dt, true);
     });
@@ -1591,11 +2132,63 @@ function update(dt) {
             bot.updateAnims(dt, true);
             bot.updateAI(dt);
         });
+
+        // --- NEW: PowerUp Spawning (Master only) ---
+        const now = Date.now();
+        if (now - lastPowerupSpawnTime > CONFIG.POWERUP.SPAWN_INTERVAL && powerups.length < CONFIG.POWERUP.MAX_COUNT) {
+            lastPowerupSpawnTime = now;
+            const spawn = getRandomSpawnPoint();
+            const id = `p_${Math.random().toString(36).substring(2, 7)}`;
+
+            const p = new HealthPotion(id, new THREE.Vector3(spawn.x, 0, spawn.z));
+            powerups.push(p);
+
+            if (channel) {
+                channel.send({
+                    type: 'broadcast',
+                    event: 'spawn_powerup',
+                    payload: { id, pos: { x: spawn.x, y: 0, z: spawn.z } }
+                });
+            }
+        }
     } else {
         // Clients only update animations, positions come from sync
         bots.forEach(bot => {
             bot.updateAnims(dt, true);
         });
+    }
+
+    // --- NEW: PowerUp Update & Collision ---
+    const currentTime = Date.now() * 0.001;
+    for (let i = powerups.length - 1; i >= 0; i--) {
+        const p = powerups[i];
+        p.update(dt, currentTime);
+
+        // Check collision with ALL tanks (Only master or local player handles their own pickup)
+        const allTanks = [myTank, ...Array.from(tanks.values()), ...bots];
+        for (const tank of allTanks) {
+            if (!tank || tank.hp <= 0) continue;
+
+            const dist = tank.group.position.distanceTo(p.group.position);
+            if (dist < 1.5) {
+                if (tank.isLocal || (amIMaster)) {
+                    tank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
+                    // NEW: Float "UP" text effect
+                    spawnFloatingText(tank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), "HP UP", "#27ae60");
+
+                    if (channel) {
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'collect_powerup',
+                            payload: { id: p.id, collectorId: tank.id }
+                        });
+                    }
+                    p.destroy();
+                    powerups.splice(i, 1);
+                    break;
+                }
+            }
+        }
     }
 
     if (vfx) vfx.update(dt);
@@ -1631,8 +2224,24 @@ function update(dt) {
         }
     }
 
-    // 5. Sync
+    // 6. Sync
     syncMultiplayer();
+}
+
+function grantKillReward(killer) {
+    if (!killer || killer.hp <= 0) return;
+
+    // Use TYPES from CONFIG to determine possible rewards
+    const rewards = CONFIG.UPGRADE.TYPES;
+    const selected = rewards[Math.floor(Math.random() * rewards.length)];
+
+    killer.applyUpgrade(selected);
+    // Concise floating text feedback per user request
+    spawnFloatingText(killer.group.position.clone().add(new THREE.Vector3(0, 2.5, 0)), `${selected} UP`, "#ffd700");
+
+    // FX
+    if (window.AudioSFX) AudioSFX.playHeal();
+    if (vfx) vfx.spawn(killer.group.position, 0xffff00, 20, 4, 0.2, 1000);
 }
 
 function checkCollisions() {
@@ -1645,15 +2254,15 @@ function checkCollisions() {
     myTank.group.position.z = Math.max(-halfSize, Math.min(halfSize, myTank.group.position.z));
 
     // Wall check
-    const tankRadius = 0.65;
+    const wallTankRadius = 0.65;
     for (const wall of walls) {
         const wallW = wall.geometry.parameters.width;
         const wallD = wall.geometry.parameters.depth;
 
-        const wallMinX = wall.position.x - wallW / 2 - tankRadius;
-        const wallMaxX = wall.position.x + wallW / 2 + tankRadius;
-        const wallMinZ = wall.position.z - wallD / 2 - tankRadius;
-        const wallMaxZ = wall.position.z + wallD / 2 + tankRadius;
+        const wallMinX = wall.position.x - wallW / 2 - wallTankRadius;
+        const wallMaxX = wall.position.x + wallW / 2 + wallTankRadius;
+        const wallMinZ = wall.position.z - wallD / 2 - wallTankRadius;
+        const wallMaxZ = wall.position.z + wallD / 2 + wallTankRadius;
 
         if (myTank.group.position.x > wallMinX && myTank.group.position.x < wallMaxX &&
             myTank.group.position.z > wallMinZ && myTank.group.position.z < wallMaxZ) {
@@ -1672,9 +2281,49 @@ function checkCollisions() {
         }
     }
 
-    // Bullets and other collisions are handled in their own loop in modern cleanup, but for now:
+    // --- NEW: Tank vs Tank Overlap Prevention ---
+    const TANK_PHYSICS_RADIUS = 0.8;
+    const allTanks = [myTank, ...bots, ...Array.from(tanks.values())].filter(t => t && !t.isDead);
+
+    // 1. Resolve Player vs Others
+    for (const other of allTanks) {
+        if (other === myTank) continue;
+        const dist = myTank.group.position.distanceTo(other.group.position);
+        const minDist = TANK_PHYSICS_RADIUS * 2;
+        if (dist < minDist) {
+            // Push apart along the collision vector
+            const pushDir = myTank.group.position.clone().sub(other.group.position).normalize();
+            if (dist === 0) pushDir.set(Math.random(), 0, Math.random()).normalize(); // Avoid zero-div
+            const overlap = minDist - dist;
+            myTank.group.position.add(pushDir.multiplyScalar(overlap * 0.5));
+            // Note: We only push the local player here to simplify. Bots are handled below.
+        }
+    }
+
+    // 2. Resolve Bots vs Others (Master only)
+    if (amIMaster) {
+        for (let i = 0; i < bots.length; i++) {
+            const bot = bots[i];
+            if (bot.isDead) continue;
+            for (let j = 0; j < allTanks.length; j++) {
+                const other = allTanks[j];
+                if (other === bot) continue;
+                const dist = bot.group.position.distanceTo(other.group.position);
+                const minDist = TANK_PHYSICS_RADIUS * 2;
+                if (dist < minDist) {
+                    const pushDir = bot.group.position.clone().sub(other.group.position).normalize();
+                    if (dist === 0) pushDir.set(Math.random(), 0, Math.random()).normalize();
+                    const overlap = minDist - dist;
+                    bot.group.position.add(pushDir.multiplyScalar(overlap * 0.5));
+                }
+            }
+        }
+    }
+
+    // Bullets and other collisions
     updateBullets();
 }
+
 
 function updateBullets() {
     const dt = 0.016;
@@ -1802,7 +2451,12 @@ function syncMultiplayer() {
                 rot: myTank.group.rotation.y,
                 turretRot: myTank.turretGroup.rotation.y,
                 hp: myTank.hp,
-                kills: myTank.kills
+                kills: myTank.kills,
+                levels: {
+                    cannon: myTank.levelCannon,
+                    speed: myTank.levelSpeed,
+                    armor: myTank.levelArmor
+                }
             }
         });
     }
@@ -1817,7 +2471,12 @@ function syncMultiplayer() {
             turretRot: bot.turretGroup.rotation.y,
             hp: bot.hp,
             kills: bot.kills,
-            isBot: true
+            isBot: true,
+            levels: {
+                cannon: bot.levelCannon,
+                speed: bot.levelSpeed,
+                armor: bot.levelArmor
+            }
         }));
 
         if (botUpdates.length > 0) {
@@ -1869,9 +2528,8 @@ function updateMasterStatus() {
 
     // UI Feedback
     const statusText = document.getElementById('status-text');
-    if (statusText) {
-        let masterIndicator = amIMaster ? " [MASTER]" : "";
-        statusText.textContent = `HP: ${myTank ? Math.floor(myTank.hp) : 0} / ${CONFIG.TANK.MAX_HP}${masterIndicator}`;
+    if (statusText && myTank) {
+        statusText.textContent = Math.round(myTank.hp);
     }
 
     if (bots.length === 0) {
@@ -1917,6 +2575,27 @@ function isPositionSafe(x, z) {
     return true;
 }
 
+/**
+ * NEW: Line of Sight (LoS) check between two points.
+ * Returns true if the path is clear of walls.
+ */
+function checkLineOfSight(from, to) {
+    const direction = new THREE.Vector3().subVectors(to, from);
+    const distance = direction.length();
+    direction.normalize();
+
+    const ray = new THREE.Ray(from, direction);
+    const intersection = new THREE.Vector3();
+
+    for (const wallBox of wallBoxes) {
+        if (ray.intersectBox(wallBox, intersection)) {
+            const hitDist = from.distanceTo(intersection);
+            if (hitDist < distance) return false; // Path is blocked by a wall
+        }
+    }
+    return true;
+}
+
 function getRandomSpawnPoint() {
     const range = (CONFIG.WORLD.SIZE / 2) - 10;
     for (let i = 0; i < 100; i++) {
@@ -1927,6 +2606,78 @@ function getRandomSpawnPoint() {
         }
     }
     return { x: 0, z: 0 };
+}
+
+/**
+ * Find nearest enemy for auto-aim
+ */
+function findNearestEnemy(pos, maxDist = 50) {
+    let nearest = null;
+    let minDist = maxDist;
+
+    // Search Bots
+    bots.forEach(bot => {
+        if (bot && !bot.isDead && bot.group) {
+            const d = pos.distanceTo(bot.group.position);
+            if (d < minDist) {
+                minDist = d;
+                nearest = bot.group.position;
+            }
+        }
+    });
+
+    // Search Other Player Tanks
+    tanks.forEach((tank, id) => {
+        if (tank && tank !== myTank && !tank.isDead && tank.group) {
+            const d = pos.distanceTo(tank.group.position);
+            if (d < minDist) {
+                minDist = d;
+                nearest = tank.group.position;
+            }
+        }
+    });
+
+    return nearest;
+}
+
+/**
+ * Floating Text Effect utility
+ */
+function spawnFloatingText(pos, text, color = '#4caf50') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.font = 'bold 50px Arial';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 256, 128);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.copy(pos);
+    sprite.scale.set(6, 3, 1);
+    scene.add(sprite);
+
+
+    let life = 0;
+    const maxLife = 60;
+    function updateText() {
+        life++;
+        sprite.position.y += 0.06;
+
+        sprite.material.opacity = 1 - (life / maxLife);
+        if (life < maxLife) {
+            requestAnimationFrame(updateText);
+        } else {
+            scene.remove(sprite);
+            texture.dispose();
+            material.dispose();
+        }
+    }
+    updateText();
 }
 
 /* 8. SDK Initialization & Callbacks */
@@ -1974,7 +2725,19 @@ const Game = {
         container.innerHTML = ''; // Clear previous canvas if any
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const isPC = window.matchMedia('(pointer: fine)').matches;
+        const targetWidth = isPC ? 1920 : window.innerWidth;
+        const targetHeight = isPC ? 1080 : window.innerHeight;
+
+        renderer.setSize(targetWidth, targetHeight);
+        if (isPC) {
+            renderer.domElement.style.width = '100%';
+            renderer.domElement.style.height = '100%';
+            renderer.domElement.style.objectFit = 'contain';
+            renderer.domElement.style.backgroundColor = '#111'; // Black bars for non-16:9 screens
+        }
+
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
@@ -2352,9 +3115,16 @@ const Game = {
         animate();
 
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            const isPC = window.matchMedia('(pointer: fine)').matches;
+            if (isPC) {
+                // Keep internal resolution but update camera aspect
+                camera.aspect = 1920 / 1080;
+                camera.updateProjectionMatrix();
+            } else {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
         });
     }
 };
@@ -2389,6 +3159,15 @@ function setupChannelListeners() {
                 if (bot.turretGroup) bot.turretGroup.rotation.y = botData.turretRot;
                 bot.updateHP(botData.hp);
                 bot.kills = botData.kills || 0;
+
+                // Sync Upgrade Levels for Bots
+                if (botData.levels) {
+                    let changed = false;
+                    if (bot.levelCannon !== botData.levels.cannon) { bot.levelCannon = botData.levels.cannon; changed = true; }
+                    if (bot.levelSpeed !== botData.levels.speed) { bot.levelSpeed = botData.levels.speed; changed = true; }
+                    if (bot.levelArmor !== botData.levels.armor) { bot.levelArmor = botData.levels.armor; changed = true; }
+                    if (changed) bot.updateArmorVisual();
+                }
             }
         });
         updateScoreboard();
@@ -2410,6 +3189,16 @@ function setupChannelListeners() {
             if (tank.turretGroup) tank.turretGroup.rotation.y = payload.turretRot;
             tank.updateHP(payload.hp);
             tank.kills = payload.kills || 0;
+
+            // Sync Upgrade Levels for Other Players
+            if (payload.levels) {
+                let changed = false;
+                if (tank.levelCannon !== payload.levels.cannon) { tank.levelCannon = payload.levels.cannon; changed = true; }
+                if (tank.levelSpeed !== payload.levels.speed) { tank.levelSpeed = payload.levels.speed; changed = true; }
+                if (tank.levelArmor !== payload.levels.armor) { tank.levelArmor = payload.levels.armor; changed = true; }
+                if (changed) tank.updateArmorVisual();
+            }
+
             tank.lastSeen = Date.now();
         }
     });
@@ -2419,10 +3208,16 @@ function setupChannelListeners() {
         const bPos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
         const bDir = new THREE.Vector3(payload.dir.x, payload.dir.y, payload.dir.z);
         const bullet = new Bullet(bPos, bDir, payload.ownerId);
+
+        // Handle upgraded bullet visuals for others
+        if (payload.level) {
+            let bulletScale = 1.0 + (Math.min(3, payload.level) * CONFIG.UPGRADE.CANNON.SCALE_INC);
+            bullet.group.scale.setScalar(bulletScale);
+        }
         bullets.push(bullet);
 
         // Show firing effect for other players
-        const tank = tanks.get(payload.ownerId);
+        const tank = tanks.get(payload.ownerId) || bots.find(b => b.id === payload.ownerId);
         if (tank) tank.playShootEffect();
     });
 
@@ -2465,6 +3260,53 @@ function setupChannelListeners() {
             killer.kills++;
             updateScoreboard();
             if (killer.isLocal) syncMultiplayer();
+        }
+    });
+
+
+    // --- NEW: Health Potion Listeners ---
+    channel.on('broadcast', { event: 'spawn_powerup' }, ({ payload }) => {
+        const id = payload.id;
+        const pos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
+        if (!powerups.find(p => p.id === id)) {
+            const p = new HealthPotion(id, pos);
+            powerups.push(p);
+        }
+    });
+
+    channel.on('broadcast', { event: 'collect_powerup' }, ({ payload }) => {
+        const pIdx = powerups.findIndex(p => p.id === payload.id);
+        if (pIdx !== -1) {
+            const p = powerups[pIdx];
+            const tank = (payload.collectorId === myId) ? myTank : (tanks.get(payload.collectorId) || bots.find(b => b.id === payload.collectorId));
+            if (tank) tank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
+            p.destroy();
+            powerups.splice(pIdx, 1);
+        }
+    });
+
+    // --- Upgrade Item Listeners ---
+    channel.on('broadcast', { event: 'spawn_upgrade' }, ({ payload }) => {
+        if (amIMaster) return;
+        if (!upgradeItems.find(u => u.id === payload.id)) {
+            const u = new UpgradeItem(payload.id, payload.type, new THREE.Vector3(payload.pos.x, 0, payload.pos.z));
+            upgradeItems.push(u);
+        }
+    });
+
+    channel.on('broadcast', { event: 'collect_upgrade' }, ({ payload }) => {
+        const uIdx = upgradeItems.findIndex(u => u.id === payload.id);
+        if (uIdx !== -1) {
+            const u = upgradeItems[uIdx];
+            const tank = (payload.tankId === myId) ? myTank : (tanks.get(payload.tankId) || bots.find(b => b.id === payload.tankId));
+            if (tank) {
+                tank.applyUpgrade(payload.type);
+                // Remote FX
+                if (vfx) vfx.spawn(u.group.position, 0xffff00, 20, 4, 0.2, 1000);
+                spawnFloatingText(tank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), `${payload.type} UP!`, '#ffd700');
+            }
+            u.destroy();
+            upgradeItems.splice(uIdx, 1);
         }
     });
 

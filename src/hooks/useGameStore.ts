@@ -149,14 +149,16 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/piano-tiles/index.html',
           categoryId: 'action',
           orientation: 'portrait',
-          hidden: false
+          hidden: true
         },
         {
           id: 'voxel-tank',
           thumbnailUrl: '/games/voxel-tank/thumb.png',
           gameUrl: 'games/voxel-tank/index.html',
           categoryId: 'action',
-          orientation: 'landscape'
+          orientation: 'landscape',
+          width: 1920,
+          height: 1080
         },
       ],
 

@@ -27,13 +27,13 @@ const resources = {
     en: {
         translation: {
             ...translationEN,
-            games: buildGameLocales(import.meta.glob('../public/games/*/locales/en/translation.json', { eager: true }))
+            games: buildGameLocales(import.meta.glob('./locales/games/*/locales/en/translation.json', { eager: true }))
         }
     },
     ko: {
         translation: {
             ...translationKO,
-            games: buildGameLocales(import.meta.glob('../public/games/*/locales/ko/translation.json', { eager: true }))
+            games: buildGameLocales(import.meta.glob('./locales/games/*/locales/ko/translation.json', { eager: true }))
         }
     }
 };

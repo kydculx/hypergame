@@ -7,5 +7,8 @@
     "play_again": "다시 시도",
     "kills": "처치 수 :",
     "hp": "내 체력: ",
-    "category": "액션 대전"
+    "category": "액션 대전",
+    "cannon": "ATK",
+    "speed": "SPD",
+    "armor": "DEF"
 }
