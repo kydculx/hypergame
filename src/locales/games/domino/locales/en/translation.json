@@ -1,0 +1,10 @@
+{
+  "title": "Toy Domino",
+  "instruction": "Fill the disconnected gaps with blocks of the exact length! Your goal is to trigger a perfect chain reaction, knocking down all dominoes without a single mistake.",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "PUZZLE",
+  "desc": "A clever puzzle game of chain reactions. Strategically place the right-sized dominoes to complete the circuit!"
+}

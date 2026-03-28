@@ -1,0 +1,11 @@
+{
+  "title": "Mine Sweeper",
+  "instruction": "Logically deduce the locations of mines using the number hints on the ground! You must perfectly uncover all safe zones without touching a single hidden mine.",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "PUZZLE",
+  "mission_clear": "MISSION CLEAR",
+  "desc": "The classic PC logic puzzle returns with a sleek neon style. clear the board without detonating a single hidden mine!"
+}

@@ -1,0 +1,10 @@
+{
+  "title": "Breakout",
+  "instruction": "Bounce the ball to destroy all the glowing neon bricks! Your goal is to shatter every brick and advance to the next stage without letting the ball fall.",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "ACTION",
+  "desc": "Experience classic arcade brick-breaking action enhanced with high-octane neon visuals and explosive particle effects!"
+}

@@ -1,0 +1,12 @@
+{
+    "title": "Swarm Clash",
+    "instruction": "Defend your base from endlessly swarming monster legions! Your goal is to maintain the frontline through strategic unit command and deployment, surviving as long as possible in extreme conditions.",
+    "play": "Start Battle",
+    "game_over": "GAME OVER",
+    "victory": "VICTORY",
+    "defeat": "DEFEAT",
+    "score": "Survived Time: ",
+    "final_score": "Survived Time: ",
+    "play_again": "Play Again",
+    "category": "STRATEGY"
+}

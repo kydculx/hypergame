@@ -1,0 +1,10 @@
+{
+  "title": "ZigZag",
+  "instruction": "Roll the ball on a narrow, zigzagging cliff to go as far as possible! Your goal is to collect glowing gems on the path while focusing to avoid falling into the abyss.",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "ACTION",
+  "desc": "Stay on the wall and do as many zigzags as you can! A fast-paced endless runner with retro aesthetics."
+}

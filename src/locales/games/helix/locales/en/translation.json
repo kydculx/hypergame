@@ -1,0 +1,10 @@
+{
+  "title": "Helix Jump",
+  "instruction": "Find the gaps in the spiral tower and drop the ball continuously! Your goal is to reach the deepest bottom of the tower safely, avoiding the dangerous red platforms.",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "ACTION",
+  "desc": "A satisfying and thrilling arcade experience! Rotate the spiral tower to plunge your bouncing ball all the way to the bottom."
+}

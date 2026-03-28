@@ -1,0 +1,19 @@
+{
+    "title": "스웜 클래시",
+    "instruction": "끝없이 몰려오는 괴물 군단으로부터 아군의 기지를 방어하세요! 전략적인 부대 지휘와 병력 배치를 통해 전선을 유지하고, 극한의 상황에서 최대한 오랫동안 생존하는 것이 목표입니다.",
+    "play": "전투 시작",
+    "game_over": "게임 오버",
+    "victory": "승리",
+    "defeat": "패배",
+    "score": "생존 시간: ",
+    "final_score": "생존 시간: ",
+    "play_again": "다시 하기",
+    "category": "전략",
+    "formation_square": "방진형",
+    "formation_phalanx": "밀집형",
+    "formation_wedge": "쐐기형",
+    "formation_diamond": "다이아몬드형",
+    "formation_circle": "원진형",
+    "auto_upgrade": "자동 강화",
+    "kills": "처치 수: "
+}

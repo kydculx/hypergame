@@ -1,0 +1,11 @@
+{
+    "title": "Tank Online",
+    "instruction": "Pilot your powerful tank and battle other players! Control the body and turret independently.",
+    "play": "Start Game",
+    "game_over": "Destroyed",
+    "final_score": "Score: ",
+    "play_again": "Try Again",
+    "kills": "Kills:",
+    "hp": "HP: ",
+    "category": "Battle Action"
+}

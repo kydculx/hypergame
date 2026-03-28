@@ -1,0 +1,10 @@
+{
+  "title": "2048",
+  "instruction": "Merge tiles with the same number to create larger numbers! Your goal is to forge the legendary 2048 tile through careful placement and strategy.",
+  "play": "Play",
+  "game_over": "Game Over",
+  "final_score": "Score: ",
+  "play_again": "Retry",
+  "category": "PUZZLE",
+  "desc": "A mesmerizing neon puzzle game. Slide tiles and combine matching numbers to reach the ultimate 2048 tile!"
+}
