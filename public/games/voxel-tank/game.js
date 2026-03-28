@@ -150,8 +150,8 @@ let channel;
 let amIMaster = false;
 let lastFireTime = 0;
 let lastSyncTime = 0;
-let lastPowerupSpawnTime = 0; // NEW: Timer for master node powerup spawning
-let lastUpgradeSpawnTime = 0; // NEW: Timer for master node upgrade spawning
+let lastPowerupSpawnTime = 0;
+let lastUpgradeSpawnTime = 0;
 let animationId = null;
 let cameraShakeTime = 0;
 let wreckSmokeTimer = 0;
@@ -2127,67 +2127,33 @@ function update(dt) {
         tank.updateAnims(dt, true);
     });
 
-    if (amIMaster) {
-        bots.forEach(bot => {
-            bot.updateAnims(dt, true);
-            bot.updateAI(dt);
-        });
+    // 2. Local Bots Update (Everyone manages their own bots independently)
+    bots.forEach(bot => {
+        bot.updateAnims(dt, true);
+        bot.updateAI(dt);
+    });
 
-        // --- NEW: PowerUp Spawning (Master only) ---
-        const now = Date.now();
-        if (now - lastPowerupSpawnTime > CONFIG.POWERUP.SPAWN_INTERVAL && powerups.length < CONFIG.POWERUP.MAX_COUNT) {
-            lastPowerupSpawnTime = now;
-            const spawn = getRandomSpawnPoint();
-            const id = `p_${Math.random().toString(36).substring(2, 7)}`;
-
-            const p = new HealthPotion(id, new THREE.Vector3(spawn.x, 0, spawn.z));
-            powerups.push(p);
-
-            if (channel) {
-                channel.send({
-                    type: 'broadcast',
-                    event: 'spawn_powerup',
-                    payload: { id, pos: { x: spawn.x, y: 0, z: spawn.z } }
-                });
-            }
-        }
-    } else {
-        // Clients only update animations, positions come from sync
-        bots.forEach(bot => {
-            bot.updateAnims(dt, true);
-        });
+    // --- PowerUp Spawning (Local only) ---
+    if (now - lastPowerupSpawnTime > CONFIG.POWERUP.SPAWN_INTERVAL && powerups.length < CONFIG.POWERUP.MAX_COUNT) {
+        lastPowerupSpawnTime = now;
+        const spawn = getRandomSpawnPoint();
+        const id = `lp_${Math.random().toString(36).substring(2, 7)}`;
+        const p = new HealthPotion(id, new THREE.Vector3(spawn.x, 0, spawn.z));
+        powerups.push(p);
     }
 
-    // --- NEW: PowerUp Update & Collision ---
+    // --- Local PowerUp Update & Collision ---
     const currentTime = Date.now() * 0.001;
     for (let i = powerups.length - 1; i >= 0; i--) {
         const p = powerups[i];
         p.update(dt, currentTime);
 
-        // Check collision with ALL tanks (Only master or local player handles their own pickup)
-        const allTanks = [myTank, ...Array.from(tanks.values()), ...bots];
-        for (const tank of allTanks) {
-            if (!tank || tank.hp <= 0) continue;
-
-            const dist = tank.group.position.distanceTo(p.group.position);
-            if (dist < 1.5) {
-                if (tank.isLocal || (amIMaster)) {
-                    tank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
-                    // NEW: Float "UP" text effect
-                    spawnFloatingText(tank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), "HP UP", "#27ae60");
-
-                    if (channel) {
-                        channel.send({
-                            type: 'broadcast',
-                            event: 'collect_powerup',
-                            payload: { id: p.id, collectorId: tank.id }
-                        });
-                    }
-                    p.destroy();
-                    powerups.splice(i, 1);
-                    break;
-                }
-            }
+        const dist = myTank.group.position.distanceTo(p.group.position);
+        if (dist < 1.5) {
+            myTank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
+            spawnFloatingText(myTank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), "HP UP", "#27ae60");
+            p.destroy();
+            powerups.splice(i, 1);
         }
     }
 
@@ -2300,22 +2266,21 @@ function checkCollisions() {
         }
     }
 
-    // 2. Resolve Bots vs Others (Master only)
-    if (amIMaster) {
-        for (let i = 0; i < bots.length; i++) {
-            const bot = bots[i];
-            if (bot.isDead) continue;
-            for (let j = 0; j < allTanks.length; j++) {
-                const other = allTanks[j];
-                if (other === bot) continue;
-                const dist = bot.group.position.distanceTo(other.group.position);
-                const minDist = TANK_PHYSICS_RADIUS * 2;
-                if (dist < minDist) {
-                    const pushDir = bot.group.position.clone().sub(other.group.position).normalize();
-                    if (dist === 0) pushDir.set(Math.random(), 0, Math.random()).normalize();
-                    const overlap = minDist - dist;
-                    bot.group.position.add(pushDir.multiplyScalar(overlap * 0.5));
-                }
+    // 2. Resolve Bots vs Others (Local resolution)
+    for (let i = 0; i < bots.length; i++) {
+        const bot = bots[i];
+        if (bot.isDead) continue;
+        const candidates = [myTank, ...Array.from(tanks.values()), ...bots];
+        for (let j = 0; j < candidates.length; j++) {
+            const other = candidates[j];
+            if (other === bot) continue;
+            const dist = bot.group.position.distanceTo(other.group.position);
+            const minDist = TANK_PHYSICS_RADIUS * 2;
+            if (dist < minDist) {
+                const pushDir = bot.group.position.clone().sub(other.group.position).normalize();
+                if (dist === 0) pushDir.set(Math.random(), 0, Math.random()).normalize();
+                const overlap = minDist - dist;
+                bot.group.position.add(pushDir.multiplyScalar(overlap * 0.5));
             }
         }
     }
@@ -2390,8 +2355,9 @@ function updateBullets() {
         for (const tank of allPlayers) {
             if (!tank || bullet.ownerId === tank.id) continue;
             if (bullet.mesh.position.distanceTo(tank.group.position) < 1.2) {
-                const isBotShooter = bots.some(b => b.id === bullet.ownerId);
-                if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
+                // If I shot a player OR my local bot shot a player, broadcast the hit
+                const isMyBotShooter = bots.some(b => b.id === bullet.ownerId);
+                if (bullet.ownerId === myId || isMyBotShooter) {
                     AudioSFX.playImpact();
                     if (vfx) vfx.spawnImpact(bullet.mesh.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
                     if (tank === myTank) tank.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
@@ -2411,15 +2377,12 @@ function updateBullets() {
             continue;
         }
 
-        // Bot collisions
+        // Bot collisions (Local only)
         for (const bot of bots) {
             if (bullet.ownerId !== bot.id && bullet.mesh.position.distanceTo(bot.group.position) < 1.2) {
-                const isBotShooter = bots.some(b => b.id === bullet.ownerId);
-                if (bullet.ownerId === myId || (isBotShooter && amIMaster)) {
-                    AudioSFX.playImpact();
-                    if (vfx) vfx.spawnImpact(bullet.mesh.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
-                    bot.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
-                }
+                AudioSFX.playImpact();
+                if (vfx) vfx.spawnImpact(bullet.mesh.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
+                bot.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
                 hit = true;
                 break;
             }
@@ -2461,32 +2424,8 @@ function syncMultiplayer() {
         });
     }
 
-    // 2. Broadcast ALL Bots at once (Batch update for better performance)
-    if (amIMaster && bots.length > 0) {
-        const botUpdates = bots.filter(b => b.hp > 0).map(bot => ({
-            id: bot.id,
-            name: bot.name,
-            pos: { x: bot.group.position.x, y: bot.group.position.y, z: bot.group.position.z },
-            rot: bot.group.rotation.y,
-            turretRot: bot.turretGroup.rotation.y,
-            hp: bot.hp,
-            kills: bot.kills,
-            isBot: true,
-            levels: {
-                cannon: bot.levelCannon,
-                speed: bot.levelSpeed,
-                armor: bot.levelArmor
-            }
-        }));
+    // 2. Broadcast ALL Bots (DELETED: BOTS ARE LOCAL)
 
-        if (botUpdates.length > 0) {
-            channel.send({
-                type: 'broadcast',
-                event: 'bots_move',
-                payload: { bots: botUpdates }
-            });
-        }
-    }
 
     updateScoreboard();
 }
@@ -3148,31 +3087,6 @@ function setupChannelListeners() {
         updateMasterStatus();
     });
 
-    channel.on('broadcast', { event: 'bots_move' }, ({ payload }) => {
-        if (!payload.bots) return;
-        payload.bots.forEach(botData => {
-            let bot = bots.find(b => b.id === botData.id);
-            if (bot && bot.group) {
-                const targetPos = new THREE.Vector3(botData.pos.x, botData.pos.y, botData.pos.z);
-                bot.group.position.lerp(targetPos, 0.4);
-                bot.group.rotation.y = botData.rot;
-                if (bot.turretGroup) bot.turretGroup.rotation.y = botData.turretRot;
-                bot.updateHP(botData.hp);
-                bot.kills = botData.kills || 0;
-
-                // Sync Upgrade Levels for Bots
-                if (botData.levels) {
-                    let changed = false;
-                    if (bot.levelCannon !== botData.levels.cannon) { bot.levelCannon = botData.levels.cannon; changed = true; }
-                    if (bot.levelSpeed !== botData.levels.speed) { bot.levelSpeed = botData.levels.speed; changed = true; }
-                    if (bot.levelArmor !== botData.levels.armor) { bot.levelArmor = botData.levels.armor; changed = true; }
-                    if (changed) bot.updateArmorVisual();
-                }
-            }
-        });
-        updateScoreboard();
-    });
-
     channel.on('broadcast', { event: 'move' }, ({ payload }) => {
         if (payload.id === myId) return;
         let tank = tanks.get(payload.id);
@@ -3217,45 +3131,33 @@ function setupChannelListeners() {
         bullets.push(bullet);
 
         // Show firing effect for other players
-        const tank = tanks.get(payload.ownerId) || bots.find(b => b.id === payload.ownerId);
+        const tank = tanks.get(payload.ownerId);
         if (tank) tank.playShootEffect();
     });
 
-
     channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
         if (payload.shooterId === myId) return;
-        let target = (payload.targetId === myId) ? myTank : (tanks.get(payload.targetId) || bots.find(b => b.id === payload.targetId));
+        // Only respond to hits on human players (self or others)
+        let target = (payload.targetId === myId) ? myTank : tanks.get(payload.targetId);
         if (target) {
-            if (target === myTank || (amIMaster && target.isBot)) {
-                target.handleHit(payload.damage, payload.shooterId);
-            }
+            target.handleHit(payload.damage, payload.shooterId);
         }
     });
 
     channel.on('broadcast', { event: 'death' }, ({ payload }) => {
-        const isBot = payload.victimId.startsWith('bot_');
-        const victim = (payload.victimId === myId) ? myTank : (isBot ? bots.find(b => b.id === payload.victimId) : tanks.get(payload.victimId));
+        // Only respond to deaths of human players
+        const victim = (payload.victimId === myId) ? myTank : tanks.get(payload.victimId);
 
         if (victim) {
-            // Only show explosion if I killed them OR I am the one who died
-            if ((payload.shooterId === myId || payload.victimId === myId) && vfx) {
-                vfx.spawnExplosion(victim.group.position);
-            }
-
+            if (vfx) vfx.spawnExplosion(victim.group.position);
             if (victim !== myTank) {
                 victim.destroy();
-                if (isBot) {
-                    const idx = bots.indexOf(victim);
-                    if (idx !== -1) bots.splice(idx, 1);
-                    setTimeout(() => spawnBots(1), 5000);
-                } else {
-                    tanks.delete(payload.victimId);
-                }
+                tanks.delete(payload.victimId);
             }
             updateScoreboard();
         }
 
-        const killer = [myTank, ...Array.from(tanks.values()), ...bots].find(t => t && t.id === payload.shooterId);
+        const killer = [myTank, ...Array.from(tanks.values())].find(t => t && t.id === payload.shooterId);
         if (killer) {
             killer.kills++;
             updateScoreboard();
@@ -3263,52 +3165,6 @@ function setupChannelListeners() {
         }
     });
 
-
-    // --- NEW: Health Potion Listeners ---
-    channel.on('broadcast', { event: 'spawn_powerup' }, ({ payload }) => {
-        const id = payload.id;
-        const pos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
-        if (!powerups.find(p => p.id === id)) {
-            const p = new HealthPotion(id, pos);
-            powerups.push(p);
-        }
-    });
-
-    channel.on('broadcast', { event: 'collect_powerup' }, ({ payload }) => {
-        const pIdx = powerups.findIndex(p => p.id === payload.id);
-        if (pIdx !== -1) {
-            const p = powerups[pIdx];
-            const tank = (payload.collectorId === myId) ? myTank : (tanks.get(payload.collectorId) || bots.find(b => b.id === payload.collectorId));
-            if (tank) tank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
-            p.destroy();
-            powerups.splice(pIdx, 1);
-        }
-    });
-
-    // --- Upgrade Item Listeners ---
-    channel.on('broadcast', { event: 'spawn_upgrade' }, ({ payload }) => {
-        if (amIMaster) return;
-        if (!upgradeItems.find(u => u.id === payload.id)) {
-            const u = new UpgradeItem(payload.id, payload.type, new THREE.Vector3(payload.pos.x, 0, payload.pos.z));
-            upgradeItems.push(u);
-        }
-    });
-
-    channel.on('broadcast', { event: 'collect_upgrade' }, ({ payload }) => {
-        const uIdx = upgradeItems.findIndex(u => u.id === payload.id);
-        if (uIdx !== -1) {
-            const u = upgradeItems[uIdx];
-            const tank = (payload.tankId === myId) ? myTank : (tanks.get(payload.tankId) || bots.find(b => b.id === payload.tankId));
-            if (tank) {
-                tank.applyUpgrade(payload.type);
-                // Remote FX
-                if (vfx) vfx.spawn(u.group.position, 0xffff00, 20, 4, 0.2, 1000);
-                spawnFloatingText(tank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), `${payload.type} UP!`, '#ffd700');
-            }
-            u.destroy();
-            upgradeItems.splice(uIdx, 1);
-        }
-    });
 
     if (Game.timeoutInterval) clearInterval(Game.timeoutInterval);
     Game.timeoutInterval = setInterval(() => {
