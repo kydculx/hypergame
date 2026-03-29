@@ -373,39 +373,83 @@ class ParticleSystem {
 
     // NEW: Specialized heal burst effect (정제된 힐 이펙트)
     spawnHeal(pos) {
-        const color = 0x00ff00; // Pure Green
-        const count = 12; // Reduced from 30
-        const mat = this.getMat(color, 0.7);
-        for (let i = 0; i < count; i++) {
+        const colors = [0x00ffcc, 0x00ff88, 0x88ffcc, 0xffffff];
+        for (let i = 0; i < 15; i++) {
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const mat = this.getMat(color, 0.8);
             const p = new THREE.Mesh(this.sharedGeo, mat);
-            const size = 0.08 + Math.random() * 0.1; // Slightly smaller
+            const size = 0.06 + Math.random() * 0.08;
             p.scale.setScalar(size);
 
-            // Start closer to the tank
             const angle = Math.random() * Math.PI * 2;
-            const radius = 0.4 + Math.random() * 0.4;
+            const radius = 0.3 + Math.random() * 0.5;
             p.position.set(
                 pos.x + Math.cos(angle) * radius,
-                pos.y + Math.random() * 0.5,
+                pos.y + 0.3 + Math.random() * 0.3,
                 pos.z + Math.sin(angle) * radius
             );
 
-            // Gentler upward movement
             const vel = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.3,
-                1.0 + Math.random() * 1.5, // Slower
-                (Math.random() - 0.5) * 0.3
+                (Math.random() - 0.5) * 0.4,
+                1.5 + Math.random() * 2.0,
+                (Math.random() - 0.5) * 0.4
             );
 
             this.particles.push({
                 mesh: p,
                 vel: vel,
-                life: 600 + Math.random() * 400, // Shorter life
-                maxLife: 1000,
-                gravity: -0.5, // Less anti-gravity
-                friction: 0.96
+                life: 400 + Math.random() * 300,
+                maxLife: 700,
+                gravity: -1.0,
+                friction: 0.94
             });
             this.group.add(p);
+        }
+
+        for (let i = 0; i < 8; i++) {
+            const p = new THREE.Mesh(
+                new THREE.BoxGeometry(0.1, 0.1, 0.1),
+                new THREE.MeshBasicMaterial({ color: 0x00ffaa, transparent: true, opacity: 0.9 })
+            );
+            const t = i / 8 * Math.PI * 2;
+            const spiralR = 0.5 + i * 0.05;
+            p.position.set(
+                pos.x + Math.cos(t) * spiralR,
+                pos.y + 0.2,
+                pos.z + Math.sin(t) * spiralR
+            );
+
+            this.particles.push({
+                mesh: p,
+                vel: new THREE.Vector3(Math.cos(t) * 0.3, 2.5, Math.sin(t) * 0.3),
+                life: 500,
+                maxLife: 500,
+                gravity: -1.5,
+                friction: 0.9
+            });
+            this.group.add(p);
+        }
+
+        for (let i = 0; i < 5; i++) {
+            const spark = new THREE.Mesh(
+                new THREE.BoxGeometry(0.04, 0.04, 0.04),
+                new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 })
+            );
+            spark.position.set(
+                pos.x + (Math.random() - 0.5) * 1.2,
+                pos.y + 0.5 + Math.random() * 0.8,
+                pos.z + (Math.random() - 0.5) * 1.2
+            );
+
+            this.particles.push({
+                mesh: spark,
+                vel: new THREE.Vector3(0, 3 + Math.random() * 2, 0),
+                life: 200 + Math.random() * 200,
+                maxLife: 400,
+                gravity: 0,
+                friction: 0.95
+            });
+            this.group.add(spark);
         }
     }
 
@@ -2307,23 +2351,73 @@ class Tank {
         // 3. Premium Exhaust Smoke when moving
         if (isMoving && vfx) {
             this.exhaustTimer += dt;
-            if (this.exhaustTimer > 0.08) { // High frequency
+            if (this.exhaustTimer > 0.08) {
                 this.exhaustTimer = 0;
 
-                // Real-wheel displacement for velocity calc
                 const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.group.quaternion);
-                const exhaustVel = forward.multiplyScalar(2.0); // Push smoke backwards
+                const exhaustVel = forward.multiplyScalar(2.0);
 
-                // Dual Exhaust Pipes (Synchronized with new embedded position)
                 for (let xOff of [-0.48, 0.48]) {
                     const exhaustPos = new THREE.Vector3(xOff, 0.65, 1.23).applyMatrix4(this.group.matrixWorld);
 
-                    // Main Smoke (Premium Growth)
                     vfx.spawnExhaust(exhaustPos, 0x99aabb, 1, 0.4, 0.3, 1500);
 
-                    // Hot Exhaust Core
                     if (Math.random() < 0.4) {
                         vfx.spawnExhaust(exhaustPos, 0x555555, 1, 0.6, 0.25, 800);
+                    }
+                }
+            }
+        }
+
+        // 4. Damage Smoke & Fire (HP-based effect)
+        const hpPercent = this.hp / this.maxHp;
+        if (hpPercent <= 0.5 && vfx) {
+            if (!this.damageSmokeTimer) this.damageSmokeTimer = 0;
+
+            let interval = 0.3;
+            let smokeCount = 2;
+            let smokeSize = 0.35;
+            let smokeLife = 2000;
+            let fireCount = 0;
+
+            if (hpPercent <= 0.15) {
+                interval = 0.02; smokeCount = 8; smokeSize = 0.8; smokeLife = 4000; fireCount = 6;
+            } else if (hpPercent <= 0.25) {
+                interval = 0.06; smokeCount = 5; smokeSize = 0.6; smokeLife = 3000; fireCount = 4;
+            } else if (hpPercent <= 0.35) {
+                interval = 0.12; smokeCount = 3; smokeSize = 0.5; smokeLife = 2500; fireCount = 3;
+            } else if (hpPercent <= 0.45) {
+                interval = 0.2; smokeCount = 2; smokeSize = 0.4; smokeLife = 2000; fireCount = 2;
+            }
+
+            this.damageSmokeTimer += dt;
+            if (this.damageSmokeTimer > interval) {
+                this.damageSmokeTimer = 0;
+
+                for (let i = 0; i < smokeCount; i++) {
+                    const smokePos = new THREE.Vector3(
+                        (Math.random() - 0.5) * 1.2,
+                        0.5 + Math.random() * 0.6,
+                        (Math.random() - 0.5) * 1.2
+                    );
+                    smokePos.applyMatrix4(this.group.matrixWorld);
+
+                    vfx.spawnSmoke(smokePos, 0x1a1a1a, 1, 0.2, smokeSize, smokeLife);
+
+                    if (hpPercent <= 0.25) {
+                        vfx.spawnSmoke(smokePos, 0x333333, 1, 0.25, smokeSize * 0.8, smokeLife * 0.8);
+                    }
+                }
+
+                if (fireCount > 0) {
+                    for (let i = 0; i < fireCount; i++) {
+                        const firePos = new THREE.Vector3(
+                            (Math.random() - 0.5) * 1.0,
+                            0.3 + Math.random() * 0.5,
+                            (Math.random() - 0.5) * 1.0
+                        );
+                        firePos.applyMatrix4(this.group.matrixWorld);
+                        vfx.spawnFire(firePos, 3, 2.0, 0.25, 600);
                     }
                 }
             }
