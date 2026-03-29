@@ -25,12 +25,12 @@ const CONFIG = {
     COLORS: {
         SELF: 0x4d79ff, // Blue
         OTHER: 0xff4d4d, // Red
-        FLOOR_1: 0x3d2b1f, // Dark Earth
-        FLOOR_2: 0x4b3621, // Muddy Brown
-        FLOOR_3: 0x5d4037, // Saddle Brown
-        FLOOR_4: 0x333333, // Rocky Gray
+        FLOOR_1: 0x1a1412, // Scorched Earth
+        FLOOR_2: 0x252019, // Ash Ground
+        FLOOR_3: 0x1f1c18, // Charred Soil
+        FLOOR_4: 0x2a2520, // Burnt Rubble
         BULLET: 0xffff00,
-        WALL: 0x555555,
+        WALL: 0x3a3530,
         BOT: 0x9933ff // Purple for bots
     },
     MAP: {
@@ -3637,8 +3637,8 @@ const Game = {
 
         vfx = new ParticleSystem();
         cameraShakeTime = 0;
-        scene.background = new THREE.Color(0x1a1a1a);
-        scene.fog = new THREE.FogExp2(0x1a1a1a, 0.015); // Add depth with fog
+        scene.background = new THREE.Color(0x12100e);
+        scene.fog = new THREE.FogExp2(0x12100e, 0.025);
 
         camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
@@ -3688,7 +3688,6 @@ const Game = {
         scene.add(directionalLight);
         scene.add(directionalLight.target); // Need to add target specifically for following
 
-        // Floor (Rugged Ground/Earth style)
         const tileSize = 5;
         const tilesPerSide = CONFIG.WORLD.SIZE / tileSize;
         const groundColors = [CONFIG.COLORS.FLOOR_1, CONFIG.COLORS.FLOOR_2, CONFIG.COLORS.FLOOR_3, CONFIG.COLORS.FLOOR_4];
@@ -3703,20 +3702,51 @@ const Game = {
 
                 const tileH = 0.2;
                 const tile = createVoxelBox(tileSize, tileH, tileSize, color, 0.1, 0.9);
-                tile.position.set(tileX, -0.1, tileZ); // Centered at y=0 visually
+                tile.position.set(tileX, -0.1, tileZ);
                 tile.receiveShadow = true;
                 scene.add(tile);
 
-                // Add occasional pebbles (잔돌)
                 if (seededRandom(ix * 55 + iz * 23) < 0.15) {
                     const pSize = 0.1 + seededRandom(ix + iz) * 0.2;
-                    const pebble = createVoxelBox(pSize, pSize, pSize, 0x555555);
+                    const pebble = createVoxelBox(pSize, pSize, pSize, 0x2a2520);
                     pebble.position.set(
                         tileX + (seededRandom(ix * 2) - 0.5) * (tileSize - 1),
                         0.05,
                         tileZ + (seededRandom(iz * 2) - 0.5) * (tileSize - 1)
                     );
                     scene.add(pebble);
+                }
+
+                if (seededRandom(ix * 31 + iz * 17) < 0.12) {
+                    const crack = createVoxelBox(1.5, 0.02, 0.08, 0x0d0a08, 0, 1);
+                    crack.position.set(
+                        tileX + (seededRandom(ix) - 0.5) * (tileSize - 2),
+                        0.01,
+                        tileZ + (seededRandom(iz) - 0.5) * (tileSize - 2)
+                    );
+                    crack.rotation.y = seededRandom(ix + iz * 3) * Math.PI;
+                    scene.add(crack);
+                }
+
+                if (seededRandom(ix * 41 + iz * 29) < 0.08) {
+                    const mud = createVoxelBox(1.2, 0.03, 0.9, 0x1a120d, 0, 1);
+                    mud.position.set(
+                        tileX + (seededRandom(ix * 3) - 0.5) * (tileSize - 2),
+                        0.015,
+                        tileZ + (seededRandom(iz * 3) - 0.5) * (tileSize - 2)
+                    );
+                    scene.add(mud);
+                }
+
+                if (seededRandom(ix * 17 + iz * 43) < 0.1) {
+                    const debris = createVoxelBox(0.3, 0.15, 0.4, 0x252220, 0, 0.9);
+                    debris.position.set(
+                        tileX + (seededRandom(ix * 7) - 0.5) * (tileSize - 2),
+                        0.075,
+                        tileZ + (seededRandom(iz * 7) - 0.5) * (tileSize - 2)
+                    );
+                    debris.rotation.y = seededRandom(ix * iz) * Math.PI * 2;
+                    scene.add(debris);
                 }
             }
         }
@@ -3854,12 +3884,54 @@ const Game = {
             cap.position.y = 2.8;
             treeGroup.add(cap);
 
-            // Add invisible collision box to walls
             const col = createVoxelBox(0.8, 3.5, 0.8, 0x000000);
             col.position.set(x, 1.75, z);
             col.visible = false;
             col.userData = { type: 'tree', parentTree: treeGroup };
-            scene.add(col); // CRITICAL: Must be in scene to update world matrices
+            scene.add(col);
+            walls.push(col);
+        }
+
+        function createBurnedTree(x, z) {
+            const treeGroup = new THREE.Group();
+            treeGroup.position.set(x, 0, z);
+            treeGroup.userData = { type: 'tree', shakeAmount: 0, initialRotation: 0 };
+            scene.add(treeGroup);
+            trees.push(treeGroup);
+
+            const charredTrunk = createVoxelCylinder(0.22, 0.28, 1.2, 0x0d0a08, 0, 0.8);
+            charredTrunk.position.y = 0.6;
+            charredTrunk.rotation.z = seededRandom(x * 7 + z * 3) * 0.15 - 0.075;
+            treeGroup.add(charredTrunk);
+
+            const deadBranches = createVoxelCone(0.6, 1.2, 0x151210, 0, 0.6);
+            deadBranches.position.y = 1.5;
+            treeGroup.add(deadBranches);
+
+            const ashFoliage = createVoxelCone(0.4, 0.8, 0x1a1815, 0, 0.5);
+            ashFoliage.position.y = 2.0;
+            ashFoliage.rotation.y = Math.PI / 6;
+            treeGroup.add(ashFoliage);
+
+            for (let i = 0; i < 4; i++) {
+                const spot = createVoxelBox(0.12, 0.06, 0.12, 0x080504);
+                spot.position.set(
+                    (seededRandom(x + i) - 0.5) * 0.4,
+                    0.2 + seededRandom(z + i) * 0.6,
+                    (seededRandom(i * 7) - 0.5) * 0.4
+                );
+                treeGroup.add(spot);
+            }
+
+            const ashPile = createVoxelBox(0.7, 0.1, 0.7, 0x1a1510, 0, 1);
+            ashPile.position.y = 0.05;
+            treeGroup.add(ashPile);
+
+            const col = createVoxelBox(0.8, 3.5, 0.8, 0x000000);
+            col.position.set(x, 1.75, z);
+            col.visible = false;
+            col.userData = { type: 'tree', parentTree: treeGroup };
+            scene.add(col);
             walls.push(col);
         }
 
@@ -3955,18 +4027,7 @@ const Game = {
             }
         }
 
-        // Add Background Skyline (빌딩 실루엣)
-        for (let i = 0; i < 40; i++) {
-            const r = 80 + seededRandom(worldSeed++) * 50;
-            const ang = seededRandom(worldSeed++) * Math.PI * 2;
-            const x = Math.cos(ang) * r;
-            const z = Math.sin(ang) * r;
-            const w = 5 + seededRandom(worldSeed++) * 10;
-            const h = 20 + seededRandom(worldSeed++) * 60;
-            const building = createVoxelBox(w, h, w, 0x111111, 0, 1);
-            building.position.set(x, h / 2 - 5, z);
-            scene.add(building);
-        }
+        // [REMOVED] Background Skyline - outer buildings that show when looking at map edges
 
         // Scatter props deterministically (Excluding center repair station area)
         for (let i = 0; i < 60; i++) {
@@ -3979,7 +4040,7 @@ const Game = {
                 if (type < 0.2) createHedgehog(rx, rz);
                 else if (type < 0.4) createProp('crate', rx, rz);
                 else if (type < 0.6) createProp('barrel', rx, rz);
-                else createTree(rx, rz);
+                else createBurnedTree(rx, rz);
             }
         }
 
