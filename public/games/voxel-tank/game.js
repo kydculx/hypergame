@@ -2325,6 +2325,13 @@ class Bot extends Tank {
                     this.stateTimer = 0.5;
                 }
             }
+
+            // --- Auto-Center Turret during WANDER ---
+            const wanderTurretStep = CONFIG.TANK.TURRET_ROTATE_SPEED * dt;
+            let wanderTurretRotDiff = 0 - this.turretGroup.rotation.y; // 0 is forward relative to hull
+            while (wanderTurretRotDiff < -Math.PI) wanderTurretRotDiff += Math.PI * 2;
+            while (wanderTurretRotDiff > Math.PI) wanderTurretRotDiff -= Math.PI * 2;
+            this.turretGroup.rotation.y += Math.max(-wanderTurretStep, Math.min(wanderTurretStep, wanderTurretRotDiff));
         }
 
         // Ensure bots stay in bounds
@@ -2710,6 +2717,9 @@ function update(dt) {
             if (angleDiff < 0.2 && distToEnemy < CONFIG.BOT.ATTACK_RANGE) {
                 fire();
             }
+        } else if (!isManualAim) {
+            // No enemy found and not manual aiming -> Return turret to forward direction
+            targetTurretAngle = myTank.group.rotation.y;
         }
 
 
