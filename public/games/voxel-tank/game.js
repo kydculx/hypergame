@@ -54,7 +54,7 @@ const CONFIG = {
         ]
     },
     BOT: {
-        COUNT: 10,
+        COUNT: 15,
         FORWARD_SPEED: 5,
         BACKWARD_SPEED: 3,
         ROTATE_SPEED: 4,
@@ -75,6 +75,24 @@ const CONFIG = {
         CANNON: { DAMAGE_INC: 2, SCALE_INC: 0.15 },
         SPEED: { MOVE_INC: 0.4, ROT_INC: 0.15 },
         ARMOR: { HP_INC: 30 }
+    },
+    AIRSTRIKE: {
+        INTERVAL_MIN: 10, // 최소 대기 시간 (초)
+        INTERVAL_MAX: 10, // 최대 대기 시간 (초)
+        PLANE_SPEED: 25, // 전투기 비행 속도
+        PLANE_HEIGHT: 20, // 비행 고도 (지면으로부터)
+        BOMB_COUNT: 10, // 한 번의 비행당 최대 투하 폭탄 수 (기존 융단폭격용, 현재는 타겟당 제한 사용)
+        BOMB_INTERVAL: 0.15, // 폭탄 투하 간격 (초)
+        BOMB_DAMAGE: 45, // 폭탄 데미지 (직격 기준)
+        BOMB_RADIUS: 6, // 폭발 효과 반경
+        FALL_SPEED: 18, // 폭탄 낙하 속도
+        BOMB_MAX_PER_TARGET: 3 // 한 탱크당 최대 폭격 횟수
+    },
+    REPAIR_STATION: {
+        RADIUS: 1.5, // 수리 반경
+        HEAL_RATE: 8.0, // 초당 회복량
+        COLOR_PAD: 0x2d3436, // 기본 패드 색상
+        COLOR_GLOW: 0x00b894 // 회복 중인 상태의 발광 색상
     }
 };
 
@@ -153,6 +171,11 @@ const wrecks = []; // Array of destroyed tanks for smoke vfx
 const bots = []; // Array of Bot instances
 const powerups = []; // NEW: Array of active HealthPotion instances
 const wallBoxes = []; // NEW: Cache for world-space bounding boxes
+const airstrikePlanes = []; // NEW: Array of active FighterPlane instances
+const airstrikeBombs = []; // NEW: active AirstrikeBomb instances
+let repairStation; // NEW: 단일 수리 정비소 인스턴스
+let airstrikeWarningActive = false;
+let nextAirstrikeTime = 0; // NEW: Timer for next airstrike event
 let supabaseClient;
 let channel;
 let amIMaster = false;
@@ -255,6 +278,41 @@ class ParticleSystem {
                 life: life,
                 maxLife: life,
                 gravity: 9.8
+            });
+            this.group.add(p);
+        }
+    }
+
+    // Specialized welding sparks (용접 스파크 - 3색 조합 & 고중력)
+    spawnWeldingSparks(pos) {
+        if (this.particles.length >= this.MAX_PARTICLES) return;
+        const count = 4 + Math.floor(Math.random() * 6);
+        for (let i = 0; i < count; i++) {
+            // Palette: Core White, Electric Cyan, Luminous Orange
+            const rand = Math.random();
+            const color = rand < 0.4 ? 0xffffff : (rand < 0.7 ? 0x34e7e4 : 0xffaa00);
+            const mat = this.getMat(color);
+            const p = new THREE.Mesh(this.sharedGeo, mat);
+            const size = 0.03 + Math.random() * 0.05;
+            p.scale.setScalar(size);
+            p.position.copy(pos);
+
+            const speed = 4 + Math.random() * 4;
+            const vel = new THREE.Vector3(
+                (Math.random() - 0.5) * speed,
+                (Math.random() * 0.5 + 0.5) * speed * 0.6,
+                (Math.random() - 0.5) * speed
+            );
+
+            this.particles.push({
+                mesh: p,
+                vel: vel,
+                life: 150 + Math.random() * 300,
+                maxLife: 450,
+                gravity: 25.0, // Strong gravity for falling effect
+                friction: 0.98,
+                initialSize: size,
+                noShrink: true // Don't shrink, stay small and intense
             });
             this.group.add(p);
         }
@@ -522,8 +580,8 @@ class ParticleSystem {
                 // Growth for Exhaust
                 const growth = 1.0 + (1.0 - p.life / p.maxLife) * 1.5;
                 p.mesh.scale.setScalar(growth * (p.initialSize || 1));
-            } else {
-                // Shrink for Smoke/Fire
+            } else if (!p.noShrink) {
+                // Shrink for Smoke/Fire (only if noShrink is false)
                 p.mesh.scale.setScalar((p.life / p.maxLife) * (p.initialSize || 1));
             }
         }
@@ -968,6 +1026,451 @@ class Bullet {
     }
 }
 
+class AirstrikeBomb {
+    constructor(position) {
+        this.group = new THREE.Group();
+        this.position = position.clone();
+        this.group.position.copy(this.position);
+
+        // --- 고정밀 복셀 폭탄 모델링 ---
+        const darkBody = 0x2d3436;
+        const yellowStrip = 0xfdcb6e;
+        const lightGray = 0xb2bec3;
+
+        // 1. 폭탄 본체 (끝이 좁아지는 원통형)
+        const body = createVoxelCylinder(0.25, 0.25, 0.8, darkBody, 0.3, 0.7);
+        body.rotation.x = Math.PI / 2;
+        this.group.add(body);
+
+        // 2. 탄두부 (Nose Cone)
+        const nose = createVoxelCone(0.25, 0.3, yellowStrip);
+        nose.position.z = -0.5;
+        nose.rotation.x = Math.PI / 2;
+        this.group.add(nose);
+
+        // 3. 꼬리 날개 (안정적인 낙하용)
+        for (let i = 0; i < 4; i++) {
+            const fin = createVoxelBox(0.05, 0.3, 0.3, lightGray);
+            fin.position.z = 0.4;
+            fin.rotation.z = (Math.PI / 2) * i;
+            this.group.add(fin);
+        }
+
+        // 지면을 향하도록 정렬
+        this.group.lookAt(this.position.clone().add(new THREE.Vector3(0, -1, 0)));
+        scene.add(this.group);
+    }
+
+    update(dt) {
+        // 중력에 따른 낙하 처리
+        this.position.y -= CONFIG.AIRSTRIKE.FALL_SPEED * dt;
+        this.group.position.copy(this.position);
+
+        // 지면 충돌 시 폭발 실행
+        if (this.position.y <= 0) {
+            this.explode();
+            return false; // 객체 제거
+        }
+        return true;
+    }
+
+    explode() {
+        // 폭발 시각 효과 및 사운드 실행
+        if (vfx) vfx.spawnExplosion(this.position);
+        if (window.AudioSFX) window.AudioSFX.playExplosion();
+
+        // 폭발 반경 내 탱크들에게 데미지 적용
+        const radius = CONFIG.AIRSTRIKE.BOMB_RADIUS;
+        const damage = CONFIG.AIRSTRIKE.BOMB_DAMAGE;
+
+        const checkDamage = (tank) => {
+            if (!tank || tank.hp <= 0) return;
+            const dist = tank.group.position.distanceTo(this.position);
+            if (dist <= radius) {
+                // 중심부에 가까울수록 큰 데미지 (선형 감쇄)
+                const damageFactor = 1.0 - (dist / radius) * 0.5;
+                tank.handleHit(damage * damageFactor, "airstrike");
+            }
+        };
+
+        if (myTank) checkDamage(myTank);
+        tanks.forEach(tank => checkDamage(tank));
+        bots.forEach(bot => checkDamage(bot));
+
+        // 플레이어 근처 폭발 시 화면 흔들림 연출
+        if (myTank) {
+            const distToPlayer = myTank.group.position.distanceTo(this.position);
+            if (distToPlayer < 20) {
+                cameraShakeTime = 0.4 * (1.0 - distToPlayer / 20);
+            }
+        }
+
+        this.destroy();
+    }
+
+    destroy() {
+        scene.remove(this.group);
+        this.group.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+    }
+}
+
+class FighterPlane {
+    constructor(startPoint, endPoint) {
+        this.group = new THREE.Group();
+        this.startPoint = startPoint.clone();
+        this.endPoint = endPoint.clone();
+        this.dir = endPoint.clone().sub(startPoint).normalize();
+        this.distance = startPoint.distanceTo(endPoint);
+        this.traveled = 0;
+        this.bombTimer = 0;
+
+        // --- 깔끔하고 직관적인 복셀 제트기 ---
+        const mainColor = 0x2d3436; // 스텔스 블랙
+        const wingColor = 0x636e72; // 짙은 그레이
+
+        // 1. 기체 본체
+        const body = createVoxelBox(0.8, 0.6, 2.8, mainColor);
+        this.group.add(body);
+
+        // 2. 주날개 (Sharp Delta)
+        const wing = createVoxelBox(4.2, 0.1, 1.2, mainColor);
+        wing.position.set(0, 0, 0.1);
+        this.group.add(wing);
+
+        // 3. 수직 미익 (Vertical Tail)
+        const tail = createVoxelBox(0.1, 1.0, 0.6, wingColor);
+        tail.position.set(0, 0.6, 1.1);
+        this.group.add(tail);
+
+        this.group.position.copy(this.startPoint);
+        this.group.lookAt(this.endPoint);
+        scene.add(this.group);
+    }
+
+    update(dt) {
+        const step = CONFIG.AIRSTRIKE.PLANE_SPEED * dt;
+        this.traveled += step;
+        this.group.position.add(this.dir.clone().multiplyScalar(step));
+
+        // --- 라인 폭격(융단폭격) 로직 복원 ---
+        // 일정 간격마다 폭탄을 투하하여 경로 전체를 타격함
+        this.bombTimer += dt;
+        if (this.bombTimer > CONFIG.AIRSTRIKE.BOMB_INTERVAL) {
+            this.bombTimer = 0;
+            // 맵 경계 내에서만 폭탄 투하
+            const worldRadius = CONFIG.WORLD.SIZE / 2;
+            if (Math.abs(this.group.position.x) < worldRadius && Math.abs(this.group.position.z) < worldRadius) {
+                this.dropBomb();
+            }
+        }
+
+        if (this.traveled >= this.distance) {
+            this.destroy();
+            return false;
+        }
+        return true;
+    }
+
+    dropBomb() {
+        const bombPos = this.group.position.clone();
+        bombPos.y -= 1.0;
+        airstrikeBombs.push(new AirstrikeBomb(bombPos));
+    }
+
+    destroy() {
+        scene.remove(this.group);
+        this.group.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+    }
+}
+
+class RepairStation {
+    constructor() {
+        this.group = new THREE.Group();
+        this.position = new THREE.Vector3(0, 0, 0);
+        this.group.position.copy(this.position);
+
+        const baseSize = CONFIG.REPAIR_STATION.RADIUS * 4.2; 
+        const concreteColor = 0x8a8e91; 
+        const hazardYellow = 0xf9ca24; 
+        const darkMetal = 0x2c3e50;
+        const boltColor = 0xbdc3c7;
+
+        // 1. 폴리싱된 산업용 콘크리트 베이스
+        const base = createVoxelBox(baseSize, 0.4, baseSize, concreteColor, 0.1, 0.9);
+        base.position.y = 0.2;
+        base.receiveShadow = true;
+        this.group.add(base);
+
+
+        // 안전선 및 배수구 (Safety Stripes & Grates)
+        for (let side of [-1, 1]) {
+            const hStrip = createVoxelBox(baseSize, 0.05, 0.25, hazardYellow);
+            hStrip.position.set(0, 0.43, side * (baseSize / 2 - 0.15));
+            this.group.add(hStrip);
+            
+            const vStrip = createVoxelBox(0.25, 0.05, baseSize, hazardYellow);
+            vStrip.position.set(side * (baseSize / 2 - 0.15), 0.43, 0);
+            this.group.add(vStrip);
+
+            const grate = createVoxelBox(1.0, 0.03, 0.5, 0x111111);
+            grate.position.set(side * (baseSize / 4), 0.415, 0);
+            this.group.add(grate);
+        }
+
+        // 2. 디테일이 강화된 4주식 유압 리프트 & 갠트리 크레인
+        this.pylons = [];
+        this.strobes = [];
+        const pillarDist = baseSize / 2 + 0.6;
+        const pHeight = 5.2;
+
+        for (let x of [-1, 1]) {
+            for (let z of [-1, 1]) {
+                const pillar = new THREE.Group();
+                pillar.position.set(x * pillarDist, 0.4, z * pillarDist);
+
+                const body = createVoxelBox(1.0, pHeight, 1.0, hazardYellow, 0.4, 0.6);
+                body.position.y = pHeight / 2;
+                pillar.add(body);
+
+                const plate = createVoxelBox(1.2, 0.8, 1.2, darkMetal);
+                plate.position.y = 0.4;
+                pillar.add(plate);
+
+                for (let j = 0; j < 4; j++) {
+                    const bolt = createVoxelBox(0.1, 0.1, 0.1, boltColor);
+                    const angle = (j / 4) * Math.PI * 2 + Math.PI / 4;
+                    bolt.position.set(Math.cos(angle)*0.5, 0.8, Math.sin(angle)*0.5);
+                    pillar.add(bolt);
+                }
+
+                const cylinder = createVoxelCylinder(0.18, 0.18, pHeight * 0.8, boltColor, 0.9, 0.1);
+                cylinder.position.set(x * -0.25, pHeight / 2, z * -0.25);
+                pillar.add(cylinder);
+
+                const light = createVoxelBox(0.25, 0.25, 0.1, 0xffaa00);
+                light.position.set(0, pHeight - 0.5, 0.51);
+                pillar.add(light);
+                this.strobes.push(light);
+
+                this.group.add(pillar);
+                this.pylons.push(pillar);
+            }
+
+            const beamX = createVoxelBox(baseSize + 2.5, 0.6, 0.6, darkMetal);
+            beamX.position.set(0, pHeight + 0.4, x * pillarDist);
+            this.group.add(beamX);
+
+            const beamZ = createVoxelBox(0.6, 0.6, baseSize + 2.5, darkMetal);
+            beamZ.position.set(x * pillarDist, pHeight + 0.4, 0);
+            this.group.add(beamZ);
+        }
+
+        // 윈치와 훅 (Winch & Hook)
+        const winch = createVoxelBox(1.2, 0.8, 1.4, 0x333333);
+        winch.position.set(0, pHeight + 1.2, 0);
+        this.group.add(winch);
+
+        const hookWire = createVoxelCylinder(0.06, 0.06, 2.5, 0x555555);
+        hookWire.position.set(0, pHeight, 0);
+        this.group.add(hookWire);
+
+        const hook = createVoxelBox(0.5, 0.7, 0.3, darkMetal);
+        hook.position.set(0, pHeight - 1.25, 0);
+        this.group.add(hook);
+
+        // [NEW] 공중 케이블 (Hanging Cables)
+        this.addCables(pillarDist, pHeight);
+
+        // 3. 산업용 용접 로봇 팔 (Articulated Robotic Arms)
+        this.arms = [];
+        for (let i = 0; i < 2; i++) {
+            const side = i === 0 ? -1 : 1;
+            const armGroup = new THREE.Group();
+            armGroup.position.set(side * (pillarDist - 0.2), 0.4, 0); // Symmetrical on Z=0
+            
+            const mount = createVoxelBox(1.0, 0.6, 1.0, 0x34495e);
+            armGroup.add(mount);
+
+            const s1 = createVoxelBox(0.5, 2.2, 0.5, hazardYellow);
+            s1.position.y = 1.4;
+            s1.rotation.z = side * 0.4;
+            armGroup.add(s1);
+
+            const s2Group = new THREE.Group();
+            s2Group.position.set(side * -0.7, 2.7, 0);
+            s2Group.rotation.z = side * 1.2; // Fold inwards
+            armGroup.add(s2Group);
+
+            const s2Body = createVoxelBox(0.4, 2.0, 0.4, hazardYellow);
+            s2Body.position.y = 1.0;
+            s2Group.add(s2Body);
+
+            const headBase = createVoxelBox(0.4, 0.3, 0.4, 0x111111);
+            headBase.position.y = 1.35;
+            s2Group.add(headBase);
+
+            // [NEW] 날카롭고 정교한 니들 팁 (Needle Tip)
+            const tip = createVoxelBox(0.08, 0.8, 0.08, 0x7f8c8d);
+            tip.position.y = 1.9;
+            s2Group.add(tip);
+
+            const hose = createVoxelCylinder(0.06, 0.06, 1.5, 0x111111);
+            hose.position.set(side * 0.2, 0, 0);
+            hose.rotation.z = side * 0.5;
+            s2Group.add(hose);
+
+            this.group.add(armGroup);
+            this.arms.push({ group: armGroup, s1: s1, s2: s2Group, tip: tip, side: side });
+        }
+
+        this.addProps(baseSize, pHeight);
+
+        scene.add(this.group);
+        this.animTime = 0;
+    }
+
+    addCables(dist, height) {
+        // 기둥들 사이와 갠트리에 늘어진 유압 호스 표현
+        for (let i = 0; i < 4; i++) {
+            const sideX = i < 2 ? -1 : 1;
+            const sideZ = i % 2 === 0 ? -1 : 1;
+            
+            // 기둥 상단에서 갠트리 중심으로 향하는 늘어진 케이블 (간소화된 2단 직선으로 곡선 흉내)
+            const cable = createVoxelCylinder(0.05, 0.05, dist * 0.8, 0x111111);
+            cable.position.set(sideX * (dist * 0.6), height + 0.2, sideZ * (dist * 0.6));
+            cable.rotation.y = Math.atan2(sideZ, sideX);
+            cable.rotation.z = Math.PI / 6;
+            this.group.add(cable);
+        }
+    }
+
+    addProps(baseSize, pHeight) {
+        const cab = createVoxelBox(1.0, 1.6, 0.8, 0xc0392b);
+        cab.position.set(-baseSize/2 - 2, 0.8, baseSize/4);
+        this.group.add(cab);
+
+        const screenSize = 0.6;
+        const screen = createVoxelBox(screenSize, 0.4, 0.1, 0x111111);
+        screen.position.set(-baseSize/2 - 2, 1.3, baseSize/4 + 0.41);
+        this.group.add(screen);
+        
+        this.monitorDisplay = createVoxelBox(0.5, 0.3, 0.02, 0x2ecc71);
+        this.monitorDisplay.position.set(-baseSize/2 - 2, 1.3, baseSize/4 + 0.46);
+        this.group.add(this.monitorDisplay);
+
+        // [NEW] 상단 회전 비콘 라이트 구조물 (Rotating Beacon Base)
+        this.beacon = new THREE.Group();
+        this.beacon.position.set(0, pHeight + 2.0, 0);
+        this.group.add(this.beacon);
+
+        const bBase = createVoxelBox(0.4, 0.3, 0.4, 0x333333);
+        this.beacon.add(bBase);
+        this.beaconLight = createVoxelBox(0.3, 0.2, 0.3, 0xff0000);
+        this.beaconLight.position.y = 0.25;
+        this.beacon.add(this.beaconLight);
+
+        // 바닥 웨더링 (Grime near grates)
+        for (let side of [-1, 1]) {
+            const grime = createVoxelBox(1.2, 0.02, 0.7, 0x333333, 0.3, 0.1);
+            grime.position.set(side * (baseSize / 4), 0.41, 0);
+            this.group.add(grime);
+        }
+
+        for (let h = 0; h < 3; h++) {
+            const track = createVoxelBox(1.2, 0.2, 0.8, 0x111111);
+            track.position.set(baseSize/2 + 2, 0.1 + h * 0.25, -baseSize/4);
+            track.rotation.y = 0.3 * h;
+            this.group.add(track);
+        }
+
+        const barrel = createVoxelCylinder(0.4, 0.4, 1.2, 0x2980b9);
+        barrel.position.set(baseSize/2 + 2, 0.6, baseSize/2);
+        this.group.add(barrel);
+    }
+
+    update(dt) {
+        this.animTime += dt;
+        const isRepairing = myTank && myTank.hp > 0 &&
+            myTank.group.position.distanceTo(this.position) < (CONFIG.REPAIR_STATION.RADIUS + 2.0) &&
+            myTank.hp < myTank.maxHp;
+
+        // 1. 비콘 라이트 애니메이션
+        if (this.beaconLight) {
+            if (isRepairing) {
+                this.beacon.rotation.y += dt * 10;
+                this.beaconLight.material.emissive.setHex(0xff0000);
+                this.beaconLight.material.emissiveIntensity = 1.0 + Math.sin(this.animTime * 20) * 0.5;
+            } else {
+                this.beaconLight.material.emissiveIntensity = 0;
+            }
+        }
+
+        // 2. 진단 모니터 깜빡임
+        if (this.monitorDisplay) {
+            if (isRepairing) {
+                const flicker = Math.random() < 0.1 ? 0.2 : 0.8 + Math.random() * 0.4;
+                this.monitorDisplay.material.emissive.setHex(0x2ecc71);
+                this.monitorDisplay.material.emissiveIntensity = flicker;
+                if (Math.random() < 0.05) {
+                    this.monitorDisplay.material.color.setHex(Math.random() < 0.5 ? 0x2ecc71 : 0x3498db);
+                }
+            } else {
+                this.monitorDisplay.material.emissiveIntensity = 0.2;
+                this.monitorDisplay.material.color.setHex(0x2ecc71);
+            }
+        }
+
+        this.strobes.forEach((light, i) => {
+            if (isRepairing) {
+                const flash = 0.5 + Math.sin(this.animTime * 18 + i) * 0.5;
+                light.material.emissive.setHex(0xffaa00);
+                light.material.emissiveIntensity = flash * 1.5;
+            } else {
+                light.material.emissiveIntensity = 0;
+            }
+        });
+
+        this.arms.forEach((arm, i) => {
+            if (isRepairing) {
+                const move = Math.sin(this.animTime * 5 + i) * 0.18;
+                arm.s2.rotation.z = arm.side * (1.2 + move);
+
+                if (Math.random() < 0.6) { // More frequent sparks
+                    const hPos = new THREE.Vector3();
+                    // [FIX] 니들 팁 끝점에서 파티클 발생
+                    arm.tip.getWorldPosition(hPos);
+                    const tipOffset = new THREE.Vector3(0, 0.4, 0).applyQuaternion(arm.tip.quaternion);
+                    hPos.add(tipOffset);
+                    
+                    vfx.spawnWeldingSparks(hPos);
+                    if (Math.random() < 0.3) {
+                        vfx.spawnSmoke(hPos, 0xaaaaaa, 1, 0.4, 0.2, 500);
+                    }
+                }
+            } else {
+                arm.s2.rotation.z = THREE.MathUtils.lerp(arm.s2.rotation.z, arm.side * 0.6, dt * 2);
+            }
+        });
+
+        if (isRepairing) {
+            this.healTank(myTank, dt);
+            if (Math.random() < 0.25) vfx.spawnHeal(myTank.group.position);
+        }
+    }
+
+    healTank(tank, dt) {
+        const newHp = Math.min(tank.maxHp, tank.hp + CONFIG.REPAIR_STATION.HEAL_RATE * dt);
+        tank.updateHP(newHp);
+        if (Math.random() < 0.04) AudioSFX.playHeal();
+    }
+}
+
 class Tank {
     constructor(id, name, isLocal = false) {
         this.id = id;
@@ -1030,27 +1533,73 @@ class Tank {
 
 
 
-        // Rear Fuel Barrels (보조 연료통)
-        const barrel1 = createVoxelCylinder(0.18, 0.18, 0.6, 0x2d3436, 0.5, 0.5);
+        // Rear Fuel Barrels (보조 연료통 - 길이 절반으로 축소)
+        const barrel1 = createVoxelCylinder(0.18, 0.18, 0.3, 0x2d3436, 0.5, 0.5);
         barrel1.position.set(-0.4, 0.4, 1.15);
         barrel1.rotation.x = Math.PI / 2;
         this.hullGroup.add(barrel1);
 
-        const barrel2 = createVoxelCylinder(0.18, 0.18, 0.6, 0x2d3436, 0.5, 0.5);
+        const barrel2 = createVoxelCylinder(0.18, 0.18, 0.3, 0x2d3436, 0.5, 0.5);
         barrel2.position.set(0.4, 0.4, 1.15);
         barrel2.rotation.x = Math.PI / 2;
         this.hullGroup.add(barrel2);
 
-        // Rear Decor (배기구)
-        const exhaustL = createVoxelCylinder(0.08, 0.08, 0.3, 0x111111);
-        exhaustL.position.set(-0.48, 0.32, 1.4);
+        // Rear Decor (배기구 - 차체에 매립하여 삐져나온 부분 수정)
+        const exhaustL = createVoxelCylinder(0.08, 0.08, 0.15, 0x111111);
+        exhaustL.position.set(-0.48, 0.32, 1.18);
         exhaustL.rotation.x = Math.PI / 2;
         this.hullGroup.add(exhaustL);
 
-        const exhaustR = createVoxelCylinder(0.08, 0.08, 0.3, 0x111111);
-        exhaustR.position.set(0.48, 0.32, 1.4);
+        const exhaustR = createVoxelCylinder(0.08, 0.08, 0.15, 0x111111);
+        exhaustR.position.set(0.48, 0.32, 1.18);
         exhaustR.rotation.x = Math.PI / 2;
         this.hullGroup.add(exhaustR);
+
+        // --- NEW: Premium Hull Front Details (상단 디자인 고도화) ---
+        // 1. Driver's Hatch (조종수 해치)
+        const dHatch = createVoxelBox(0.35, 0.06, 0.35, detailColor);
+        dHatch.position.set(0, 0.46, -0.75);
+        this.hullGroup.add(dHatch);
+
+        // 3-way Periscopes (잠망경)
+        for (let ang of [-0.6, 0, 0.6]) {
+            const peri = createVoxelBox(0.08, 0.08, 0.06, 0x111111);
+            peri.position.set(Math.sin(ang) * 0.15, 0.5, -0.85 + Math.abs(ang) * 0.05);
+            peri.rotation.y = -ang;
+            this.hullGroup.add(peri);
+            // Lens
+            const lens = createVoxelBox(0.06, 0.04, 0.01, 0x3498db);
+            lens.position.set(peri.position.x, 0.51, peri.position.z - 0.035);
+            lens.rotation.y = -ang;
+            this.hullGroup.add(lens);
+        }
+
+        // 2. Front Headlights (현대적인 LED 헤드라이트)
+        for (let side of [-0.55, 0.55]) {
+            const lightBox = createVoxelBox(0.12, 0.08, 0.08, 0x222222);
+            lightBox.position.set(side, 0.4, -1.05);
+            this.hullGroup.add(lightBox);
+            // Glowing LED
+            const led = new THREE.Mesh(
+                new THREE.BoxGeometry(0.08, 0.04, 0.02),
+                new THREE.MeshBasicMaterial({ color: 0xffffcc })
+            );
+            led.position.set(side, 0.4, -1.1);
+            this.hullGroup.add(led);
+        }
+
+        // 3. Reactive Armor (ERA Blocks - 현대적 장갑)
+        for (let row = 0; row < 2; row++) {
+            for (let col = 0; col < 3; col++) {
+                const era = createVoxelBox(0.25, 0.06, 0.25, mainColor, 0.5, 0.5);
+                const xPos = (col - 1) * 0.35;
+                const zPos = -1.0 + row * 0.3;
+                era.position.set(xPos, 0.46, zPos);
+                // 약간의 랜덤 각도로 투박한 느낌 추가
+                era.rotation.x = -0.1; 
+                this.hullGroup.add(era);
+            }
+        }
 
         // 3. Side Tow Cables
         for (let side of [-0.72, 0.72]) {
@@ -1485,9 +2034,9 @@ class Tank {
                 const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.group.quaternion);
                 const exhaustVel = forward.multiplyScalar(2.0); // Push smoke backwards
 
-                // Dual Exhaust Pipes
-                for (let xOff of [-0.4, 0.4]) {
-                    const exhaustPos = new THREE.Vector3(xOff, 0.65, 0.95).applyMatrix4(this.group.matrixWorld);
+                // Dual Exhaust Pipes (Synchronized with new embedded position)
+                for (let xOff of [-0.48, 0.48]) {
+                    const exhaustPos = new THREE.Vector3(xOff, 0.65, 1.23).applyMatrix4(this.group.matrixWorld);
 
                     // Main Smoke (Premium Growth)
                     vfx.spawnExhaust(exhaustPos, 0x99aabb, 1, 0.4, 0.3, 1500);
@@ -2032,8 +2581,12 @@ function fire() {
 }
 
 function update(dt) {
-    const now = Date.now(); // NEW: define now
-    // 1. My Tank Update (Only while playing and alive)
+    const now = Date.now();
+
+    // 수리 정비소(Repair Station) 상태 업데이트
+    if (repairStation) repairStation.update(dt);
+
+    // 1. 플레이어 탱크 업데이트 (플레이 중이며 살아있을 때만)
     if (WCGames.state === 'PLAYING' && myTank && myTank.hp > 0) {
         // 1. Input Detection & Source Selection
         const isJoystickActive = Math.abs(joystickLeft.x) > 0.1 || Math.abs(joystickLeft.y) > 0.1;
@@ -2259,6 +2812,90 @@ function update(dt) {
             tree.rotation.z = 0;
         }
     });
+
+    // --- Airstrike System (Local only for flair) ---
+    if (nextAirstrikeTime === 0) {
+        nextAirstrikeTime = now + (CONFIG.AIRSTRIKE.INTERVAL_MIN + Math.random() * (CONFIG.AIRSTRIKE.INTERVAL_MAX - CONFIG.AIRSTRIKE.INTERVAL_MIN)) * 1000;
+    }
+
+    // 공습 경고 연출 (진입 3초 전)
+    const warningTime = 3000;
+    const warningElement = document.getElementById('air-raid-warning');
+    if (now > nextAirstrikeTime - warningTime && now < nextAirstrikeTime) {
+        if (!warningElement) {
+            const div = document.createElement('div');
+            div.id = 'air-raid-warning';
+            div.style.position = 'fixed';
+            div.style.top = '40%';
+            div.style.left = '50%';
+            div.style.transform = 'translate(-50%, -50%)';
+            div.style.color = '#ff4d4d';
+            div.style.fontSize = '48px';
+            div.style.fontWeight = 'bold';
+            div.style.textShadow = '0 0 10px #000';
+            div.style.zIndex = '1000';
+            div.style.pointerEvents = 'none';
+            div.style.fontFamily = 'monospace';
+            div.innerText = '⚠️ AIR RAID WARNING ⚠️';
+            document.body.appendChild(div);
+        } else {
+            warningElement.style.display = 'block';
+            warningElement.style.opacity = Math.sin(now * 0.01) * 0.5 + 0.5; // 깜빡임 효과
+        }
+    } else if (warningElement) {
+        warningElement.style.display = 'none';
+    }
+
+    if (now > nextAirstrikeTime) {
+        // --- 스마트 타겟 선정 및 경로 설정 ---
+        const allPotentialTargets = [];
+        if (myTank && myTank.hp > 0) allPotentialTargets.push(myTank);
+        bots.forEach(bot => { if (bot.hp > 0) allPotentialTargets.push(bot); });
+
+        // 타겟 위치 정보 (탱크가 없을 경우 대비 기본값 포함)
+        let targetX = (Math.random() - 0.5) * CONFIG.WORLD.SIZE * 0.5;
+        let targetZ = (Math.random() - 0.5) * CONFIG.WORLD.SIZE * 0.5;
+
+        if (allPotentialTargets.length > 0) {
+            const victim = allPotentialTargets[Math.floor(Math.random() * allPotentialTargets.length)];
+            targetX = victim.group.position.x;
+            targetZ = victim.group.position.z;
+        }
+
+        // --- 360도 전방위 진입 로직 ---
+        // 무작위 진입 각도 결정
+        const angle = Math.random() * Math.PI * 2;
+        // 맵 반경보다 충분히 먼 곳에서 스폰 (원형 경계 외곽)
+        const spawnDist = CONFIG.WORLD.SIZE * 1.5;
+
+        // 시작점과 끝점을 타겟 기준으로 대칭되게 설정 (타겟 상공 통과 보장)
+        const startX = targetX + Math.cos(angle) * spawnDist;
+        const startZ = targetZ + Math.sin(angle) * spawnDist;
+        const endX = targetX - Math.cos(angle) * spawnDist;
+        const endZ = targetZ - Math.sin(angle) * spawnDist;
+
+        const start = new THREE.Vector3(startX, CONFIG.AIRSTRIKE.PLANE_HEIGHT, startZ);
+        const end = new THREE.Vector3(endX, CONFIG.AIRSTRIKE.PLANE_HEIGHT, endZ);
+
+        airstrikePlanes.push(new FighterPlane(start, end));
+
+        // Reset timer
+        nextAirstrikeTime = now + (CONFIG.AIRSTRIKE.INTERVAL_MIN + Math.random() * (CONFIG.AIRSTRIKE.INTERVAL_MAX - CONFIG.AIRSTRIKE.INTERVAL_MIN)) * 1000;
+    }
+
+    // Update Planes
+    for (let i = airstrikePlanes.length - 1; i >= 0; i--) {
+        if (!airstrikePlanes[i].update(dt)) {
+            airstrikePlanes.splice(i, 1);
+        }
+    }
+
+    // Update Bombs
+    for (let i = airstrikeBombs.length - 1; i >= 0; i--) {
+        if (!airstrikeBombs[i].update(dt)) {
+            airstrikeBombs.splice(i, 1);
+        }
+    }
 
     // 4. Update VFX System & Wreck Effects
     if (vfx) {
@@ -3071,16 +3708,18 @@ const Game = {
             scene.add(building);
         }
 
-        // Scatter props deterministically (Increased density, excluding wrecks)
+        // Scatter props deterministically (Excluding center repair station area)
         for (let i = 0; i < 60; i++) {
             const rx = (seededRandom(worldSeed++) - 0.5) * (CONFIG.WORLD.SIZE - 10);
             const rz = (seededRandom(worldSeed++) - 0.5) * (CONFIG.WORLD.SIZE - 10);
-            if (isPositionSafe(rx, rz)) {
+            
+            // [FIX] 정비소 주변 12유닛 내에는 나무나 사물이 생기지 않도록 제외
+            if (isPositionSafe(rx, rz) && Math.hypot(rx, rz) > 12.0) {
                 const type = seededRandom(worldSeed++);
                 if (type < 0.2) createHedgehog(rx, rz);
                 else if (type < 0.4) createProp('crate', rx, rz);
                 else if (type < 0.6) createProp('barrel', rx, rz);
-                else createTree(rx, rz); // Higher tree density
+                else createTree(rx, rz);
             }
         }
 
@@ -3101,6 +3740,9 @@ const Game = {
             const box = new THREE.Box3().setFromObject(wall);
             wallBoxes.push(box);
         });
+
+        // 맵 중앙 수리 정비소(Repair Station) 생성
+        repairStation = new RepairStation();
 
         // My Tank
         const spawn = getRandomSpawnPoint();
