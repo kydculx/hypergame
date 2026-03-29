@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 /* 1. Constant Configuration (Balance, Styles) */
 const CONFIG = {
     TANK: {
@@ -69,12 +71,10 @@ const CONFIG = {
         MAX_COUNT: 10
     },
     UPGRADE: {
-        SPAWN_INTERVAL: 30,
-        MAX_COUNT: 10,
         TYPES: ['CANNON', 'SPEED', 'ARMOR'],
-        CANNON: { DAMAGE_INC: 2, SCALE_INC: 0.1 },
+        CANNON: { DAMAGE_INC: 2, SCALE_INC: 0.15 },
         SPEED: { MOVE_INC: 0.4, ROT_INC: 0.15 },
-        ARMOR: { HP_INC: 20 }
+        ARMOR: { HP_INC: 30 }
     }
 };
 
@@ -95,6 +95,15 @@ function normalizeAngle(angle) {
     while (angle <= -Math.PI) angle += Math.PI * 2;
     while (angle > Math.PI) angle -= Math.PI * 2;
     return angle;
+}
+
+/* 1.6 Terrain Height Function (Disabled) */
+function getTerrainHeight(x, z) {
+    return 0;
+}
+
+function getTerrainNormal(x, z) {
+    return new THREE.Vector3(0, 1, 0);
 }
 
 /* 2. State & Variables (Runtime variables) */
@@ -143,7 +152,6 @@ const trees = []; // Array of tree groups for animation
 const wrecks = []; // Array of destroyed tanks for smoke vfx
 const bots = []; // Array of Bot instances
 const powerups = []; // NEW: Array of active HealthPotion instances
-const upgradeItems = []; // NEW: Array of active UpgradeItem instances
 const wallBoxes = []; // NEW: Cache for world-space bounding boxes
 let supabaseClient;
 let channel;
@@ -151,10 +159,10 @@ let amIMaster = false;
 let lastFireTime = 0;
 let lastSyncTime = 0;
 let lastPowerupSpawnTime = 0;
-let lastUpgradeSpawnTime = 0;
 let animationId = null;
 let cameraShakeTime = 0;
 let wreckSmokeTimer = 0;
+let directionalLight; // Global for shadow follow
 
 /* 3. Utilities (Helper functions) */
 function createVoxelBox(w, h, d, color, metalness = 0.2, roughness = 0.8) {
@@ -165,7 +173,7 @@ function createVoxelBox(w, h, d, color, metalness = 0.2, roughness = 0.8) {
         roughness: roughness
     });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = false; // PERFORMANCE: Only enable on important objects
+    mesh.castShadow = true; // Enabled for tank, crates, etc.
     mesh.receiveShadow = true;
     return mesh;
 }
@@ -981,108 +989,91 @@ class Tank {
         const mainColor = isLocal ? CONFIG.COLORS.SELF : CONFIG.COLORS.OTHER;
         const detailColor = 0x333333;
 
-        // 1. Hull Group (for shaking/recoil)
+        // 1. Hull Group (Lower & Upper) - LEOPARD STYLE (Low & Long)
         this.hullGroup = new THREE.Group();
         this.group.add(this.hullGroup);
 
-        // Body
-        this.body = createVoxelBox(1.2, 0.5, 1.8, mainColor, 0.4, 0.6);
-        this.body.position.y = 0.45;
+        // Main Body (낮고 길게)
+        this.body = createVoxelBox(1.35, 0.32, 2.3, mainColor, 0.4, 0.6);
+        this.body.position.y = 0.3;
         this.hullGroup.add(this.body);
 
-        // Side Skirts (디테일 추가)
-        const skirtL = createVoxelBox(0.1, 0.35, 1.8, mainColor, 0.4, 0.6);
-        skirtL.position.set(-0.6, 0.35, 0);
+        // Side Skirts (궤도 가드 - 더 얇고 길게)
+        const skirtL = createVoxelBox(0.08, 0.28, 2.25, mainColor, 0.4, 0.6);
+        skirtL.position.set(-0.65, 0.35, 0);
         this.hullGroup.add(skirtL);
 
-        const skirtR = createVoxelBox(0.1, 0.35, 1.8, mainColor, 0.4, 0.6);
-        skirtR.position.set(0.6, 0.35, 0);
+        const skirtR = createVoxelBox(0.08, 0.28, 2.25, mainColor, 0.4, 0.6);
+        skirtR.position.set(0.65, 0.35, 0);
         this.hullGroup.add(skirtR);
 
-        // Side Rivets (Bolts) 디테일 추가
-        for (let side of [-0.66, 0.66]) {
-            for (let z = -0.7; z <= 0.8; z += 0.4) {
+        // Side Rivets (Bolts) 디테일
+        for (let side of [-0.68, 0.68]) {
+            for (let z = -0.8; z <= 0.9; z += 0.4) {
                 const rivet = createVoxelBox(0.04, 0.04, 0.04, detailColor);
                 rivet.position.set(side, 0.4, z);
                 this.hullGroup.add(rivet);
             }
         }
 
+        const guardL = createVoxelBox(0.4, 0.05, 0.4, 0x333333);
+        guardL.position.set(-0.48, 0.45, -0.85);
+        this.hullGroup.add(guardL);
+
         const guardR = createVoxelBox(0.4, 0.05, 0.4, 0x333333);
-        guardR.position.set(0.45, 0.42, -0.8);
+        guardR.position.set(0.48, 0.45, -0.85);
         this.hullGroup.add(guardR);
 
-        // --- NEW: Front Details (탱크 전면 디테일 강화) ---
-        // 1. Lower Glacis (전면 하부 장갑 - Slanted feel)
-        const glacis = createVoxelBox(1.1, 0.25, 0.2, mainColor);
-        glacis.position.set(0, 0.35, -0.9);
-        glacis.rotation.x = -Math.PI / 6;
-        this.hullGroup.add(glacis);
+        // --- Tank Front Details (Removed per user request to eliminate 'bulldozer'/'shield' look) ---
 
-        // 2. Headlights (헤드라이트)
-        const headlightColor = 0xffffaa;
-        const lightL = createVoxelBox(0.12, 0.12, 0.08, headlightColor);
-        lightL.position.set(-0.5, 0.55, -0.9);
-        this.hullGroup.add(lightL);
-        const lightR = createVoxelBox(0.12, 0.12, 0.08, headlightColor);
-        lightR.position.set(0.5, 0.55, -0.9);
-        this.hullGroup.add(lightR);
 
-        // 3. Hull Machine Gun (전면 부기관총)
-        const hullMgMount = createVoxelBox(0.15, 0.15, 0.1, 0x222222);
-        hullMgMount.position.set(0.3, 0.55, -0.9);
-        this.hullGroup.add(hullMgMount);
-        const hullMgBarrel = createVoxelCylinder(0.03, 0.03, 0.2, 0x111111);
-        hullMgBarrel.position.set(0.3, 0.55, -0.95);
-        hullMgBarrel.rotation.x = Math.PI / 2;
-        this.hullGroup.add(hullMgBarrel);
 
-        // 4. Tow Hooks (견인 고리)
-        const hookColor = 0x222222;
-        for (let x of [-0.4, 0.4]) {
-            const hook = createVoxelBox(0.08, 0.15, 0.1, hookColor);
-            hook.position.set(x, 0.25, -0.95);
-            this.hullGroup.add(hook);
-        }
-        // ----------------------------------------
 
-        // Rear Fuel Barrels (보조 연료통 - Cylinder로 교체)
+
+        // Rear Fuel Barrels (보조 연료통)
         const barrel1 = createVoxelCylinder(0.18, 0.18, 0.6, 0x2d3436, 0.5, 0.5);
-        barrel1.position.set(-0.35, 0.5, 0.95);
+        barrel1.position.set(-0.4, 0.4, 1.15);
         barrel1.rotation.x = Math.PI / 2;
         this.hullGroup.add(barrel1);
 
         const barrel2 = createVoxelCylinder(0.18, 0.18, 0.6, 0x2d3436, 0.5, 0.5);
-        barrel2.position.set(0.35, 0.5, 0.95);
+        barrel2.position.set(0.4, 0.4, 1.15);
         barrel2.rotation.x = Math.PI / 2;
         this.hullGroup.add(barrel2);
 
-        // Rear Decor (배기구 - Cylinder로 교체)
+        // Rear Decor (배기구)
         const exhaustL = createVoxelCylinder(0.08, 0.08, 0.3, 0x111111);
-        exhaustL.position.set(-0.42, 0.35, 1.1);
+        exhaustL.position.set(-0.48, 0.32, 1.4);
         exhaustL.rotation.x = Math.PI / 2;
         this.hullGroup.add(exhaustL);
 
         const exhaustR = createVoxelCylinder(0.08, 0.08, 0.3, 0x111111);
-        exhaustR.position.set(0.42, 0.35, 1.1);
+        exhaustR.position.set(0.48, 0.32, 1.4);
         exhaustR.rotation.x = Math.PI / 2;
         this.hullGroup.add(exhaustR);
 
+        // 3. Side Tow Cables
+        for (let side of [-0.72, 0.72]) {
+            const cable = createVoxelBox(0.04, 0.04, 1.4, 0x555555, 0.8, 0.2);
+            cable.position.set(side, 0.45, 0);
+            this.hullGroup.add(cable);
+        }
+
         // Treads
         this.treads = [
-            createVoxelBox(0.38, 0.42, 1.95, 0x1a1a1a, 0.1, 0.9),
-            createVoxelBox(0.38, 0.42, 1.95, 0x1a1a1a, 0.1, 0.9)
+            createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a, 0.1, 0.9),
+            createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a, 0.1, 0.9)
         ];
-        this.treads[0].position.set(-0.45, 0.22, 0);
-        this.treads[1].position.set(0.45, 0.22, 0);
+        this.treads[0].position.set(-0.48, 0.15, 0);
+        this.treads[1].position.set(0.48, 0.15, 0);
         this.hullGroup.add(this.treads[0], this.treads[1]);
 
-        // Road Wheels (기동륜 추가)
+        // Road Wheels (촘촘하게)
         this.wheels = [];
-        for (let side of [-0.45, 0.45]) {
-            for (let i = 0; i < 4; i++) {
-                const wheel = createVoxelCylinder(0.16, 0.16, 0.42, 0x333333);
-                wheel.position.set(side, 0.18, -0.6 + i * 0.4);
+        for (let side of [-0.48, 0.48]) {
+            for (let i = 0; i < 7; i++) {
+                const wheel = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                wheel.position.set(side, 0.15, -1.05 + i * 0.35);
                 wheel.rotation.z = Math.PI / 2;
                 this.hullGroup.add(wheel);
                 this.wheels.push(wheel);
@@ -1091,24 +1082,23 @@ class Tank {
 
         // 2. Turret Group
         this.turretGroup = new THREE.Group();
-        this.turretGroup.position.y = 0.7; // Raised slightly
+        this.turretGroup.position.y = 0.45; // Lowered to sit on hull top (0.46)
         this.group.add(this.turretGroup);
 
-        this.turretMain = createVoxelBox(0.9, 0.45, 0.95, mainColor, 0.4, 0.6);
-        this.turretMain.position.y = 0.15;
-        this.turretMain.castShadow = true; // Important: Tank casts shadow
+        // Turret Base (납작한 형태)
+        this.turretMain = createVoxelBox(1.0, 0.35, 1.2, mainColor, 0.4, 0.6);
+        this.turretMain.position.set(0, 0.1, 0.15);
+        this.turretMain.castShadow = true;
         this.turretGroup.add(this.turretMain);
 
-        // Turret Armor Plates (Cheeks)
-        const cheekL = createVoxelBox(0.1, 0.3, 0.6, mainColor, 0.5, 0.5);
-        cheekL.position.set(-0.45, 0.15, -0.1);
-        cheekL.rotation.y = 0.2;
-        this.turretGroup.add(cheekL);
+        // Turret Faceted Cheeks (앞으로 갈수록 좁아지는 레오파드 포탑)
+        for (let side of [-1, 1]) {
+            const cheek = createVoxelBox(0.12, 0.4, 1.0, mainColor, 0.5, 0.5);
+            cheek.position.set(0.42 * side, 0.1, -0.2);
+            cheek.rotation.y = side > 0 ? 0.35 : -0.35; // Wedge angle
+            this.turretGroup.add(cheek);
+        }
 
-        const cheekR = createVoxelBox(0.1, 0.3, 0.6, mainColor, 0.5, 0.5);
-        cheekR.position.set(0.45, 0.15, -0.1);
-        cheekR.rotation.y = -0.2;
-        this.turretGroup.add(cheekR);
 
         // Hatch on turret
         const hatch = createVoxelBox(0.4, 0.1, 0.4, detailColor);
@@ -1132,21 +1122,58 @@ class Tank {
         antenna.position.set(-0.35, 0.7, 0.3);
         this.turretGroup.add(antenna);
 
+        // --- NEW: Premium Turret Details ---
+        // 1. Periscope Optics (Blue Glass)
+        const optic = createVoxelBox(0.15, 0.15, 0.12, 0x222222);
+        optic.position.set(-0.25, 0.45, -0.3);
+        this.turretGroup.add(optic);
+        const lens = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.06, 0.02),
+            new THREE.MeshBasicMaterial({ color: 0x3498db })
+        );
+        lens.position.set(-0.25, 0.48, -0.36);
+        this.turretGroup.add(lens);
+
+        // 2. Smoke Discharger Batteries
+        for (let side of [-0.5, 0.5]) {
+            for (let i = 0; i < 3; i++) {
+                const launcher = createVoxelCylinder(0.05, 0.05, 0.2, 0x222222);
+                launcher.position.set(side, 0.25 + i * 0.05, -0.2 + i * 0.1);
+                launcher.rotation.set(0.3, side > 0 ? 0.4 : -0.4, 0);
+                this.turretGroup.add(launcher);
+            }
+        }
+
+        // 3. Rear Stowage (Backpacks/Bins)
+        const bin = createVoxelBox(0.7, 0.3, 0.3, mainColor, 0.2, 0.8);
+        bin.position.set(0, 0.15, 0.6);
+        this.turretGroup.add(bin);
+
         // 3. Barrel Group (for individual recoil)
         this.barrelGroup = new THREE.Group();
         this.barrelGroup.position.set(0, 0.15, -0.4);
         this.turretGroup.add(this.barrelGroup);
 
-        // Main Barrel (Cylinder로 교체 - 정면(-Z)을 향하도록 -PI/2 회전)
-        this.barrel = createVoxelCylinder(0.1, 0.12, 1.3, detailColor, 0.6, 0.4);
+        // Main Barrel (Bore Evacuator 추가)
+        this.barrel = new THREE.Group();
         this.barrel.position.set(0, 0, -0.65);
-        this.barrel.rotation.x = -Math.PI / 2; // Point forward (-Z)
+        this.barrel.rotation.x = -Math.PI / 2;
         this.barrelGroup.add(this.barrel);
 
-        // Muzzle Brake (Cylinder 기반으로 고도화)
-        const brakeMain = createVoxelCylinder(0.14, 0.14, 0.2, 0x111111, 0.6, 0.4);
-        brakeMain.position.y = 0.65; // 'height' direction in Cylinder space
+        // Main Tube
+        const tube = createVoxelCylinder(0.08, 0.1, 1.5, detailColor, 0.6, 0.4);
+        this.barrel.add(tube);
+
+        // Bore Evacuator (포신 중간 연기 배기장치 - 이미지의 특징)
+        const evac = createVoxelCylinder(0.14, 0.14, 0.25, detailColor);
+        evac.position.set(0, 0.1, 0); // Middle of tube
+        this.barrel.add(evac);
+
+        // Muzzle Brake
+        const brakeMain = createVoxelCylinder(0.12, 0.12, 0.15, 0x111111);
+        brakeMain.position.y = 0.75;
         this.barrel.add(brakeMain);
+
 
         const brakeRing = createVoxelCylinder(0.16, 0.16, 0.05, 0x222222);
         brakeRing.position.y = 0.72;
@@ -1187,9 +1214,12 @@ class Tank {
         this.targetWorldAngle = this.group.rotation.y;
         this.lastFireTime = 0; // NEW: Initialize lastFireTime for shooting logic
 
-        // Armor Visual Group
-        this.armorGroup = new THREE.Group();
-        this.group.add(this.armorGroup);
+        // Armor Visual Groups
+        this.hullArmorGroup = new THREE.Group();
+        this.group.add(this.hullArmorGroup);
+
+        this.turretArmorGroup = new THREE.Group();
+        this.turretGroup.add(this.turretArmorGroup);
     }
 
     applyUpgrade(type) {
@@ -1210,23 +1240,23 @@ class Tank {
 
     updateUpgradeUI() {
         if (!this.isLocal) return;
-        
+
         const updateItem = (id, level) => {
             const el = document.getElementById(id);
             if (!el) return;
-            
+
             const levelText = el.querySelector('.level-text');
             const prevLevel = parseInt(levelText?.innerText || "0");
-            
+
             if (levelText) levelText.innerText = level;
-            
+
             // Update gauge dots (assuming 5 max levels as shown in HTML)
             const dots = el.querySelectorAll('.gauge-dot');
             dots.forEach((dot, index) => {
                 if (index < level) dot.classList.add('active');
                 else dot.classList.remove('active');
             });
-            
+
             // Level-up feedback animation
             if (level > prevLevel) {
                 el.classList.remove('level-up');
@@ -1252,70 +1282,99 @@ class Tank {
 
     updateArmorVisual() {
         // Clear existing armor parts
-        while (this.armorGroup.children.length > 0) {
-            const child = this.armorGroup.children[0];
-            this.armorGroup.remove(child);
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
-        }
+        const clear = (group) => {
+            while (group.children.length > 0) {
+                const child = group.children[0];
+                group.remove(child);
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            }
+        };
+        clear(this.hullArmorGroup);
+        clear(this.turretArmorGroup);
 
         const armorColor = 0x7b87a0; // Steel Gunmetal
         const rivetColor = 0x333333;
         const metal = 0.7;
         const rough = 0.3;
 
-        // Level 1-3: Reinforced Side Skirts with Rivets
-        if (this.levelArmor >= 1) {
-            for (let side of [-0.68, 0.68]) {
-                // Segmented Skirts for more detail
-                for (let z = -0.6; z <= 0.6; z += 0.4) {
-                    const skirt = createVoxelBox(0.12, 0.4, 0.35, armorColor, metal, rough);
-                    skirt.position.set(side, 0.35, z + (Math.random() - 0.5) * 0.05);
-                    this.armorGroup.add(skirt);
+        // --- HULL ARMOR ---
 
-                    // Add rivets to each segment
-                    const rivet = createVoxelBox(0.04, 0.04, 0.04, rivetColor);
-                    rivet.position.set(side * 1.05, 0.45, z);
-                    this.armorGroup.add(rivet);
+        // Level 1-3: Chunky Side Skirts + Mudguards
+        if (this.levelArmor >= 1) {
+            for (let side of [-0.72, 0.72]) {
+                // Skirts (Segmented & Thick)
+                for (let z = -0.7; z <= 0.7; z += 0.35) {
+                    const skirt = createVoxelBox(0.15, 0.5, 0.32, armorColor, metal, rough);
+                    skirt.position.set(side, 0.3, z);
+                    this.hullArmorGroup.add(skirt);
+                }
+
+                // Mudguards (Front & Back)
+                const frontGuard = createVoxelBox(0.4, 0.1, 0.3, armorColor, metal, rough);
+                frontGuard.position.set(side * 0.4, 0.4, -0.9);
+                this.hullArmorGroup.add(frontGuard);
+            }
+
+            if (this.levelArmor >= 3) {
+                // Storage Boxes on side skirts
+                for (let side of [-0.8, 0.8]) {
+                    const box = createVoxelBox(0.2, 0.25, 0.4, armorColor, metal, rough);
+                    box.position.set(side, 0.45, 0.1);
+                    this.hullArmorGroup.add(box);
                 }
             }
         }
 
-        // Level 4-6: Front Reactive Armor (ERA Bricks)
+        // Level 4-6: ERA (Explosive Reactive Armor) - Hull & Turret
         if (this.levelArmor >= 4) {
-            for (let x = -0.45; x <= 0.45; x += 0.22) {
-                // Front Hull Bricks (Slanted)
-                const eraHull = createVoxelBox(0.18, 0.1, 0.25, armorColor, metal, rough);
-                eraHull.position.set(x, 0.65, -0.9);
-                eraHull.rotation.x = -Math.PI / 6;
-                this.armorGroup.add(eraHull);
+            // Hull Front ERA removed per user request
 
-                // Turret Front Bricks (Reactive pattern)
-                const eraTurret = createVoxelBox(0.15, 0.15, 0.1, armorColor, metal, rough);
-                eraTurret.position.set(x, 0.95, -0.45);
-                this.armorGroup.add(eraTurret);
+
+            // Turret Front ERA (Should turn with turret)
+            for (let x of [-0.3, 0.3]) {
+                const eraTurret = createVoxelBox(0.25, 0.25, 0.15, armorColor, metal, rough);
+                eraTurret.position.set(x, 0.15, -0.4); // Local turret coords
+                this.turretArmorGroup.add(eraTurret);
             }
         }
 
-        // Level 7-9: Turret Spaced Armor & Rear Slat/Cage Armor
+        // Level 7-9: Super Heavy Arsenal
         if (this.levelArmor >= 7) {
-            // Large Spaced Plates on Turret Sides
-            for (let side of [-0.6, 0.6]) {
-                const turretPlate = createVoxelBox(0.08, 0.45, 0.9, armorColor, metal, rough);
-                turretPlate.position.set(side, 0.9, 0);
-                turretPlate.rotation.y = side > 0 ? -0.15 : 0.15;
-                this.armorGroup.add(turretPlate);
+            // Massive Side Shields (Spaced Armor) on Turret Cheeks
+            for (let side of [-0.7, 0.7]) {
+                const shield = createVoxelBox(0.12, 0.55, 1.0, armorColor, metal, rough);
+                shield.position.set(side, 0.1, -0.1);
+                shield.rotation.y = side > 0 ? -0.2 : 0.2;
+                this.turretArmorGroup.add(shield);
+
+                // Reinforcement Bars
+                const bar = createVoxelBox(0.2, 0.05, 0.05, rivetColor);
+                bar.position.set(side * 0.8, 0.1, 0);
+                this.turretArmorGroup.add(bar);
             }
 
-            // Rear Slat Armor (Cage effect) - Vertical bars
-            for (let x = -0.6; x <= 0.6; x += 0.1) {
-                const bar = createVoxelBox(0.05, 0.4, 0.05, rivetColor, 0.5, 0.5);
-                bar.position.set(x, 0.4, 1.0);
-                this.armorGroup.add(bar);
+            // Rear Slat Armor (Cage) - Increased density
+            for (let x = -0.65; x <= 0.65; x += 0.08) {
+                const bar = createVoxelBox(0.04, 0.45, 0.04, rivetColor, 0.5, 0.5);
+                bar.position.set(x, 0.45, 1.0);
+                this.hullArmorGroup.add(bar);
             }
-            const horizontalBar = createVoxelBox(1.3, 0.05, 0.06, armorColor, metal, rough);
-            horizontalBar.position.set(0, 0.5, 1.01);
-            this.armorGroup.add(horizontalBar);
+            for (let y = 0.35; y <= 0.65; y += 0.15) {
+                const hBar = createVoxelBox(1.4, 0.04, 0.05, armorColor, metal, rough);
+                hBar.position.set(0, y, 1.01);
+                this.hullArmorGroup.add(hBar);
+            }
+        }
+
+        // Level 9: Final Evolution - Turret Roof Plate
+        if (this.levelArmor >= 9) {
+            // Front Wedge Armor removed per user request
+
+            // Extra Heavy Turret Roof Plate
+            const roof = createVoxelBox(0.8, 0.05, 0.8, armorColor, metal, rough);
+            roof.position.set(0, 0.45, 0);
+            this.turretArmorGroup.add(roof);
         }
     }
 
@@ -1367,6 +1426,9 @@ class Tank {
         this.playShootEffect();
         if (window.AudioSFX) AudioSFX.playFire();
 
+        // Trigger Recoil Animation
+        this.recoil = 1.0;
+
         // Broadcast if local
         if (this.isLocal && channel) {
             channel.send({
@@ -1385,14 +1447,22 @@ class Tank {
     updateAnims(dt, isMoving) {
         // 1. Handle Recoil Recovery
         if (this.recoil > 0) {
-            this.recoil = Math.max(0, this.recoil - dt * 5);
-            this.barrelGroup.position.z = -0.4 + this.recoil * 0.4; // Push back
-            this.hullGroup.position.z = this.recoil * 0.1;
-            this.hullGroup.rotation.x = -this.recoil * 0.05; // Tilt up
+            this.recoil = Math.max(0, this.recoil - dt * 4.5);
+            // Non-linear recoil for "snappier" feeling
+            const curve = Math.pow(this.recoil, 1.5);
+            this.barrelGroup.position.z = -0.4 + curve * 0.55; // Shoot back
+            this.hullGroup.position.z = curve * 0.15;
+            this.hullGroup.rotation.x = -curve * 0.08; // Front tilt up
         } else {
             this.barrelGroup.position.z = THREE.MathUtils.lerp(this.barrelGroup.position.z, -0.4, 0.1);
-            this.hullGroup.position.z = THREE.MathUtils.lerp(this.hullGroup.position.z, 0, 0.1);
-            this.hullGroup.rotation.x = THREE.MathUtils.lerp(this.hullGroup.rotation.x, 0, 0.1);
+            this.hullGroup.position.z = THREE.MathUtils.lerp(this.hullGroup.position.z, 0, 0.2);
+            this.hullGroup.rotation.x = THREE.MathUtils.lerp(this.hullGroup.rotation.x, 0, 0.2);
+        }
+
+        // 2. Idling Wobble (Subtle engine vibration)
+        if (!isMoving) {
+            const wobble = Math.sin(Date.now() * 0.01) * 0.002;
+            this.hullGroup.position.y += wobble;
         }
 
         // Wheel Rotation
@@ -1977,20 +2047,20 @@ function update(dt) {
             const inputMag = Math.sqrt(nx * nx + nz * nz);
             const moveMag = Math.min(1.0, inputMag);
             const targetAngle = Math.atan2(-nx, -nz);
-            
+
             const rotBoost = 1.0 + (moveMag * 0.2);
             myTank.group.rotation.y = lerpAngle(myTank.group.rotation.y, targetAngle, CONFIG.TANK.ROTATE_SPEED * rotBoost * dt);
-            
+
             const currentAngle = myTank.group.rotation.y;
             const angleDiff = Math.abs(normalizeAngle(targetAngle - currentAngle));
             const alignmentFactor = Math.max(0, Math.cos(angleDiff));
-            const speedScale = Math.pow(alignmentFactor, 0.4); 
+            const speedScale = Math.pow(alignmentFactor, 0.4);
 
             if (speedScale > 0.05) {
                 const currentSpeed = (CONFIG.TANK.FORWARD_SPEED + (myTank.moveSpeedBonus || 0));
                 const forwardX = -Math.sin(currentAngle);
                 const forwardZ = -Math.cos(currentAngle);
-                
+
                 let moveX = (forwardX * 0.8) + (nx * 0.2);
                 let moveZ = (forwardZ * 0.8) + (nz * 0.2);
                 const moveLen = Math.sqrt(moveX * moveX + moveZ * moveZ);
@@ -2000,11 +2070,11 @@ function update(dt) {
                 const actualMove = moveMag * currentSpeed * dt * speedScale;
                 myTank.group.position.x += moveX * actualMove;
                 myTank.group.position.z += moveZ * actualMove;
-                
+
                 if (myTank.engineAudio) myTank.engineAudio.update(moveMag * speedScale);
                 myTank.updateAnims(dt, true);
             } else {
-                if (myTank.engineAudio) myTank.engineAudio.update(0.2); 
+                if (myTank.engineAudio) myTank.engineAudio.update(0.2);
                 myTank.updateAnims(dt, false);
             }
         } else {
@@ -2021,15 +2091,15 @@ function update(dt) {
             if (moveDir !== 0) {
                 const currentAngle = myTank.group.rotation.y;
                 const currentSpeed = (CONFIG.TANK.FORWARD_SPEED + (myTank.moveSpeedBonus || 0));
-                
+
                 // Move along the current heading
                 const dirX = -Math.sin(currentAngle) * moveDir;
                 const dirZ = -Math.cos(currentAngle) * moveDir;
                 const actualMove = currentSpeed * dt;
-                
+
                 myTank.group.position.x += dirX * actualMove;
                 myTank.group.position.z += dirZ * actualMove;
-                
+
                 if (myTank.engineAudio) myTank.engineAudio.update(1.0);
                 myTank.updateAnims(dt, true);
             } else {
@@ -2039,6 +2109,9 @@ function update(dt) {
                 myTank.updateAnims(dt, false);
             }
         }
+
+        myTank.hullGroup.rotation.x = 0;
+        myTank.hullGroup.rotation.z = 0;
 
         // Turret Rotation (Mouse / Right Joystick / Auto)
         let targetTurretAngle = null;
@@ -2118,8 +2191,16 @@ function update(dt) {
             camZ += (Math.random() - 0.5) * shake;
         }
 
+
         camera.position.set(camX, camY, camZ);
         camera.lookAt(myTank.group.position);
+
+        // --- Shadow Follow ---
+        if (directionalLight) {
+            directionalLight.position.set(camX + 30, 50, camZ + 10);
+            directionalLight.target.position.set(camX, 0, camZ);
+            directionalLight.target.updateMatrixWorld();
+        }
     }
 
     // 2. Other Tanks Anim Update
@@ -2131,10 +2212,14 @@ function update(dt) {
     bots.forEach(bot => {
         bot.updateAnims(dt, true);
         bot.updateAI(dt);
+
+        bot.group.position.y = 0;
+        bot.hullGroup.rotation.x = 0;
+        bot.hullGroup.rotation.z = 0;
     });
 
     // --- PowerUp Spawning (Local only) ---
-    if (now - lastPowerupSpawnTime > CONFIG.POWERUP.SPAWN_INTERVAL && powerups.length < CONFIG.POWERUP.MAX_COUNT) {
+    if (now - lastPowerupSpawnTime > CONFIG.POWERUP.SPAWN_INTERVAL * 1000 && powerups.length < CONFIG.POWERUP.MAX_COUNT) {
         lastPowerupSpawnTime = now;
         const spawn = getRandomSpawnPoint();
         const id = `lp_${Math.random().toString(36).substring(2, 7)}`;
@@ -2691,18 +2776,20 @@ const Game = {
         const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
         scene.add(hemisphereLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
         directionalLight.position.set(30, 50, 20);
         directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 1024;
-        directionalLight.shadow.mapSize.height = 1024;
-        directionalLight.shadow.camera.left = -60;
-        directionalLight.shadow.camera.right = 60;
-        directionalLight.shadow.camera.top = 60;
-        directionalLight.shadow.camera.bottom = -60;
+        directionalLight.shadow.mapSize.width = 2048; // Higher quality for Voxel detail
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.left = -40; // Tighter box for higher density
+        directionalLight.shadow.camera.right = 40;
+        directionalLight.shadow.camera.top = 40;
+        directionalLight.shadow.camera.bottom = -40;
         directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 200;
+        directionalLight.shadow.camera.far = 150;
+        directionalLight.shadow.bias = -0.0005; // Fix shadow acne on voxels
         scene.add(directionalLight);
+        scene.add(directionalLight.target); // Need to add target specifically for following
 
         // Floor (Rugged Ground/Earth style)
         const tileSize = 5;
@@ -2711,18 +2798,15 @@ const Game = {
 
         for (let ix = 0; ix < tilesPerSide; ix++) {
             for (let iz = 0; iz < tilesPerSide; iz++) {
-                // Randomly pick from earthy colors
                 const colorIdx = Math.floor(seededRandom(ix * 13 + iz * 7) * groundColors.length);
                 const color = groundColors[colorIdx];
 
-                // Rugged height variation
-                const hVar = seededRandom(ix * 31 + iz * 17) * 0.4;
-                const tile = createVoxelBox(tileSize, 0.2 + hVar, tileSize, color, 0.1, 0.9);
-                tile.position.set(
-                    (ix - tilesPerSide / 2 + 0.5) * tileSize,
-                    (0.2 + hVar) / 2 - 0.1,
-                    (iz - tilesPerSide / 2 + 0.5) * tileSize
-                );
+                const tileX = (ix - tilesPerSide / 2 + 0.5) * tileSize;
+                const tileZ = (iz - tilesPerSide / 2 + 0.5) * tileSize;
+
+                const tileH = 0.2;
+                const tile = createVoxelBox(tileSize, tileH, tileSize, color, 0.1, 0.9);
+                tile.position.set(tileX, -0.1, tileZ); // Centered at y=0 visually
                 tile.receiveShadow = true;
                 scene.add(tile);
 
@@ -2731,9 +2815,9 @@ const Game = {
                     const pSize = 0.1 + seededRandom(ix + iz) * 0.2;
                     const pebble = createVoxelBox(pSize, pSize, pSize, 0x555555);
                     pebble.position.set(
-                        tile.position.x + (seededRandom(ix * 2) - 0.5) * (tileSize - 1),
-                        0.1 + hVar,
-                        tile.position.z + (seededRandom(iz * 2) - 0.5) * (tileSize - 1)
+                        tileX + (seededRandom(ix * 2) - 0.5) * (tileSize - 1),
+                        0.05,
+                        tileZ + (seededRandom(iz * 2) - 0.5) * (tileSize - 1)
                     );
                     scene.add(pebble);
                 }
