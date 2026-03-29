@@ -2552,21 +2552,20 @@ function updateScoreboard() {
     const scoreboard = document.getElementById('scoreboard');
     if (!scoreboard) return;
 
-    const players = Array.from(tanks.values());
-    if (myTank) players.push(myTank);
-    bots.forEach(b => players.push(b));
+    const allPlayers = Array.from(tanks.values());
+    if (myTank) allPlayers.push(myTank);
+    bots.forEach(b => allPlayers.push(b));
 
-    // Online count
-    const onlineCount = Array.from(tanks.values()).length + 1;
-    const scoreboardTitle = document.querySelector('.scoreboard-title') || { textContent: '' };
+    // 유저는 항상 보여주고, AI 봇은 킬수가 0인 경우 제외
+    const displayedPlayers = allPlayers.filter(p => p.isLocal || !p.isBot || p.kills > 0);
 
-    players.sort((a, b) => b.kills - a.kills);
+    displayedPlayers.sort((a, b) => b.kills - a.kills);
 
     scoreboard.innerHTML = `
         <div style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px;">
             Kills
         </div>
-        ${players.map(p => `
+        ${displayedPlayers.map(p => `
             <div class="scoreboard-item" style="color: ${p.isLocal ? '#4d79ff' : (p.isBot ? '#e0e0e0' : '#ff4d4d')}">
                 <span>${p.name || p.id}${p.isLocal ? ' (ME)' : ''}</span>
                 <span style="font-size: 0.8em; opacity: 0.6; margin-left:10px;">${p.kills}</span>
