@@ -51,6 +51,17 @@ const CONFIG = {
             { x: -15, z: -15 }, { x: 15, z: 15 },
             { x: -18, z: 20 }, { x: 22, z: -12 },
             { x: 5, z: 35 }, { x: -35, z: 8 }
+        ],
+        PROPS: [
+            { type: 'tree', x: -20, z: -25 }, { type: 'tree', x: 25, z: -30 },
+            { type: 'tree', x: -30, z: 15 }, { type: 'tree', x: 35, z: 20 },
+            { type: 'tree', x: -15, z: 35 }, { type: 'tree', x: 10, z: -40 },
+            { type: 'hedgehog', x: -25, z: 0 }, { type: 'hedgehog', x: 30, z: 10 },
+            { type: 'hedgehog', x: 0, z: -35 }, { type: 'hedgehog', x: -10, z: 40 },
+            { type: 'crate', x: -35, z: -20 }, { type: 'crate', x: 20, z: 35 },
+            { type: 'crate', x: 40, z: -15 }, { type: 'crate', x: -25, z: 30 },
+            { type: 'barrel', x: 15, z: -20 }, { type: 'barrel', x: -40, z: 25 },
+            { type: 'barrel', x: 35, z: -35 }, { type: 'barrel', x: -20, z: 10 }
         ]
     },
     BOT: {
@@ -77,8 +88,8 @@ const CONFIG = {
         ARMOR: { HP_INC: 30 }
     },
     AIRSTRIKE: {
-        INTERVAL_MIN: 5,
-        INTERVAL_MAX: 5,
+        INTERVAL_MIN: 30,
+        INTERVAL_MAX: 60,
         PLANE_SPEED: 25,
         PLANE_HEIGHT: 10,
         BOMB_COUNT: 10,
@@ -323,41 +334,38 @@ class ParticleSystem {
         }
     }
 
-    // Specialized muzzle flash
     spawnMuzzleFlash(pos, dir, color = 0xffaa00) {
-        for (let i = 0; i < 15; i++) {
-            const size = 0.05 + Math.random() * 0.15;
+        for (let i = 0; i < 20; i++) {
+            const size = 0.08 + Math.random() * 0.18;
             const geometry = new THREE.BoxGeometry(size, size, size);
             const material = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
             const p = new THREE.Mesh(geometry, material);
             p.position.copy(pos);
 
-            // Spread direction
-            const spread = 0.5;
-            const vel = dir.clone().multiplyScalar(5 + Math.random() * 5);
-            vel.x += (Math.random() - 0.5) * spread * 10;
-            vel.y += (Math.random() - 0.5) * spread * 10;
-            vel.z += (Math.random() - 0.5) * spread * 10;
+            const spread = 0.6;
+            const vel = dir.clone().multiplyScalar(8 + Math.random() * 8);
+            vel.x += (Math.random() - 0.5) * spread * 12;
+            vel.y += (Math.random() - 0.5) * spread * 12;
+            vel.z += (Math.random() - 0.5) * spread * 12;
 
             this.particles.push({
                 mesh: p,
                 vel: vel,
-                life: 150 + Math.random() * 150,
-                maxLife: 300,
+                life: 180 + Math.random() * 180,
+                maxLife: 350,
                 gravity: 0,
-                friction: 0.9
+                friction: 0.88
             });
             this.group.add(p);
         }
 
-        // Add white core flash
-        for (let i = 0; i < 5; i++) {
-            const size = 0.2 + Math.random() * 0.2;
+        for (let i = 0; i < 6; i++) {
+            const size = 0.25 + Math.random() * 0.25;
             const geometry = new THREE.BoxGeometry(size, size, size);
             const material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
             const p = new THREE.Mesh(geometry, material);
             p.position.copy(pos);
-            const vel = dir.clone().multiplyScalar(2 + Math.random() * 3);
+            const vel = dir.clone().multiplyScalar(3 + Math.random() * 4);
             this.particles.push({ mesh: p, vel: vel, life: 50 + Math.random() * 50, maxLife: 100, gravity: 0 });
             this.group.add(p);
         }
@@ -988,37 +996,65 @@ class Bullet {
     constructor(position, direction, ownerId) {
         this.group = new THREE.Group();
 
-        // 1. Shell Body (탄체)
-        const body = createVoxelCylinder(0.12, 0.12, 0.4, 0xffcc00);
-        body.rotation.x = Math.PI / 2; // Align axis with -Z
+        const body = createVoxelCylinder(0.08, 0.08, 0.35, 0xd4a017);
+        body.rotation.x = Math.PI / 2;
         this.group.add(body);
 
-        // 2. Shell Tip (탄두)
-        const tip = createVoxelCone(0.12, 0.25, 0xffd54f);
-        tip.position.z = -0.32; // Forward offset
-        tip.rotation.x = Math.PI / 2; // Point toward -Z
+        const tip = createVoxelCone(0.08, 0.18, 0xffcc00);
+        tip.position.z = -0.26;
+        tip.rotation.x = Math.PI / 2;
         this.group.add(tip);
 
-        // 3. Shell Base (탄저부)
-        const base = createVoxelCylinder(0.13, 0.13, 0.05, 0x8d6e63);
-        base.position.z = 0.22; // Backward offset
+        const tracerGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(0.12, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.6 })
+        );
+        tracerGlow.position.z = -0.32;
+        this.group.add(tracerGlow);
+
+        const base = createVoxelCylinder(0.09, 0.09, 0.04, 0x8d6e63);
+        base.position.z = 0.18;
         base.rotation.x = Math.PI / 2;
         this.group.add(base);
+
+        const casing = createVoxelCylinder(0.06, 0.06, 0.08, 0x654321);
+        casing.position.z = 0.22;
+        casing.rotation.x = Math.PI / 2;
+        this.group.add(casing);
 
         this.group.position.copy(position);
         this.group.lookAt(position.clone().add(direction));
 
-        // Use this.mesh for existing collision logic consistency (refers to the group)
         this.mesh = this.group;
-
         this.direction = direction.clone();
         this.ownerId = ownerId;
         this.startTime = Date.now();
+        this.trailTimer = 0;
         scene.add(this.group);
     }
 
     update(dt) {
         this.group.position.add(this.direction.clone().multiplyScalar(CONFIG.BULLET.SPEED * dt));
+
+        this.trailTimer += dt;
+        if (this.trailTimer > 0.02 && vfx) {
+            this.trailTimer = 0;
+            const trailPos = this.group.position.clone();
+            vfx.particles.push({
+                mesh: new THREE.Mesh(
+                    new THREE.SphereGeometry(0.04, 4, 4),
+                    new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5 })
+                ),
+                vel: new THREE.Vector3(0, 0.5, 0),
+                life: 200,
+                maxLife: 200,
+                gravity: 0,
+                friction: 0.95
+            });
+            vfx.particles[vfx.particles.length - 1].mesh.position.copy(trailPos);
+            vfx.group.add(vfx.particles[vfx.particles.length - 1].mesh);
+        }
+
         return Date.now() - this.startTime < CONFIG.BULLET.LIFE_TIME;
     }
 
@@ -2306,8 +2342,16 @@ class Tank {
             const pivotPos = new THREE.Vector3();
             this.barrelGroup.getWorldPosition(pivotPos);
             const worldDir = worldPos.clone().sub(pivotPos).normalize();
+
             vfx.spawnMuzzleFlash(worldPos, worldDir, 0xffcc00);
-            vfx.spawn(worldPos, 0x555555, 5, 2, 0.1, 800); // Smoke
+            vfx.spawn(worldPos, 0xff6600, 8, 3, 0.15, 400);
+            vfx.spawn(worldPos, 0x333333, 6, 1.5, 0.12, 600);
+
+            const casingPos = new THREE.Vector3();
+            this.group.getWorldPosition(casingPos);
+            casingPos.x += 0.3;
+            casingPos.y += 0.4;
+            vfx.spawnExhaust(casingPos, 0x8d6e63, 1, 1.5, 0.05, 300);
         }
         if (this.isLocal && camera) {
             cameraShakeTime = 0.3;
@@ -3162,12 +3206,31 @@ function update(dt) {
         vfx.update(dt);
 
         wreckSmokeTimer += dt;
-        if (wreckSmokeTimer > 0.15) {
+        if (wreckSmokeTimer > 0.08) {
             wreckSmokeTimer = 0;
             wrecks.forEach(wreck => {
-                const smokePos = new THREE.Vector3(0, 0.8, 0).add(wreck.position);
-                vfx.spawnFire(smokePos, 1, 1.0, 0.25, 800); // Constant fire
-                vfx.spawnSmoke(smokePos, 0x333333, 1, 0.5, 0.4, 2500); // Constant smoke
+                const basePos = new THREE.Vector3(0, 0.6, 0).add(wreck.position);
+
+                const smokePos1 = basePos.clone();
+                smokePos1.x += (Math.random() - 0.5) * 0.5;
+                smokePos1.z += (Math.random() - 0.5) * 0.5;
+                vfx.spawnSmoke(smokePos1, 0x1a1a1a, 2, 0.3, 0.5, 3000);
+
+                const firePos = basePos.clone();
+                firePos.x += (Math.random() - 0.5) * 0.3;
+                firePos.z += (Math.random() - 0.5) * 0.3;
+                vfx.spawnFire(firePos, 2, 1.2, 0.2, 600);
+
+                if (Math.random() < 0.4) {
+                    const emberPos = basePos.clone();
+                    emberPos.y += Math.random() * 0.3;
+                    vfx.spawnFire(emberPos, 3, 2.0, 0.08, 400);
+                }
+
+                const steamPos = basePos.clone();
+                steamPos.x += (Math.random() - 0.5) * 0.8;
+                steamPos.z += (Math.random() - 0.5) * 0.8;
+                vfx.spawnExhaust(steamPos, 0x555555, 1, 0.8, 0.25, 1500);
             });
         }
     }
@@ -3195,11 +3258,10 @@ function grantKillReward(killer) {
 function checkCollisions() {
     const dt = clock.getDelta(); // This is wrong, should pass dt from update, but let's just use simple resolve
     const originalPos = myTank.group.position.clone();
-    const halfSize = CONFIG.WORLD.SIZE / 2;
 
-    // Boundary check
-    myTank.group.position.x = Math.max(-halfSize, Math.min(halfSize, myTank.group.position.x));
-    myTank.group.position.z = Math.max(-halfSize, Math.min(halfSize, myTank.group.position.z));
+    const tileBound = (CONFIG.WORLD.SIZE / 2) - 1;
+    myTank.group.position.x = Math.max(-tileBound, Math.min(tileBound, myTank.group.position.x));
+    myTank.group.position.z = Math.max(-tileBound, Math.min(tileBound, myTank.group.position.z));
 
     // Wall check
     const wallTankRadius = 0.65;
@@ -3999,50 +4061,13 @@ const Game = {
             walls.push(col);
         }
 
-        // Add boundary pillars/props (Deterministic seed for same room experience)
-        let worldSeed = 1234.567;
-        for (let i = 0; i < 24; i++) {
-            const side = Math.floor(seededRandom(worldSeed++) * 4);
-            const dist = CONFIG.WORLD.SIZE / 2;
-            let x = 0, z = 0;
-            if (side === 0) { x = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; z = -dist; }
-            else if (side === 1) { x = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; z = dist; }
-            else if (side === 2) { x = -dist; z = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; }
-            else { x = dist; z = (seededRandom(worldSeed++) - 0.5) * CONFIG.WORLD.SIZE; }
-
-            const h = 4 + seededRandom(worldSeed++) * 8;
-            const pillar = createVoxelBox(2, h, 2, 0x333333);
-            pillar.position.set(x, h / 2, z);
-            scene.add(pillar);
-
-            // Add orange point lights to some pillars
-            if (i % 6 === 0) {
-                const lamp = createVoxelBox(0.4, 0.4, 0.4, 0xffaa00);
-                lamp.position.set(x * 0.95, h - 0.5, z * 0.95);
-                scene.add(lamp);
-                const light = new THREE.PointLight(0xffaa00, 10, 20);
-                light.position.set(x * 0.95, h - 1, z * 0.95);
-                light.castShadow = false; // CRITICAL: PointLight shadows are extremely expensive
-                scene.add(light);
-            }
-        }
-
-        // [REMOVED] Background Skyline - outer buildings that show when looking at map edges
-
-        // Scatter props deterministically (Excluding center repair station area)
-        for (let i = 0; i < 60; i++) {
-            const rx = (seededRandom(worldSeed++) - 0.5) * (CONFIG.WORLD.SIZE - 10);
-            const rz = (seededRandom(worldSeed++) - 0.5) * (CONFIG.WORLD.SIZE - 10);
-
-            // [FIX] 정비소 주변 12유닛 내에는 나무나 사물이 생기지 않도록 제외
-            if (isPositionSafe(rx, rz) && Math.hypot(rx, rz) > 12.0) {
-                const type = seededRandom(worldSeed++);
-                if (type < 0.2) createHedgehog(rx, rz);
-                else if (type < 0.4) createProp('crate', rx, rz);
-                else if (type < 0.6) createProp('barrel', rx, rz);
-                else createBurnedTree(rx, rz);
-            }
-        }
+        // Fixed props from CONFIG
+        CONFIG.MAP.PROPS.forEach(prop => {
+            if (prop.type === 'tree') createBurnedTree(prop.x, prop.z);
+            else if (prop.type === 'hedgehog') createHedgehog(prop.x, prop.z);
+            else if (prop.type === 'crate') createProp('crate', prop.x, prop.z);
+            else if (prop.type === 'barrel') createProp('barrel', prop.x, prop.z);
+        });
 
         // Fixed Destroyed Tanks (Wrecks)
         CONFIG.MAP.WRECKS.forEach(pos => {
