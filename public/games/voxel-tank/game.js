@@ -12,7 +12,7 @@ const CONFIG = {
     },
     BULLET: {
         SPEED: 30,
-        LIFE_TIME: 2000, // ms
+        LIFE_TIME: 1500, // ms
         DAMAGE: 10
     },
     WORLD: {
@@ -77,22 +77,27 @@ const CONFIG = {
         ARMOR: { HP_INC: 30 }
     },
     AIRSTRIKE: {
-        INTERVAL_MIN: 10, // 최소 대기 시간 (초)
-        INTERVAL_MAX: 10, // 최대 대기 시간 (초)
-        PLANE_SPEED: 25, // 전투기 비행 속도
-        PLANE_HEIGHT: 20, // 비행 고도 (지면으로부터)
-        BOMB_COUNT: 10, // 한 번의 비행당 최대 투하 폭탄 수 (기존 융단폭격용, 현재는 타겟당 제한 사용)
-        BOMB_INTERVAL: 0.15, // 폭탄 투하 간격 (초)
-        BOMB_DAMAGE: 45, // 폭탄 데미지 (직격 기준)
-        BOMB_RADIUS: 6, // 폭발 효과 반경
-        FALL_SPEED: 18, // 폭탄 낙하 속도
-        BOMB_MAX_PER_TARGET: 3 // 한 탱크당 최대 폭격 횟수
+        INTERVAL_MIN: 5,
+        INTERVAL_MAX: 5,
+        PLANE_SPEED: 25,
+        PLANE_HEIGHT: 10,
+        BOMB_COUNT: 10,
+        BOMB_INTERVAL: 0.15,
+        BOMB_DAMAGE: 45,
+        BOMB_RADIUS: 6,
+        TARGETING_RADIUS: 25,
+        FALL_SPEED: 18
     },
     REPAIR_STATION: {
         RADIUS: 1.5, // 수리 반경
         HEAL_RATE: 8.0, // 초당 회복량
         COLOR_PAD: 0x2d3436, // 기본 패드 색상
         COLOR_GLOW: 0x00b894 // 회복 중인 상태의 발광 색상
+    },
+    CAMERA: {
+        HEIGHT: 20,
+        OFFSET_Z: 10,
+        FOV: 90
     }
 };
 
@@ -1118,7 +1123,7 @@ class AirstrikeBomb {
 }
 
 class FighterPlane {
-    constructor(startPoint, endPoint) {
+    constructor(startPoint, endPoint, targetPosition) {
         this.group = new THREE.Group();
         this.startPoint = startPoint.clone();
         this.endPoint = endPoint.clone();
@@ -1126,24 +1131,153 @@ class FighterPlane {
         this.distance = startPoint.distanceTo(endPoint);
         this.traveled = 0;
         this.bombTimer = 0;
+        this.bombCount = 0;
+        this.time = 0;
+        this.targetPosition = targetPosition ? targetPosition.clone() : null;
+        this.bombingStarted = false;
 
-        // --- 깔끔하고 직관적인 복셀 제트기 ---
-        const mainColor = 0x2d3436; // 스텔스 블랙
-        const wingColor = 0x636e72; // 짙은 그레이
+        // --- 스텔스 전투기 (F-22 Raptor Style) ---
+        const body = 0x1a1a1a;
+        const bodyAccent = 0x2d2d2d;
+        const cockpit = 0x00d4aa;
+        const engineColor = 0xff6600;
+        const wing = 0x252525;
+        const tailFin = 0x333333;
+        const metal = 0x3a3a3a;
 
-        // 1. 기체 본체
-        const body = createVoxelBox(0.8, 0.6, 2.8, mainColor);
-        this.group.add(body);
+        // 1. 메인 퍼널 (Main Fuselage)
+        const fuselage = createVoxelBox(0.7, 0.5, 4.0, body);
+        fuselage.position.set(0, 0, 0);
+        this.group.add(fuselage);
 
-        // 2. 주날개 (Sharp Delta)
-        const wing = createVoxelBox(4.2, 0.1, 1.2, mainColor);
-        wing.position.set(0, 0, 0.1);
-        this.group.add(wing);
+        // 2. 코 (Sharp Nose)
+        const noseMain = createVoxelBox(0.5, 0.35, 0.8, body);
+        noseMain.position.set(0, -0.05, -2.4);
+        this.group.add(noseMain);
+        const noseTip = createVoxelBox(0.25, 0.2, 0.4, bodyAccent);
+        noseTip.position.set(0, -0.08, -2.8);
+        this.group.add(noseTip);
 
-        // 3. 수직 미익 (Vertical Tail)
-        const tail = createVoxelBox(0.1, 1.0, 0.6, wingColor);
-        tail.position.set(0, 0.6, 1.1);
-        this.group.add(tail);
+        // 3. 사이드 섀시 (Engine Bay Doors)
+        for (let side of [-1, 1]) {
+            const bayDoor = createVoxelBox(0.15, 0.45, 2.2, bodyAccent);
+            bayDoor.position.set(side * 0.43, -0.05, 0.8);
+            this.group.add(bayDoor);
+        }
+
+        // 4. 조종석 캐노피 (Cockpit Canopy)
+        const canopyBase = createVoxelBox(0.4, 0.15, 0.8, metal);
+        canopyBase.position.set(0, 0.32, -1.2);
+        this.group.add(canopyBase);
+        const canopyGlass = createVoxelBox(0.35, 0.25, 0.7, cockpit, 0.1, 0.1);
+        canopyGlass.position.set(0, 0.42, -1.2);
+        this.group.add(canopyGlass);
+
+        // 5. 메인 날개 (Main Delta Wings)
+        for (let side of [-1, 1]) {
+            const wingBase = createVoxelBox(2.2, 0.06, 1.8, wing);
+            wingBase.position.set(side * 1.4, -0.1, 0.3);
+            wingBase.rotation.z = side * 0.08;
+            this.group.add(wingBase);
+
+            const wingTip = createVoxelBox(0.8, 0.05, 0.4, wing);
+            wingTip.position.set(side * 2.6, -0.12, 0.7);
+            wingTip.rotation.z = side * 0.15;
+            this.group.add(wingTip);
+
+            const wingRear = createVoxelBox(1.8, 0.05, 0.6, wing);
+            wingRear.position.set(side * 1.2, -0.1, 1.1);
+            this.group.add(wingRear);
+        }
+
+        // 6. V형 수직 미익 (Twin Vertical Tails)
+        for (let side of [-1, 1]) {
+            const vTailMain = createVoxelBox(0.06, 0.9, 0.7, tailFin);
+            vTailMain.position.set(side * 0.5, 0.5, 1.5);
+            vTailMain.rotation.z = side * 0.3;
+            this.group.add(vTailMain);
+
+            const vTailRudder = createVoxelBox(0.05, 0.5, 0.4, bodyAccent);
+            vTailRudder.position.set(side * 0.65, 0.6, 1.7);
+            vTailRudder.rotation.z = side * 0.35;
+            this.group.add(vTailRudder);
+        }
+
+        // 7. 수평 미익 (Horizontal Stabilizers)
+        const hStab = createVoxelBox(1.6, 0.05, 0.6, wing);
+        hStab.position.set(0, 0, 1.8);
+        this.group.add(hStab);
+
+        // 8. 트윈 엔진 노즐 (Twin Engine Nozzles)
+        for (let side of [-1, 1]) {
+            const nozzleOuter = createVoxelCylinder(0.22, 0.25, 0.5, metal, 0.8, 0.2);
+            nozzleOuter.position.set(side * 0.28, -0.08, 2.2);
+            nozzleOuter.rotation.x = Math.PI / 2;
+            this.group.add(nozzleOuter);
+
+            const nozzleInner = createVoxelCylinder(0.15, 0.18, 0.3, engineColor, 0.1, 0.9);
+            nozzleInner.position.set(side * 0.28, -0.08, 2.35);
+            nozzleInner.rotation.x = Math.PI / 2;
+            if (nozzleInner.material) {
+                nozzleInner.material.emissive = new THREE.Color(engineColor);
+                nozzleInner.material.emissiveIntensity = 1.5;
+            }
+            this.group.add(nozzleInner);
+
+            const nozzleRing = createVoxelCylinder(0.26, 0.26, 0.08, bodyAccent, 0.9, 0.1);
+            nozzleRing.position.set(side * 0.28, -0.08, 2.45);
+            nozzleRing.rotation.x = Math.PI / 2;
+            this.group.add(nozzleRing);
+        }
+
+        // 9. воздухозаборники (Side Air Intakes)
+        for (let side of [-1, 1]) {
+            const intake = createVoxelBox(0.2, 0.2, 1.2, bodyAccent);
+            intake.position.set(side * 0.5, -0.2, 0.5);
+            this.group.add(intake);
+
+            const intakeRamp = createVoxelBox(0.15, 0.1, 0.4, metal);
+            intakeRamp.position.set(side * 0.55, -0.1, 0.1);
+            intakeRamp.rotation.z = side * 0.2;
+            this.group.add(intakeRamp);
+        }
+
+        // 10. 미사일 베이 (Missile Bays)
+        const missileBay = createVoxelBox(0.3, 0.15, 0.8, bodyAccent);
+        missileBay.position.set(0, -0.22, -0.8);
+        this.group.add(missileBay);
+
+        // 11. 데이터 링크 / 안테나 (Data Link Antenna)
+        const antenna = createVoxelBox(0.02, 0.3, 0.02, metal);
+        antenna.position.set(0, 0.55, 0.5);
+        this.group.add(antenna);
+        const antennaDish = createVoxelBox(0.15, 0.08, 0.15, metal);
+        antennaDish.position.set(0, 0.7, 0.5);
+        this.group.add(antennaDish);
+
+        // 12. 랜딩 기어 도어 (Landing Gear Doors - Closed)
+        for (let side of [-1, 1]) {
+            const gearDoor = createVoxelBox(0.15, 0.05, 0.25, bodyAccent);
+            gearDoor.position.set(side * 0.25, -0.28, -0.3);
+            this.group.add(gearDoor);
+        }
+
+        // 13. 디스플레이 라이트 (Formation Lights)
+        const lightL = createVoxelBox(0.08, 0.05, 0.08, 0x00ff00);
+        lightL.position.set(-2.5, -0.1, 0.5);
+        if (lightL.material) {
+            lightL.material.emissive = new THREE.Color(0x00ff00);
+            lightL.material.emissiveIntensity = 1.0;
+        }
+        this.group.add(lightL);
+
+        const lightR = createVoxelBox(0.08, 0.05, 0.08, 0xff0000);
+        lightR.position.set(2.5, -0.1, 0.5);
+        if (lightR.material) {
+            lightR.material.emissive = new THREE.Color(0xff0000);
+            lightR.material.emissiveIntensity = 1.0;
+        }
+        this.group.add(lightR);
 
         this.group.position.copy(this.startPoint);
         this.group.lookAt(this.endPoint);
@@ -1151,19 +1285,40 @@ class FighterPlane {
     }
 
     update(dt) {
+        this.time += dt;
         const step = CONFIG.AIRSTRIKE.PLANE_SPEED * dt;
         this.traveled += step;
-        this.group.position.add(this.dir.clone().multiplyScalar(step));
 
-        // --- 라인 폭격(융단폭격) 로직 복원 ---
-        // 일정 간격마다 폭탄을 투하하여 경로 전체를 타격함
-        this.bombTimer += dt;
-        if (this.bombTimer > CONFIG.AIRSTRIKE.BOMB_INTERVAL) {
-            this.bombTimer = 0;
-            // 맵 경계 내에서만 폭탄 투하
-            const worldRadius = CONFIG.WORLD.SIZE / 2;
-            if (Math.abs(this.group.position.x) < worldRadius && Math.abs(this.group.position.z) < worldRadius) {
+        // --- 퀄리티 애니메이션: 미세한 기우뚱함 및 고도 보정 ---
+        const bank = Math.sin(this.time * 2) * 0.05;
+        const bob = Math.sin(this.time * 3) * 0.15;
+
+        this.group.position.add(this.dir.clone().multiplyScalar(step));
+        this.group.position.y = CONFIG.AIRSTRIKE.PLANE_HEIGHT + bob;
+        this.group.rotation.z = bank;
+
+        // --- 비행운 (Contrails - Wingtips) ---
+        if (vfx && Math.floor(this.time * 40) % 2 === 0) { // 매 프레임 파티클 생성 방지
+            const leftTip = new THREE.Vector3(-2.5, 0, 0.6).applyQuaternion(this.group.quaternion).add(this.group.position);
+            const rightTip = new THREE.Vector3(2.5, 0, 0.6).applyQuaternion(this.group.quaternion).add(this.group.position);
+            vfx.spawnSmoke(leftTip, 0xecf0f1, 0.15, 0.8, 0.2, 1500);
+            vfx.spawnSmoke(rightTip, 0xecf0f1, 0.15, 0.8, 0.2, 1500);
+        }
+
+        // --- 폭격 로직 ---
+        if (!this.bombingStarted && this.targetPosition) {
+            const distToTarget = this.group.position.distanceTo(this.targetPosition);
+            if (distToTarget < CONFIG.AIRSTRIKE.TARGETING_RADIUS) {
+                this.bombingStarted = true;
+            }
+        }
+
+        if (this.bombingStarted && this.bombCount < CONFIG.AIRSTRIKE.BOMB_COUNT) {
+            this.bombTimer += dt;
+            if (this.bombTimer >= CONFIG.AIRSTRIKE.BOMB_INTERVAL) {
+                this.bombTimer = 0;
                 this.dropBomb();
+                this.bombCount++;
             }
         }
 
@@ -1195,66 +1350,83 @@ class RepairStation {
         this.position = new THREE.Vector3(0, 0, 0);
         this.group.position.copy(this.position);
 
-        const baseSize = CONFIG.REPAIR_STATION.RADIUS * 4.2; 
-        const concreteColor = 0x8a8e91; 
-        const hazardYellow = 0xf9ca24; 
-        const darkMetal = 0x2c3e50;
-        const boltColor = 0xbdc3c7;
+        const baseSize = CONFIG.REPAIR_STATION.RADIUS * 4.5;
+        const baseColor = 0x3d3d3d;
+        const metalDark = 0x2d2d2d;
+        const metalAccent = 0x4a4a4a;
+        const hazardOrange = 0xff6b35;
+        const warningStripes = 0xf39c12;
+        const techCyan = 0x00d4aa;
+        const boltSilver = 0xc0c0c0;
 
-        // 1. 폴리싱된 산업용 콘크리트 베이스
-        const base = createVoxelBox(baseSize, 0.4, baseSize, concreteColor, 0.1, 0.9);
-        base.position.y = 0.2;
+        const base = createVoxelBox(baseSize, 0.5, baseSize, baseColor, 0.2, 0.8);
+        base.position.y = 0.25;
         base.receiveShadow = true;
         this.group.add(base);
 
+        const edgeTrim = createVoxelBox(baseSize + 0.2, 0.08, baseSize + 0.2, metalAccent, 0.8, 0.2);
+        edgeTrim.position.y = 0.54;
+        this.group.add(edgeTrim);
 
-        // 안전선 및 배수구 (Safety Stripes & Grates)
         for (let side of [-1, 1]) {
-            const hStrip = createVoxelBox(baseSize, 0.05, 0.25, hazardYellow);
-            hStrip.position.set(0, 0.43, side * (baseSize / 2 - 0.15));
+            const hStrip = createVoxelBox(baseSize, 0.06, 0.3, warningStripes);
+            hStrip.position.set(0, 0.53, side * (baseSize / 2 - 0.2));
             this.group.add(hStrip);
-            
-            const vStrip = createVoxelBox(0.25, 0.05, baseSize, hazardYellow);
-            vStrip.position.set(side * (baseSize / 2 - 0.15), 0.43, 0);
+
+            const vStrip = createVoxelBox(0.3, 0.06, baseSize, warningStripes);
+            vStrip.position.set(side * (baseSize / 2 - 0.2), 0.53, 0);
             this.group.add(vStrip);
 
-            const grate = createVoxelBox(1.0, 0.03, 0.5, 0x111111);
-            grate.position.set(side * (baseSize / 4), 0.415, 0);
-            this.group.add(grate);
+            for (let i = 0; i < 3; i++) {
+                const grate = createVoxelBox(0.8, 0.04, 0.4, 0x1a1a1a);
+                grate.position.set(side * (baseSize / 3 - i * 0.3), 0.52, 0);
+                this.group.add(grate);
+            }
         }
 
-        // 2. 디테일이 강화된 4주식 유압 리프트 & 갠트리 크레인
         this.pylons = [];
         this.strobes = [];
-        const pillarDist = baseSize / 2 + 0.6;
-        const pHeight = 5.2;
+        const pillarDist = baseSize / 2 + 0.8;
+        const pHeight = 6.0;
 
         for (let x of [-1, 1]) {
             for (let z of [-1, 1]) {
                 const pillar = new THREE.Group();
-                pillar.position.set(x * pillarDist, 0.4, z * pillarDist);
+                pillar.position.set(x * pillarDist, 0.5, z * pillarDist);
 
-                const body = createVoxelBox(1.0, pHeight, 1.0, hazardYellow, 0.4, 0.6);
+                const body = createVoxelBox(1.2, pHeight, 1.2, hazardOrange, 0.3, 0.7);
                 body.position.y = pHeight / 2;
                 pillar.add(body);
 
-                const plate = createVoxelBox(1.2, 0.8, 1.2, darkMetal);
-                plate.position.y = 0.4;
-                pillar.add(plate);
+                const trim = createVoxelBox(1.3, 0.1, 1.3, metalDark);
+                trim.position.y = pHeight - 0.5;
+                pillar.add(trim);
+
+                const basePlate = createVoxelBox(1.4, 0.3, 1.4, metalAccent, 0.9, 0.1);
+                basePlate.position.y = 0.15;
+                pillar.add(basePlate);
 
                 for (let j = 0; j < 4; j++) {
-                    const bolt = createVoxelBox(0.1, 0.1, 0.1, boltColor);
+                    const bolt = createVoxelBox(0.12, 0.12, 0.12, boltSilver, 1.0, 0.1);
                     const angle = (j / 4) * Math.PI * 2 + Math.PI / 4;
-                    bolt.position.set(Math.cos(angle)*0.5, 0.8, Math.sin(angle)*0.5);
+                    bolt.position.set(Math.cos(angle) * 0.55, 0.3, Math.sin(angle) * 0.55);
                     pillar.add(bolt);
                 }
 
-                const cylinder = createVoxelCylinder(0.18, 0.18, pHeight * 0.8, boltColor, 0.9, 0.1);
-                cylinder.position.set(x * -0.25, pHeight / 2, z * -0.25);
+                const cylinder = createVoxelCylinder(0.2, 0.2, pHeight * 0.85, boltSilver, 0.95, 0.05);
+                cylinder.position.set(x * -0.3, pHeight / 2, z * -0.3);
                 pillar.add(cylinder);
 
-                const light = createVoxelBox(0.25, 0.25, 0.1, 0xffaa00);
-                light.position.set(0, pHeight - 0.5, 0.51);
+                const lightBase = createVoxelBox(0.3, 0.15, 0.15, metalDark);
+                lightBase.position.set(0, pHeight - 0.3, 0.6);
+                pillar.add(lightBase);
+
+                const light = createVoxelBox(0.25, 0.25, 0.1, 0xff8c00);
+                light.position.set(0, pHeight - 0.1, 0.65);
+                if (light.material) {
+                    light.material.emissive = new THREE.Color(0xff8c00);
+                    light.material.emissiveIntensity = 0.5;
+                }
                 pillar.add(light);
                 this.strobes.push(light);
 
@@ -1262,71 +1434,115 @@ class RepairStation {
                 this.pylons.push(pillar);
             }
 
-            const beamX = createVoxelBox(baseSize + 2.5, 0.6, 0.6, darkMetal);
-            beamX.position.set(0, pHeight + 0.4, x * pillarDist);
+            const beamX = createVoxelBox(baseSize + 3.0, 0.8, 0.8, metalDark, 0.9, 0.1);
+            beamX.position.set(0, pHeight + 0.5, x * pillarDist);
             this.group.add(beamX);
 
-            const beamZ = createVoxelBox(0.6, 0.6, baseSize + 2.5, darkMetal);
-            beamZ.position.set(x * pillarDist, pHeight + 0.4, 0);
+            const beamCapX = createVoxelBox(0.4, 0.4, 0.9, metalAccent);
+            beamCapX.position.set(0, pHeight + 0.9, x * pillarDist);
+            this.group.add(beamCapX);
+
+            const beamZ = createVoxelBox(0.8, 0.8, baseSize + 3.0, metalDark, 0.9, 0.1);
+            beamZ.position.set(x * pillarDist, pHeight + 0.5, 0);
             this.group.add(beamZ);
+
+            const beamCapZ = createVoxelBox(0.9, 0.4, 0.4, metalAccent);
+            beamCapZ.position.set(x * pillarDist, pHeight + 0.9, 0);
+            this.group.add(beamCapZ);
         }
 
-        // 윈치와 훅 (Winch & Hook)
-        const winch = createVoxelBox(1.2, 0.8, 1.4, 0x333333);
-        winch.position.set(0, pHeight + 1.2, 0);
-        this.group.add(winch);
+        const gantryCenter = new THREE.Group();
+        gantryCenter.position.set(0, pHeight + 0.5, 0);
 
-        const hookWire = createVoxelCylinder(0.06, 0.06, 2.5, 0x555555);
-        hookWire.position.set(0, pHeight, 0);
-        this.group.add(hookWire);
+        const winchBase = createVoxelBox(1.6, 1.0, 1.6, metalDark, 0.8, 0.2);
+        winchBase.position.y = 0.5;
+        gantryCenter.add(winchBase);
 
-        const hook = createVoxelBox(0.5, 0.7, 0.3, darkMetal);
-        hook.position.set(0, pHeight - 1.25, 0);
-        this.group.add(hook);
+        const winchDrum = createVoxelCylinder(0.5, 0.5, 1.2, metalAccent, 0.9, 0.1);
+        winchDrum.position.y = 1.0;
+        winchDrum.rotation.x = Math.PI / 2;
+        gantryCenter.add(winchDrum);
 
-        // [NEW] 공중 케이블 (Hanging Cables)
+        const winchMotor = createVoxelBox(0.6, 0.5, 0.6, 0x1a1a1a);
+        winchMotor.position.set(0.8, 0.8, 0);
+        gantryCenter.add(winchMotor);
+
+        this.group.add(gantryCenter);
+
+        this.hookWire = createVoxelCylinder(0.04, 0.04, 3.0, 0x555555);
+        this.hookWire.position.set(0, pHeight - 1.0, 0);
+        this.group.add(this.hookWire);
+
+        this.hookGroup = new THREE.Group();
+        this.hookGroup.position.set(0, pHeight - 2.5, 0);
+
+        const hookTop = createVoxelBox(0.6, 0.3, 0.6, metalDark);
+        this.hookGroup.add(hookTop);
+
+        const hookArm = createVoxelBox(0.15, 0.8, 0.15, metalAccent);
+        hookArm.position.y = -0.55;
+        this.hookGroup.add(hookArm);
+
+        const hookClaw = createVoxelBox(0.5, 0.15, 0.5, hazardOrange);
+        hookClaw.position.y = -1.0;
+        this.hookGroup.add(hookClaw);
+
+        this.group.add(this.hookGroup);
+
         this.addCables(pillarDist, pHeight);
 
-        // 3. 산업용 용접 로봇 팔 (Articulated Robotic Arms)
         this.arms = [];
         for (let i = 0; i < 2; i++) {
             const side = i === 0 ? -1 : 1;
             const armGroup = new THREE.Group();
-            armGroup.position.set(side * (pillarDist - 0.2), 0.4, 0); // Symmetrical on Z=0
-            
-            const mount = createVoxelBox(1.0, 0.6, 1.0, 0x34495e);
-            armGroup.add(mount);
+            armGroup.position.set(side * (pillarDist - 0.3), 0.5, 0);
 
-            const s1 = createVoxelBox(0.5, 2.2, 0.5, hazardYellow);
-            s1.position.y = 1.4;
-            s1.rotation.z = side * 0.4;
+            const baseMount = createVoxelBox(1.2, 0.5, 1.2, metalDark, 0.8, 0.2);
+            baseMount.position.y = 0.25;
+            armGroup.add(baseMount);
+
+            const pivot = createVoxelCylinder(0.3, 0.3, 0.4, metalAccent, 0.9, 0.1);
+            pivot.position.y = 0.5;
+            pivot.rotation.x = Math.PI / 2;
+            armGroup.add(pivot);
+
+            const s1 = createVoxelBox(0.6, 2.5, 0.6, hazardOrange, 0.4, 0.6);
+            s1.position.y = 1.6;
+            s1.rotation.z = side * 0.35;
             armGroup.add(s1);
 
             const s2Group = new THREE.Group();
-            s2Group.position.set(side * -0.7, 2.7, 0);
-            s2Group.rotation.z = side * 1.2; // Fold inwards
+            s2Group.position.set(side * -0.8, 3.2, 0);
+            s2Group.rotation.z = side * 1.0;
             armGroup.add(s2Group);
 
-            const s2Body = createVoxelBox(0.4, 2.0, 0.4, hazardYellow);
-            s2Body.position.y = 1.0;
+            const s2Body = createVoxelBox(0.5, 2.2, 0.5, hazardOrange, 0.4, 0.6);
+            s2Body.position.y = 1.1;
             s2Group.add(s2Body);
 
-            const headBase = createVoxelBox(0.4, 0.3, 0.4, 0x111111);
-            headBase.position.y = 1.35;
+            const hydraulic = createVoxelCylinder(0.08, 0.08, 1.5, boltSilver, 0.95, 0.05);
+            hydraulic.position.set(side * 0.3, 1.5, 0.2);
+            hydraulic.rotation.z = side * 0.3;
+            s2Group.add(hydraulic);
+
+            const headBase = createVoxelBox(0.5, 0.4, 0.5, metalDark);
+            headBase.position.y = 2.35;
             s2Group.add(headBase);
 
-            // [NEW] 날카롭고 정교한 니들 팁 (Needle Tip)
-            const tip = createVoxelBox(0.08, 0.8, 0.08, 0x7f8c8d);
-            tip.position.y = 1.9;
-            s2Group.add(tip);
+            const weldingTorch = createVoxelBox(0.15, 0.15, 0.15, 0x1a1a1a);
+            weldingTorch.position.set(0, 2.6, 0);
+            s2Group.add(weldingTorch);
 
-            const hose = createVoxelCylinder(0.06, 0.06, 1.5, 0x111111);
-            hose.position.set(side * 0.2, 0, 0);
-            hose.rotation.z = side * 0.5;
-            s2Group.add(hose);
+            const torchTip = createVoxelBox(0.08, 0.5, 0.08, 0xff6b35);
+            torchTip.position.set(0, 2.9, 0);
+            if (torchTip.material) {
+                torchTip.material.emissive = new THREE.Color(0xff6b35);
+                torchTip.material.emissiveIntensity = 0.8;
+            }
+            s2Group.add(torchTip);
 
             this.group.add(armGroup);
-            this.arms.push({ group: armGroup, s1: s1, s2: s2Group, tip: tip, side: side });
+            this.arms.push({ group: armGroup, s1: s1, s2: s2Group, tip: torchTip, side: side });
         }
 
         this.addProps(baseSize, pHeight);
@@ -1336,62 +1552,82 @@ class RepairStation {
     }
 
     addCables(dist, height) {
-        // 기둥들 사이와 갠트리에 늘어진 유압 호스 표현
         for (let i = 0; i < 4; i++) {
             const sideX = i < 2 ? -1 : 1;
             const sideZ = i % 2 === 0 ? -1 : 1;
-            
-            // 기둥 상단에서 갠트리 중심으로 향하는 늘어진 케이블 (간소화된 2단 직선으로 곡선 흉내)
-            const cable = createVoxelCylinder(0.05, 0.05, dist * 0.8, 0x111111);
-            cable.position.set(sideX * (dist * 0.6), height + 0.2, sideZ * (dist * 0.6));
+
+            const cable = createVoxelCylinder(0.04, 0.04, dist * 0.85, 0x222222);
+            cable.position.set(sideX * (dist * 0.65), height + 0.4, sideZ * (dist * 0.65));
             cable.rotation.y = Math.atan2(sideZ, sideX);
-            cable.rotation.z = Math.PI / 6;
+            cable.rotation.z = Math.PI / 5;
             this.group.add(cable);
         }
     }
 
     addProps(baseSize, pHeight) {
-        const cab = createVoxelBox(1.0, 1.6, 0.8, 0xc0392b);
-        cab.position.set(-baseSize/2 - 2, 0.8, baseSize/4);
+        const metalDark = 0x2d2d2d;
+        const hazardOrange = 0xff6b35;
+        const techCyan = 0x00d4aa;
+
+        const cab = createVoxelBox(1.2, 2.0, 1.0, metalDark, 0.7, 0.3);
+        cab.position.set(-baseSize / 2 - 2.5, 1.0, baseSize / 4);
         this.group.add(cab);
 
-        const screenSize = 0.6;
-        const screen = createVoxelBox(screenSize, 0.4, 0.1, 0x111111);
-        screen.position.set(-baseSize/2 - 2, 1.3, baseSize/4 + 0.41);
-        this.group.add(screen);
-        
-        this.monitorDisplay = createVoxelBox(0.5, 0.3, 0.02, 0x2ecc71);
-        this.monitorDisplay.position.set(-baseSize/2 - 2, 1.3, baseSize/4 + 0.46);
+        const cabRoof = createVoxelBox(1.4, 0.2, 1.2, 0x1a1a1a);
+        cabRoof.position.set(-baseSize / 2 - 2.5, 2.1, baseSize / 4);
+        this.group.add(cabRoof);
+
+        const screenFrame = createVoxelBox(0.8, 0.5, 0.1, metalDark);
+        screenFrame.position.set(-baseSize / 2 - 2.5, 1.6, baseSize / 4 + 0.46);
+        this.group.add(screenFrame);
+
+        this.monitorDisplay = createVoxelBox(0.7, 0.4, 0.02, techCyan);
+        this.monitorDisplay.position.set(-baseSize / 2 - 2.5, 1.6, baseSize / 4 + 0.52);
+        if (this.monitorDisplay.material) {
+            this.monitorDisplay.material.emissive = new THREE.Color(techCyan);
+            this.monitorDisplay.material.emissiveIntensity = 0.3;
+        }
         this.group.add(this.monitorDisplay);
 
-        // [NEW] 상단 회전 비콘 라이트 구조물 (Rotating Beacon Base)
         this.beacon = new THREE.Group();
-        this.beacon.position.set(0, pHeight + 2.0, 0);
+        this.beacon.position.set(0, pHeight + 1.2, 0);
         this.group.add(this.beacon);
 
-        const bBase = createVoxelBox(0.4, 0.3, 0.4, 0x333333);
+        const bBase = createVoxelBox(0.5, 0.4, 0.5, metalDark);
         this.beacon.add(bBase);
-        this.beaconLight = createVoxelBox(0.3, 0.2, 0.3, 0xff0000);
-        this.beaconLight.position.y = 0.25;
+
+        const bPole = createVoxelBox(0.15, 0.8, 0.15, 0x4a4a4a);
+        bPole.position.y = 0.6;
+        this.beacon.add(bPole);
+
+        this.beaconLight = createVoxelCylinder(0.2, 0.15, 0.3, 0xff0000);
+        this.beaconLight.position.y = 1.15;
+        if (this.beaconLight.material) {
+            this.beaconLight.material.emissive = new THREE.Color(0xff0000);
+            this.beaconLight.material.emissiveIntensity = 0.5;
+        }
         this.beacon.add(this.beaconLight);
 
-        // 바닥 웨더링 (Grime near grates)
         for (let side of [-1, 1]) {
-            const grime = createVoxelBox(1.2, 0.02, 0.7, 0x333333, 0.3, 0.1);
-            grime.position.set(side * (baseSize / 4), 0.41, 0);
-            this.group.add(grime);
+            const oilStain = createVoxelBox(1.5, 0.01, 1.0, 0x1a1a1a, 0.1, 1.0);
+            oilStain.position.set(side * (baseSize / 4), 0.52, 0);
+            this.group.add(oilStain);
         }
 
         for (let h = 0; h < 3; h++) {
-            const track = createVoxelBox(1.2, 0.2, 0.8, 0x111111);
-            track.position.set(baseSize/2 + 2, 0.1 + h * 0.25, -baseSize/4);
-            track.rotation.y = 0.3 * h;
-            this.group.add(track);
+            const barrel = createVoxelCylinder(0.25, 0.3, 1.5, hazardOrange, 0.5, 0.5);
+            barrel.position.set(baseSize / 2 + 2.5, 0.75 + h * 0.5, -baseSize / 4 + h * 0.3);
+            barrel.rotation.z = 0.2 * h;
+            this.group.add(barrel);
         }
 
-        const barrel = createVoxelCylinder(0.4, 0.4, 1.2, 0x2980b9);
-        barrel.position.set(baseSize/2 + 2, 0.6, baseSize/2);
-        this.group.add(barrel);
+        const toolBox = createVoxelBox(1.0, 0.6, 0.8, metalDark, 0.8, 0.2);
+        toolBox.position.set(baseSize / 2 + 2.5, 0.3, baseSize / 2 - 1);
+        this.group.add(toolBox);
+
+        const toolHandle = createVoxelBox(0.8, 0.1, 0.1, 0xff6b35);
+        toolHandle.position.set(baseSize / 2 + 2.5, 0.65, baseSize / 2 - 1);
+        this.group.add(toolHandle);
     }
 
     update(dt) {
@@ -1403,11 +1639,19 @@ class RepairStation {
         // 1. 비콘 라이트 애니메이션
         if (this.beaconLight) {
             if (isRepairing) {
-                this.beacon.rotation.y += dt * 10;
+                this.beacon.rotation.y += dt * 8;
                 this.beaconLight.material.emissive.setHex(0xff0000);
-                this.beaconLight.material.emissiveIntensity = 1.0 + Math.sin(this.animTime * 20) * 0.5;
+                this.beaconLight.material.emissiveIntensity = 1.0 + Math.sin(this.animTime * 15) * 0.5;
             } else {
-                this.beaconLight.material.emissiveIntensity = 0;
+                this.beaconLight.material.emissiveIntensity = 0.2;
+            }
+        }
+
+        // Hook 애니메이션
+        if (this.hookGroup) {
+            if (isRepairing) {
+                const hookOffset = Math.sin(this.animTime * 3) * 0.3;
+                this.hookGroup.position.y = -2.5 + hookOffset;
             }
         }
 
@@ -1447,7 +1691,7 @@ class RepairStation {
                     arm.tip.getWorldPosition(hPos);
                     const tipOffset = new THREE.Vector3(0, 0.4, 0).applyQuaternion(arm.tip.quaternion);
                     hPos.add(tipOffset);
-                    
+
                     vfx.spawnWeldingSparks(hPos);
                     if (Math.random() < 0.3) {
                         vfx.spawnSmoke(hPos, 0xaaaaaa, 1, 0.4, 0.2, 500);
@@ -1596,7 +1840,7 @@ class Tank {
                 const zPos = -1.0 + row * 0.3;
                 era.position.set(xPos, 0.46, zPos);
                 // 약간의 랜덤 각도로 투박한 느낌 추가
-                era.rotation.x = -0.1; 
+                era.rotation.x = -0.1;
                 this.hullGroup.add(era);
             }
         }
@@ -2642,6 +2886,12 @@ function update(dt) {
             if (keys['w'] || keys['KeyW'] || keys['ArrowUp']) moveDir = 1.0;
             else if (keys['s'] || keys['KeyS'] || keys['ArrowDown']) moveDir = -0.7; // Backwards is slower
 
+            // --- DEBUG: Manual Airstrike Trigger (Press 'K') ---
+            if (keys['KeyK'] && now > (myTank.lastKTrigger || 0) + 1000) {
+                myTank.lastKTrigger = now;
+                triggerManualAirstrike();
+            }
+
             // Direct rotation handle (A/D)
             const rotSpeed = CONFIG.TANK.ROTATE_SPEED * (1.1 + (Math.abs(moveDir) * 0.2));
             if (keys['a'] || keys['KeyA'] || keys['ArrowLeft']) myTank.group.rotation.y += rotSpeed * dt;
@@ -2737,12 +2987,12 @@ function update(dt) {
         checkCollisions();
 
         // 8. Reverted Camera Follow (Top-down Fixed Offset)
-        camera.fov = 60;
+        camera.fov = CONFIG.CAMERA.FOV;
         camera.updateProjectionMatrix();
 
         let camX = myTank.group.position.x;
-        let camY = 20;
-        let camZ = myTank.group.position.z + 10;
+        let camY = CONFIG.CAMERA.HEIGHT;
+        let camZ = myTank.group.position.z + CONFIG.CAMERA.OFFSET_Z;
 
         // Add Screen Shake
         if (cameraShakeTime > 0) {
@@ -2885,8 +3135,9 @@ function update(dt) {
 
         const start = new THREE.Vector3(startX, CONFIG.AIRSTRIKE.PLANE_HEIGHT, startZ);
         const end = new THREE.Vector3(endX, CONFIG.AIRSTRIKE.PLANE_HEIGHT, endZ);
+        const targetPos = new THREE.Vector3(targetX, 0, targetZ);
 
-        airstrikePlanes.push(new FighterPlane(start, end));
+        airstrikePlanes.push(new FighterPlane(start, end, targetPos));
 
         // Reset timer
         nextAirstrikeTime = now + (CONFIG.AIRSTRIKE.INTERVAL_MIN + Math.random() * (CONFIG.AIRSTRIKE.INTERVAL_MAX - CONFIG.AIRSTRIKE.INTERVAL_MIN)) * 1000;
@@ -3721,7 +3972,7 @@ const Game = {
         for (let i = 0; i < 60; i++) {
             const rx = (seededRandom(worldSeed++) - 0.5) * (CONFIG.WORLD.SIZE - 10);
             const rz = (seededRandom(worldSeed++) - 0.5) * (CONFIG.WORLD.SIZE - 10);
-            
+
             // [FIX] 정비소 주변 12유닛 내에는 나무나 사물이 생기지 않도록 제외
             if (isPositionSafe(rx, rz) && Math.hypot(rx, rz) > 12.0) {
                 const type = seededRandom(worldSeed++);
@@ -3951,3 +4202,24 @@ WCGames.init({
         syncMultiplayer();
     }
 });
+function triggerManualAirstrike() {
+    const angle = Math.random() * Math.PI * 2;
+    const spawnDist = CONFIG.WORLD.SIZE * 1.5;
+    const targetX = myTank ? myTank.group.position.x : 0;
+    const targetZ = myTank ? myTank.group.position.z : 0;
+
+    const startX = targetX + Math.cos(angle) * spawnDist;
+    const startZ = targetZ + Math.sin(angle) * spawnDist;
+    const endX = targetX - Math.cos(angle) * spawnDist;
+    const endZ = targetZ - Math.sin(angle) * spawnDist;
+
+    const start = new THREE.Vector3(startX, CONFIG.AIRSTRIKE.PLANE_HEIGHT, startZ);
+    const end = new THREE.Vector3(endX, CONFIG.AIRSTRIKE.PLANE_HEIGHT, endZ);
+    const targetPos = new THREE.Vector3(targetX, 0, targetZ);
+
+    airstrikePlanes.push(new FighterPlane(start, end, targetPos));
+    spawnFloatingText(myTank.group.position.clone().add(new THREE.Vector3(0, 3, 0)), "AIR RAID REQUESTED", "#ff3e3e");
+}
+
+// Ensure createVoxelBox supports emissive if not already
+// (Looking at existing usages, they usually pass intensity or similar)
