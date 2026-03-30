@@ -75,7 +75,6 @@ const CONFIG = {
         FIRE_COOLDOWN: 1800,
         DETECTION_RANGE: 30,
         ATTACK_RANGE: 20,
-        // NICKNAMES is now generated dynamically as GuestXXXX
         NAME_PREFIX: "Guest",
         COLORS: [0x9933ff, 0xff9900, 0x00ffcc, 0xff0066, 0x33cc33, 0xffdd00]
     },
@@ -112,10 +111,10 @@ const CONFIG = {
         HEIGHT: 20,
         OFFSET_Z: 7,
         PC_FOV: 80,
-        MOBILE_FOV: 70
+        MOBILE_FOV: 60
     },
     NETWORK: {
-        SYNC_INTERVAL: 33 // 멀티플레이어 동기화 간격 (ms). 40ms = 25fps
+        SYNC_INTERVAL: 25 // 멀티플레이어 동기화 간격 (ms). 40ms = 25fps
     }
 };
 
@@ -141,6 +140,58 @@ function normalizeAngle(angle) {
 /* 1.6 Terrain Height Function (Disabled) */
 function getTerrainHeight(x, z) {
     return 0;
+}
+
+/* 1.7 Serialization Helpers (Packet Optimization) */
+function encodeHex(val, offset, scale, length) {
+    const intVal = Math.floor((val + offset) * scale);
+    const maxVal = Math.pow(16, length) - 1;
+    // 클램핑: 음수 방지 및 최대 길이 초과 방지
+    const clampedVal = Math.max(0, Math.min(maxVal, intVal));
+    return clampedVal.toString(16).padStart(length, '0');
+}
+
+function decodeHex(hex, offset, scale) {
+    const intVal = parseInt(hex, 16);
+    return (intVal / scale) - offset;
+}
+
+function packTankData(tank) {
+    // X, Z: 4 chars (Offset 200, Scale 100 -> -200~455 범위)
+    const x = encodeHex(tank.group.position.x, 200, 100, 4);
+    const z = encodeHex(tank.group.position.z, 200, 100, 4);
+
+    // 각도 정기화 및 넉넉한 오프셋(10) 적용
+    const r = encodeHex(normalizeAngle(tank.group.rotation.y), 10, 100, 4);
+    const tr = encodeHex(normalizeAngle(tank.turretGroup.rotation.y), 10, 100, 4);
+
+    // HP, Kills: 4 chars (0-65535 지원)
+    const h = encodeHex(tank.hp, 0, 1, 4);
+    const k = encodeHex(tank.kills, 0, 1, 4);
+
+    // Levels: 1 char each (0-F)
+    const l1 = encodeHex(tank.levelCannon, 0, 1, 1);
+    const l2 = encodeHex(tank.levelSpeed, 0, 1, 1);
+    const l3 = encodeHex(tank.levelArmor, 0, 1, 1);
+
+    return x + z + r + tr + h + k + l1 + l2 + l3;
+}
+
+function unpackTankData(hex, tank) {
+    // V2.2 규격: 27자 고정
+    if (!hex || hex.length < 27) return null;
+
+    const x = decodeHex(hex.substring(0, 4), 200, 100);
+    const z = decodeHex(hex.substring(4, 8), 200, 100);
+    const r = decodeHex(hex.substring(8, 12), 10, 100);
+    const tr = decodeHex(hex.substring(12, 16), 10, 100);
+    const h = decodeHex(hex.substring(16, 20), 0, 1);
+    const k = decodeHex(hex.substring(20, 24), 0, 1);
+    const l1 = decodeHex(hex.substring(24, 25), 0, 1);
+    const l2 = decodeHex(hex.substring(25, 26), 0, 1);
+    const l3 = decodeHex(hex.substring(26, 27), 0, 1);
+
+    return { x, z, r, tr, h, k, l1, l2, l3 };
 }
 
 function getTerrainNormal(x, z) {
@@ -204,6 +255,10 @@ let channel;
 let amIMaster = false;
 let lastFireTime = 0;
 let lastSyncTime = 0;
+let lastHeartbeatTime = 0;
+let lastSentPos = new THREE.Vector3();
+let lastSentRot = 0;
+let lastSentTurretRot = 0;
 let lastPowerupSpawnTime = 0;
 let animationId = null;
 let cameraShakeTime = 0;
@@ -2357,10 +2412,10 @@ class Tank {
                 type: 'broadcast',
                 event: 'fire',
                 payload: {
-                    pos: { x: this._tempPos.x, y: this._tempPos.y, z: this._tempPos.z },
-                    dir: { x: dir.x, y: dir.y, z: dir.z },
-                    ownerId: this.id,
-                    level: this.levelCannon
+                    p: [parseFloat(this._tempPos.x.toFixed(2)), parseFloat(this._tempPos.y.toFixed(2)), parseFloat(this._tempPos.z.toFixed(2))],
+                    v: [parseFloat(dir.x.toFixed(2)), parseFloat(dir.y.toFixed(2)), parseFloat(dir.z.toFixed(2))],
+                    i: this.id,
+                    l: this.levelCannon
                 }
             });
         }
@@ -2406,7 +2461,7 @@ class Tank {
                         const tx = pos.x + Math.cos(angle) * offset;
                         const tz = pos.z - Math.sin(angle) * offset;
                         // 높이를 0.01로 올려 바닥 위로 확실히 보이게 하고 색상을 진하게 변경
-                        const track = createVoxelBox(0.2, 0.003, 0.4, 0x222222); 
+                        const track = createVoxelBox(0.2, 0.003, 0.4, 0x222222);
                         track.position.set(tx, 0.01, tz);
                         track.rotation.y = angle;
                         scene.add(track);
@@ -2613,7 +2668,7 @@ class Tank {
                     channel.send({
                         type: 'broadcast',
                         event: 'death',
-                        payload: { victimId: myId, shooterId: shooterId }
+                        payload: { i: myId, k: shooterId }
                     });
                 }
 
@@ -3641,7 +3696,7 @@ function updateBullets() {
                     channel.send({
                         type: 'broadcast',
                         event: 'hit',
-                        payload: { targetId: tank.id, damage: CONFIG.BULLET.DAMAGE, shooterId: bullet.ownerId }
+                        payload: { t: tank.id, d: CONFIG.BULLET.DAMAGE, s: bullet.ownerId }
                     });
                 }
                 hit = true;
@@ -3681,24 +3736,31 @@ function syncMultiplayer() {
 
     // 1. Broadcast My Status (Only if playing)
     if (WCGames.state === 'PLAYING' && myId && myTank) {
-        channel.send({
-            type: 'broadcast',
-            event: 'move',
-            payload: {
-                id: myId,
-                name: myName,
-                pos: { x: myTank.group.position.x, y: myTank.group.position.y, z: myTank.group.position.z },
-                rot: myTank.group.rotation.y,
-                turretRot: myTank.turretGroup.rotation.y,
-                hp: myTank.hp,
-                kills: myTank.kills,
-                levels: {
-                    cannon: myTank.levelCannon,
-                    speed: myTank.levelSpeed,
-                    armor: myTank.levelArmor
+        const distMoved = myTank.group.position.distanceTo(lastSentPos);
+        const rotDiff = Math.abs(normalizeAngle(myTank.group.rotation.y - lastSentRot));
+        const turretDiff = Math.abs(normalizeAngle(myTank.turretGroup.rotation.y - lastSentTurretRot));
+
+        // 하트비트 체크: 정지 상태여도 2초에 한 번은 전송
+        const isStationary = distMoved <= 0.05 && rotDiff <= 0.01 && turretDiff <= 0.01;
+        const needsHeartbeat = now - lastHeartbeatTime > 2000;
+
+        if (!isStationary || needsHeartbeat) {
+            const dStr = packTankData(myTank);
+            channel.send({
+                type: 'broadcast',
+                event: 'move',
+                payload: {
+                    i: myId,
+                    n: myName,
+                    d: dStr
                 }
-            }
-        });
+            });
+
+            lastSentPos.copy(myTank.group.position);
+            lastSentRot = myTank.group.rotation.y;
+            lastSentTurretRot = myTank.turretGroup.rotation.y;
+            lastHeartbeatTime = now;
+        }
     }
 
     // 2. Broadcast ALL Bots (DELETED: BOTS ARE LOCAL)
@@ -4641,29 +4703,51 @@ function setupChannelListeners() {
     });
 
     channel.on('broadcast', { event: 'move' }, ({ payload }) => {
-        if (payload.id === myId) return;
-        let tank = tanks.get(payload.id);
-        if (!tank) {
-            tank = new Tank(payload.id, payload.name);
-            tanks.set(payload.id, tank);
-        }
-        if (tank && tank.group) {
-            if (payload.pos) {
-                const targetPos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
-                tank.group.position.lerp(targetPos, 0.4);
-            }
-            tank.group.rotation.y = payload.rot;
-            if (tank.turretGroup) tank.turretGroup.rotation.y = payload.turretRot;
-            tank.updateHP(payload.hp);
-            tank.kills = payload.kills || 0;
+        const id = payload.i || payload.id;
+        if (id === myId) return;
 
-            // Sync Upgrade Levels for Other Players
-            if (payload.levels) {
-                let changed = false;
-                if (tank.levelCannon !== payload.levels.cannon) { tank.levelCannon = payload.levels.cannon; changed = true; }
-                if (tank.levelSpeed !== payload.levels.speed) { tank.levelSpeed = payload.levels.speed; changed = true; }
-                if (tank.levelArmor !== payload.levels.armor) { tank.levelArmor = payload.levels.armor; changed = true; }
-                if (changed) tank.updateArmorVisual();
+        let tank = tanks.get(id);
+        if (!tank) {
+            tank = new Tank(id, payload.n || payload.name);
+            tanks.set(id, tank);
+        }
+
+        if (tank && tank.group) {
+            // 직렬화 데이터(d) 처리
+            if (payload.d) {
+                const d = unpackTankData(payload.d);
+                if (d) {
+                    const targetPos = new THREE.Vector3(d.x, 0, d.z);
+                    tank.group.position.lerp(targetPos, 0.4);
+                    tank.group.rotation.y = lerpAngle(tank.group.rotation.y, d.r, 0.4);
+                    if (tank.turretGroup) tank.turretGroup.rotation.y = lerpAngle(tank.turretGroup.rotation.y, d.tr, 0.4);
+                    tank.updateHP(d.h);
+                    tank.kills = d.k || 0;
+
+                    let changed = false;
+                    if (tank.levelCannon !== d.l1) { tank.levelCannon = d.l1; changed = true; }
+                    if (tank.levelSpeed !== d.l2) { tank.levelSpeed = d.l2; changed = true; }
+                    if (tank.levelArmor !== d.l3) { tank.levelArmor = d.l3; changed = true; }
+                    if (changed) tank.updateArmorVisual();
+                }
+            } else {
+                // 하위 호환용 레거시 처리
+                if (payload.pos) {
+                    const targetPos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
+                    tank.group.position.lerp(targetPos, 0.4);
+                }
+                tank.group.rotation.y = lerpAngle(tank.group.rotation.y, payload.rot, 0.4);
+                if (tank.turretGroup) tank.turretGroup.rotation.y = lerpAngle(tank.turretGroup.rotation.y, payload.turretRot, 0.4);
+                tank.updateHP(payload.hp);
+                tank.kills = payload.kills || 0;
+
+                if (payload.levels) {
+                    let changed = false;
+                    if (tank.levelCannon !== payload.levels.cannon) { tank.levelCannon = payload.levels.cannon; changed = true; }
+                    if (tank.levelSpeed !== payload.levels.speed) { tank.levelSpeed = payload.levels.speed; changed = true; }
+                    if (tank.levelArmor !== payload.levels.armor) { tank.levelArmor = payload.levels.armor; changed = true; }
+                    if (changed) tank.updateArmorVisual();
+                }
             }
 
             tank.lastSeen = Date.now();
@@ -4671,46 +4755,59 @@ function setupChannelListeners() {
     });
 
     channel.on('broadcast', { event: 'fire' }, ({ payload }) => {
-        if (payload.ownerId === myId) return;
-        const bPos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
-        const bDir = new THREE.Vector3(payload.dir.x, payload.dir.y, payload.dir.z);
-        const bullet = new Bullet(bPos, bDir, payload.ownerId);
+        const id = payload.i || payload.ownerId;
+        if (id === myId) return;
 
-        // Handle upgraded bullet visuals for others
-        if (payload.level) {
-            let bulletScale = 1.0 + (Math.min(3, payload.level) * CONFIG.UPGRADE.CANNON.SCALE_INC);
+        let bPos, bDir;
+        if (payload.p && Array.isArray(payload.p)) {
+            bPos = new THREE.Vector3(payload.p[0], payload.p[1], payload.p[2]);
+            bDir = new THREE.Vector3(payload.v[0], payload.v[1], payload.v[2]);
+        } else {
+            bPos = new THREE.Vector3(payload.pos.x, payload.pos.y, payload.pos.z);
+            bDir = new THREE.Vector3(payload.dir.x, payload.dir.y, payload.dir.z);
+        }
+
+        const bullet = new Bullet(bPos, bDir, id);
+        const level = payload.l !== undefined ? payload.l : payload.level;
+
+        if (level) {
+            let bulletScale = 1.0 + (Math.min(3, level) * CONFIG.UPGRADE.CANNON.SCALE_INC);
             bullet.group.scale.setScalar(bulletScale);
         }
         bullets.push(bullet);
 
-        // Show firing effect for other players
-        const tank = tanks.get(payload.ownerId);
+        const tank = tanks.get(id);
         if (tank) tank.playShootEffect();
     });
 
     channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
-        if (payload.shooterId === myId) return;
-        // Only respond to hits on human players (self or others)
-        let target = (payload.targetId === myId) ? myTank : tanks.get(payload.targetId);
+        const sId = payload.s || payload.shooterId;
+        if (sId === myId) return;
+        const tId = payload.t || payload.targetId;
+        const damage = payload.d || payload.damage;
+
+        let target = (tId === myId) ? myTank : tanks.get(tId);
         if (target) {
-            target.handleHit(payload.damage, payload.shooterId);
+            target.handleHit(damage, sId);
         }
     });
 
     channel.on('broadcast', { event: 'death' }, ({ payload }) => {
-        // Only respond to deaths of human players
-        const victim = (payload.victimId === myId) ? myTank : tanks.get(payload.victimId);
+        // 단축 키(i) 또는 레거시 키 대응
+        const vId = payload.i || payload.victimId || payload.id;
+        const kId = payload.k || payload.shooterId || payload.killerId;
 
+        const victim = (vId === myId) ? myTank : tanks.get(vId);
         if (victim) {
             if (vfx) vfx.spawnExplosion(victim.group.position);
             if (victim !== myTank) {
                 victim.destroy();
-                tanks.delete(payload.victimId);
+                tanks.delete(vId);
             }
             updateScoreboard();
         }
 
-        const killer = [myTank, ...Array.from(tanks.values())].find(t => t && t.id === payload.shooterId);
+        const killer = [myTank, ...Array.from(tanks.values())].find(t => t && t.id === kId);
         if (killer) {
             killer.kills++;
             updateScoreboard();
