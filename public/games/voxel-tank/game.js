@@ -2856,7 +2856,7 @@ function update(dt) {
             const nx = joystickLeft.x;
             const nz = joystickLeft.y;
             const inputMag = Math.sqrt(nx * nx + nz * nz);
-            const moveMag = Math.min(1.0, inputMag);
+            const moveMag = 1.0; // 조이스틱 기울기에 상관없이 항상 최대 속도 유지 (사용자 요청)
             const targetAngle = Math.atan2(-nx, -nz);
 
             const rotBoost = 1.0 + (moveMag * 0.2);
