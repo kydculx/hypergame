@@ -36,18 +36,18 @@ const CONFIG = {
             { x: 30, z: -30, w: 10, d: 2 }, { x: 34, z: -26, w: 2, d: 10 },
             { x: -30, z: 30, w: 10, d: 2 }, { x: -34, z: 26, w: 2, d: 10 },
             { x: 30, z: 30, w: 10, d: 2 }, { x: 34, z: 26, w: 2, d: 10 },
-            { x: 0, z: 25, w: 20, d: 2 }, { x: 0, z: -25, w: 20, d: 2 },
-            { x: 25, z: 0, w: 2, d: 20 }, { x: -25, z: 0, w: 2, d: 20 },
+            { x: 0, z: 28, w: 20, d: 2 }, { x: 0, z: -28, w: 20, d: 2 },
+            { x: 28, z: 0, w: 2, d: 20 }, { x: -28, z: 0, w: 2, d: 20 },
             { x: -40, z: 0, w: 4, d: 4 }, { x: 40, z: 0, w: 4, d: 4 },
             { x: 0, z: -40, w: 4, d: 4 }, { x: 0, z: 40, w: 4, d: 4 },
-            { x: -15, z: 0, w: 8, d: 2 }, { x: 15, z: 0, w: 8, d: 2 },
-            { x: 0, z: -15, w: 2, d: 8 }, { x: 0, z: 15, w: 2, d: 8 }
+            { x: -22, z: 0, w: 8, d: 2 }, { x: 22, z: 0, w: 8, d: 2 },
+            { x: 0, z: -22, w: 2, d: 8 }, { x: 0, z: 22, w: 2, d: 8 }
         ],
         DAMAGED_FENCE: [
-            { x: -20, z: 10, w: 12, d: 2 },
-            { x: 20, z: -10, w: 12, d: 2 },
-            { x: -10, z: -20, w: 2, d: 12 },
-            { x: 10, z: 20, w: 2, d: 12 }
+            { x: -35, z: 20, w: 12, d: 2 },
+            { x: 35, z: -20, w: 12, d: 2 },
+            { x: -20, z: -35, w: 2, d: 12 },
+            { x: 20, z: 35, w: 2, d: 12 }
         ],
         WRECKS: [
             { x: -12, z: -12 }, { x: 12, z: 12 },
@@ -2255,6 +2255,11 @@ class Tank {
     }
 
     shoot(jitter = 0) {
+        if (repairStation) {
+            const dist = this.group.position.distanceTo(repairStation.group.position);
+            if (dist < CONFIG.REPAIR_STATION.RADIUS + 1) return;
+        }
+
         const now = Date.now();
         const cooldown = (this.isBot ? CONFIG.BOT.FIRE_COOLDOWN : CONFIG.TANK.FIRE_COOLDOWN) + jitter;
         if (now - this.lastFireTime < cooldown) return;
