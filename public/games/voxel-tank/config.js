@@ -18,7 +18,9 @@ const CONFIG = {
         TURRET_ROTATE_SPEED: 4,      // 포탑 회전 속도
         FIRE_COOLDOWN: 1000,         // 발사 쿨타임 (ms)
         MAX_HP: 100,                 // 최대 체력
-        TRACK_DISTANCE: 40           // 다른 탱크 발자국 표시 거리
+        TRACK_DISTANCE: 40,          // 다른 탱크 발자국 표시 거리
+        DETECTION_RANGE: 30,         // 플레이어용 적 탐지 범위
+        ATTACK_RANGE: 20             // 플레이어용 자동 사격 사거리
     },
 
     // ------------------------------------------------------------------------
@@ -134,12 +136,17 @@ const CONFIG = {
     // ------------------------------------------------------------------------
     BOT: {
         COUNT: 15,                  // 봇 수
-        FORWARD_SPEED: 5,           // 전진 속도
-        BACKWARD_SPEED: 3,          // 후진 속도
-        ROTATE_SPEED: 4,            // 회전 속도
-        FIRE_COOLDOWN: 1800,        // 발사 쿨타임 (ms)
-        DETECTION_RANGE: 30,        // 적 탐지 범위
-        ATTACK_RANGE: 20,           // 공격 범위
+        // [MIN, MAX] 범위 설정 (개별 지능 부여용 - 상한선 20% 하향됨)
+        FORWARD_SPEED_RANGE: [3.5, 5.2],     // 전진 속도 (최대 6.5 -> 5.2)
+        BACKWARD_SPEED_RANGE: [2.0, 3.2],    // 후진 속도 (최대 4.0 -> 3.2)
+        ROTATE_SPEED_RANGE: [2.5, 4.4],      // 회전 속도 (최대 5.5 -> 4.4)
+        FIRE_COOLDOWN_RANGE: [1200, 3000],   // 발사 쿨타임 (최소 1000 -> 1200)
+        DETECTION_RANGE_RANGE: [20, 32],     // 적 탐지 범위 (최대 40 -> 32)
+        ATTACK_RANGE_RANGE: [15, 20],        // 공격 범위 (최대 25 -> 20)
+        AIM_JITTER_RANGE: [0.06, 0.45],      // 조준 오차 범위 (최소 0.05 -> 0.06)
+        FIRING_THRESHOLD_RANGE: [0.96, 0.985], // 사격 정렬 임계값 (최대 0.995 -> 0.985)
+        JITTER_UPDATE_INTERVAL_RANGE: [0.6, 2.0], // 조준 오차 갱신 간격 (최소 0.5 -> 0.6)
+        
         NAME_PREFIX: "Guest",        // 이름 접두사
         COLORS: [0x9933ff, 0xff9900, 0x00ffcc, 0xff0066, 0x33cc33, 0xffdd00] // 봇 색상
     },

@@ -2149,7 +2149,7 @@ class Tank {
         }
 
         const now = Date.now();
-        const cooldown = (this.isBot ? CONFIG.BOT.FIRE_COOLDOWN : CONFIG.TANK.FIRE_COOLDOWN) + jitter;
+        const cooldown = (this.isBot ? (this.stats ? this.stats.fireCooldown : CONFIG.BOT.FIRE_COOLDOWN_RANGE[0]) : CONFIG.TANK.FIRE_COOLDOWN) + jitter;
         if (now - this.lastFireTime < cooldown) return;
         this.lastFireTime = now;
 
@@ -2463,19 +2463,34 @@ class Bot extends Tank {
     constructor(id, name, syncedColor = null) {
         super(id, name, false);
         this.isBot = true;
+
+        // 개별 지능 및 성능(Stats) 할당
+        const getRand = (range) => range[0] + Math.random() * (range[1] - range[0]);
+        this.stats = {
+            forwardSpeed: getRand(CONFIG.BOT.FORWARD_SPEED_RANGE),
+            backwardSpeed: getRand(CONFIG.BOT.BACKWARD_SPEED_RANGE),
+            rotateSpeed: getRand(CONFIG.BOT.ROTATE_SPEED_RANGE),
+            fireCooldown: getRand(CONFIG.BOT.FIRE_COOLDOWN_RANGE),
+            detectionRange: getRand(CONFIG.BOT.DETECTION_RANGE_RANGE),
+            attackRange: getRand(CONFIG.BOT.ATTACK_RANGE_RANGE),
+            aimJitterMax: getRand(CONFIG.BOT.AIM_JITTER_RANGE),
+            firingThreshold: getRand(CONFIG.BOT.FIRING_THRESHOLD_RANGE),
+            jitterUpdateInterval: getRand(CONFIG.BOT.JITTER_UPDATE_INTERVAL_RANGE)
+        };
+
         this.lastFireTime = 0;
         this.target = null;
-        this.state = 'WANDER'; // 상태: WANDER(배회) 또는 ATTACK(공격)
+        this.state = 'WANDER';
         this.stateTimer = 0;
         this.strafeTimer = 0;
-        this.aimJitter = (Math.random() - 0.5) * 0.1;
+        this.aimJitter = (Math.random() - 0.5) * this.stats.aimJitterMax;
         this.aimJitterTimer = 0;
         this.blockedTimer = 0;
         this.strafeDir = Math.random() < 0.5 ? 1 : -1;
 
         this.color = syncedColor || (CONFIG.BOT && CONFIG.BOT.COLORS ? CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)] : 0x9933ff);
 
-        // Reusable vectors for AI to reduce GC
+        // Reusable vectors for AI
         this._aiTargetVec = new THREE.Vector3();
         this._aiForward = new THREE.Vector3();
         this._aiDir = new THREE.Vector3();
@@ -2495,7 +2510,7 @@ class Bot extends Tank {
         if (this.hp <= 0) return;
 
         // 1. Target Selection (Nearest player or bot)
-        let nearestDist = CONFIG.BOT.DETECTION_RANGE;
+        let nearestDist = this.stats.detectionRange;
         let potentialTarget = null;
 
         // Check all potential targets
@@ -2551,18 +2566,18 @@ class Bot extends Tank {
             const angleToTarget = Math.atan2(-dx, -dz);
             const hullTargetAngle = angleToTarget + offset;
 
-            // Rotate hull (Using BOT speed now)
+            // Rotate hull (Using Individual speed)
             let hullRotDiff = hullTargetAngle - this.group.rotation.y;
             while (hullRotDiff < -Math.PI) hullRotDiff += Math.PI * 2;
             while (hullRotDiff > Math.PI) hullRotDiff -= Math.PI * 2;
-            const hullStep = CONFIG.BOT.ROTATE_SPEED * dt;
+            const hullStep = this.stats.rotateSpeed * dt;
             this.group.rotation.y += Math.max(-hullStep, Math.min(hullStep, hullRotDiff));
 
             // 2. Rotate turret independently (Aim at target)
             this.aimJitterTimer += dt;
-            if (this.aimJitterTimer > 1) {
+            if (this.aimJitterTimer > this.stats.jitterUpdateInterval) {
                 this.aimJitterTimer = 0;
-                this.aimJitter = (Math.random() - 0.5) * 0.15;
+                this.aimJitter = (Math.random() - 0.5) * this.stats.aimJitterMax;
             }
             const turretDesiredGlobalAngle = angleToTarget + this.aimJitter;
             const turretLocalTargetAngle = turretDesiredGlobalAngle - this.group.rotation.y;
@@ -2593,7 +2608,7 @@ class Bot extends Tank {
             const targetDirRaw = new THREE.Vector3(dx, 0, dz).normalize();
             const dot = this._aiDir.dot(targetDirRaw);
 
-            if (dot > 0.97 && dist < CONFIG.BOT.ATTACK_RANGE) {
+            if (dot > this.stats.firingThreshold && dist < this.stats.attackRange) {
                 // Line of Sight Check before shooting
                 const firePos = new THREE.Vector3();
                 this.muzzlePoint.getWorldPosition(firePos);
@@ -2663,7 +2678,7 @@ class Bot extends Tank {
     }
 
     move(dir, dt, customDir = null) {
-        const moveSpeed = (dir >= 0 ? CONFIG.BOT.FORWARD_SPEED : CONFIG.BOT.BACKWARD_SPEED) + (this.moveSpeedBonus || 0);
+        const moveSpeed = (dir >= 0 ? this.stats.forwardSpeed : this.stats.backwardSpeed) + (this.moveSpeedBonus || 0);
         const speed = moveSpeed * dir;
         const moveVec = customDir ? customDir.clone() : new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
         const nextPos = this.group.position.clone().add(moveVec.multiplyScalar(speed * dt));
@@ -3089,7 +3104,7 @@ function update(dt) {
                 const pt = intersects[0].point;
                 // Only override if mouse button is pressed OR user is actively aiming far away
                 const distToMouse = myTank.group.position.distanceTo(pt);
-                if (mouseButtons.left || mouseButtons.right || distToMouse > 15) {
+                if (mouseButtons.right || distToMouse > 15) {
                     targetTurretAngle = Math.atan2(myTank.group.position.x - pt.x, myTank.group.position.z - pt.z);
                     isManualAim = true;
                 }
@@ -3097,7 +3112,7 @@ function update(dt) {
         }
 
         // 3. Auto Aim (Priority if not actively overriding)
-        const nearestEnemyPos = findNearestEnemy(myTank.group.position, CONFIG.BOT.DETECTION_RANGE);
+        const nearestEnemyPos = findNearestEnemy(myTank.group.position, CONFIG.TANK.DETECTION_RANGE);
 
         if (!isManualAim && nearestEnemyPos) {
             targetTurretAngle = Math.atan2(myTank.group.position.x - nearestEnemyPos.x, myTank.group.position.z - nearestEnemyPos.z);
@@ -3107,8 +3122,8 @@ function update(dt) {
             const angleDiff = Math.abs(normalizeAngle(currentWorldAngle - targetTurretAngle));
             const distToEnemy = myTank.group.position.distanceTo(nearestEnemyPos);
 
-            // Sync attack range with AI (CONFIG.BOT.ATTACK_RANGE)
-            if (angleDiff < 0.2 && distToEnemy < CONFIG.BOT.ATTACK_RANGE) {
+            // Sync attack range with TANK config
+            if (angleDiff < 0.2 && distToEnemy < CONFIG.TANK.ATTACK_RANGE) {
                 fire();
             }
         } else if (!isManualAim) {
@@ -3124,7 +3139,7 @@ function update(dt) {
         const nextWorldAngle = lerpAngle(currentWorldAngle, myTank.targetWorldAngle, CONFIG.LERP_SPEED.TURRET * dt);
         myTank.turretGroup.rotation.y = nextWorldAngle - myTank.group.rotation.y;
 
-        if (mouseButtons.left) fire();
+        // if (mouseButtons.left) fire(); // Mouse click fire disabled as requested
 
 
         // Collisions
@@ -3181,20 +3196,27 @@ function update(dt) {
         powerups.push(p);
     }
 
-    // --- Local PowerUp Update & Collision ---
-    const currentTime = Date.now() * 0.001;
-    for (let i = powerups.length - 1; i >= 0; i--) {
-        const p = powerups[i];
-        p.update(dt, currentTime);
+        // --- Local PowerUp Update & Collision ---
+        const currentTime = Date.now() * 0.001;
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            const p = powerups[i];
+            p.update(dt, currentTime);
 
-        const dist = myTank.group.position.distanceTo(p.group.position);
-        if (dist < 1.5) {
-            myTank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
-            spawnFloatingText(myTank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), "HP UP", "#27ae60");
-            p.destroy();
-            powerups.splice(i, 1);
+            // Check collision for both player and bots
+            const candidates = [myTank, ...bots];
+            for (const tank of candidates) {
+                if (!tank || tank.hp <= 0) continue;
+                
+                const dist = tank.group.position.distanceTo(p.group.position);
+                if (dist < 1.5) {
+                    tank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
+                    spawnFloatingText(tank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), "HP UP", "#27ae60");
+                    p.destroy();
+                    powerups.splice(i, 1);
+                    break; // Potion consumed
+                }
+            }
         }
-    }
 
     if (vfx) vfx.update(dt);
 
