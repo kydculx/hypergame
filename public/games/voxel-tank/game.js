@@ -1538,6 +1538,10 @@ class Tank {
         this.hp = CONFIG.TANK.MAX_HP;
         this.maxHp = CONFIG.TANK.MAX_HP;
 
+        // 부스터 상태 (사용자 요청에 따라 변수로 관리)
+        this.boosterGauge = CONFIG.BOOSTER.MAX_GAUGE;
+        this.isBoosting = false;
+
         const mainColor = isLocal ? CONFIG.COLORS.SELF : CONFIG.COLORS.OTHER;
         const detailColor = 0x333333;
 
@@ -1857,12 +1861,13 @@ class Tank {
             const el = document.getElementById(id);
             if (!el) return;
 
-            const levelText = el.querySelector('.level-text');
-            const prevLevel = parseInt(levelText?.innerText || "0");
+            const prevLevel = parseInt(el.dataset.level || "0");
+            el.dataset.level = level;
 
+            const levelText = el.querySelector('.level-text');
             if (levelText) levelText.innerText = level;
 
-            // Update gauge dots (assuming 5 max levels as shown in HTML)
+            // Update gauge dots (assuming 5-10 max levels)
             const dots = el.querySelectorAll('.gauge-dot');
             dots.forEach((dot, index) => {
                 if (index < level) dot.classList.add('active');
@@ -2527,7 +2532,10 @@ class Bot extends Tank {
     }
 
     move(dir, dt, customDir = null) {
-        const moveSpeed = (dir >= 0 ? this.stats.forwardSpeed : this.stats.backwardSpeed) + (this.moveSpeedBonus || 0);
+        // 부스터 배율 적용 (게이지가 있는 경우만)
+        const boosterMult = (this.isBoosting && this.boosterGauge > 0) ? CONFIG.BOOSTER.SPEED_MULTIPLIER : 1.0;
+        
+        const moveSpeed = ((dir >= 0 ? this.stats.forwardSpeed : this.stats.backwardSpeed) + (this.moveSpeedBonus || 0)) * boosterMult;
         const speed = moveSpeed * dir;
         const moveVec = customDir ? customDir.clone() : new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
         const nextPos = this.group.position.clone().add(moveVec.multiplyScalar(speed * dt));
@@ -2678,6 +2686,11 @@ function setupJoysticks() {
             const handleStart = (e) => {
                 if (active) return;
                 const touch = e.touches ? e.changedTouches[0] : e;
+                
+                // 화면 오른쪽 절반은 부스터 버튼 전용 영역이므로 조이스틱 무시
+                if (touch.clientX > window.innerWidth / 2) return;
+                if (e.target.closest('#booster-btn')) return;
+
                 if (e.touches) touchId = touch.identifier;
 
                 active = true;
@@ -2706,6 +2719,7 @@ function setupJoysticks() {
                 target.y = 0;
             };
 
+            // 다시 window에 리스너를 등록하되, handleStart 내부에서 왼쪽 절반 영역인지 체크함
             window.addEventListener('touchstart', handleStart, { passive: false });
             window.addEventListener('touchmove', handleMove, { passive: false });
             window.addEventListener('touchend', handleEnd);
@@ -2718,6 +2732,29 @@ function setupJoysticks() {
 
         setup('joystick-left', joystickLeft);
         // joystick-right는 사용자의 요청에 의해 제거됨 (모바일 자동 조준 활용)
+
+        // --- 부스터 버튼 모바일 터치 이벤트 연동 (시각 피드백 보강 및 멀티터치 확보) ---
+        const boosterBtn = document.getElementById('booster-btn');
+        if (boosterBtn) {
+            const startBoost = (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // 조이스틱 등으로의 전파 차단
+                window.isMobileBoosting = true;
+                boosterBtn.classList.add('active'); // 시각적 피드백 즉시 트리거
+            };
+            const stopBoost = (e) => {
+                window.isMobileBoosting = false;
+                boosterBtn.classList.remove('active'); // 시각적 피드백 해제
+            };
+
+            boosterBtn.addEventListener('touchstart', startBoost, { passive: false });
+            boosterBtn.addEventListener('touchend', stopBoost);
+            boosterBtn.addEventListener('touchcancel', stopBoost);
+
+            // PC 마우스 테스트용
+            boosterBtn.addEventListener('mousedown', startBoost);
+            window.addEventListener('mouseup', stopBoost);
+        }
     }
 }
 
@@ -2846,6 +2883,31 @@ function update(dt) {
 
     // 1. 플레이어 탱크 업데이트 (플레이 중이며 살아있을 때만)
     if (WCGames.state === 'PLAYING' && myTank && myTank.hp > 0) {
+        // --- 부스터 입력 및 게이지 관리 (게이지 소진 시 확실히 본래 속도로 복귀) ---
+        const isInputBoosting = !!(keys['Space'] || keys[' '] || window.isMobileBoosting);
+        
+        if (isInputBoosting && myTank.boosterGauge > 0) {
+            myTank.isBoosting = true;
+            myTank.boosterGauge = Math.max(0, myTank.boosterGauge - CONFIG.BOOSTER.CONSUME_RATE * dt);
+            
+            // 게이지가 완전히 소진되면 강제로 부스터 모드 해제
+            if (myTank.boosterGauge <= 0) {
+                myTank.isBoosting = false;
+            }
+        } else {
+            myTank.isBoosting = false;
+            myTank.boosterGauge = Math.min(CONFIG.BOOSTER.MAX_GAUGE, myTank.boosterGauge + CONFIG.BOOSTER.REFILL_RATE * dt);
+        }
+
+        // HUD 부스터 게이지 업데이트
+        const boosterFill = document.getElementById('booster-fill');
+        if (boosterFill) {
+            boosterFill.style.width = `${(myTank.boosterGauge / CONFIG.BOOSTER.MAX_GAUGE) * 100}%`;
+            // 게이지가 낮으면 붉은색 계열로 변하는 포인트 추가 (선택사항)
+            if (myTank.boosterGauge < 20) boosterFill.style.background = '#ff4d4d';
+            else boosterFill.style.background = 'linear-gradient(90deg, #00d2ff, #3a7bd5)';
+        }
+
         // 1. Input Detection & Source Selection
         const isJoystickActive = Math.abs(joystickLeft.x) > 0.1 || Math.abs(joystickLeft.y) > 0.1;
         const isKeyboardMoving = keys['w'] || keys['KeyW'] || keys['ArrowUp'] || keys['s'] || keys['KeyS'] || keys['ArrowDown'];
@@ -2878,7 +2940,8 @@ function update(dt) {
                 moveX /= moveLen;
                 moveZ /= moveLen;
 
-                const actualMove = moveMag * currentSpeed * dt * speedScale;
+                const boosterMult = (myTank.isBoosting && myTank.boosterGauge > 0) ? CONFIG.BOOSTER.SPEED_MULTIPLIER : 1.0;
+                const actualMove = moveMag * currentSpeed * dt * speedScale * boosterMult;
                 myTank.group.position.x += moveX * actualMove;
                 myTank.group.position.z += moveZ * actualMove;
 
@@ -2907,12 +2970,13 @@ function update(dt) {
 
             if (moveDir !== 0) {
                 const currentAngle = myTank.group.rotation.y;
+                const boosterMult = (myTank.isBoosting && myTank.boosterGauge > 0) ? CONFIG.BOOSTER.SPEED_MULTIPLIER : 1.0;
                 const currentSpeed = (CONFIG.TANK.FORWARD_SPEED + (myTank.moveSpeedBonus || 0));
 
                 // Move along the current heading
                 const dirX = -Math.sin(currentAngle) * moveDir;
                 const dirZ = -Math.cos(currentAngle) * moveDir;
-                const actualMove = currentSpeed * dt;
+                const actualMove = currentSpeed * dt * boosterMult;
 
                 myTank.group.position.x += dirX * actualMove;
                 myTank.group.position.z += dirZ * actualMove;
