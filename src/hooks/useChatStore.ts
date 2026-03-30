@@ -64,7 +64,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messages: [...state.messages.slice(-49), newMessage]
         }));
       })
-      .subscribe();
+      .subscribe((_status, err) => {
+        if (err) console.error('[Chat] Realtime 구독 오류:', err);
+      });
 
     set({ isSubscribed: true });
 
