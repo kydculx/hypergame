@@ -8,7 +8,8 @@ const CONFIG = {
         ROTATE_SPEED: 4,
         TURRET_ROTATE_SPEED: 4,
         FIRE_COOLDOWN: 1000, // ms
-        MAX_HP: 100
+        MAX_HP: 100,
+        TRACK_DISTANCE: 40 // 15 -> 40: 더 멀리 있는 봇의 발자국도 보이게 수정
     },
     BULLET: {
         SPEED: 30,
@@ -112,6 +113,9 @@ const CONFIG = {
         OFFSET_Z: 7,
         PC_FOV: 80,
         MOBILE_FOV: 70
+    },
+    NETWORK: {
+        SYNC_INTERVAL: 33 // 멀티플레이어 동기화 간격 (ms). 40ms = 25fps
     }
 };
 
@@ -814,7 +818,7 @@ const AudioSFX = {
         if (this.buffers['siren']) {
             // 실제 사이렌 파일 재생
             if (this._sirenSource) {
-                try { this._sirenSource.stop(); } catch (e) {}
+                try { this._sirenSource.stop(); } catch (e) { }
             }
             const source = this.ctx.createBufferSource();
             source.buffer = this.buffers['siren'];
@@ -2375,8 +2379,8 @@ class Tank {
             if (!lodState) return;
         }
 
-        // 플레이어 탱크만 트랙마크 생성 (봇은 성능상 비활성화)
-        if (isMoving && scene && this.isLocal) {
+        // 모든 탱크(유저/봇)가 동일하게 트랙마크 생성
+        if (isMoving && scene) {
             this.trackTimer += dt;
             if (this.trackTimer > 0.15) {
                 this.trackTimer = 0;
@@ -2401,8 +2405,9 @@ class Tank {
                         const offset = trackGap * side;
                         const tx = pos.x + Math.cos(angle) * offset;
                         const tz = pos.z - Math.sin(angle) * offset;
-                        const track = createVoxelBox(0.2, 0.003, 0.4, CONFIG.COLORS.FLOOR);
-                        track.position.set(tx, -0.08, tz);
+                        // 높이를 0.01로 올려 바닥 위로 확실히 보이게 하고 색상을 진하게 변경
+                        const track = createVoxelBox(0.2, 0.003, 0.4, 0x222222); 
+                        track.position.set(tx, 0.01, tz);
                         track.rotation.y = angle;
                         scene.add(track);
                         this.trackMarks.push(track);
@@ -2414,7 +2419,7 @@ class Tank {
 
         if (this.trackMarks.length > 0) {
             const now = Date.now();
-            const maxLife = 8000; // 30초 → 8초로 단축
+            const maxLife = 8000; // 모든 탱크 동일하게 8초 유지
             for (let i = this.trackMarks.length - 1; i >= 0; i--) {
                 const age = now - this.trackLifetimes[i];
                 const lifeRatio = 1 - (age / maxLife);
@@ -3671,7 +3676,7 @@ function syncMultiplayer() {
     if (!channel) return;
 
     const now = Date.now();
-    if (now - lastSyncTime < 40) return; // 25fps sync
+    if (now - lastSyncTime < CONFIG.NETWORK.SYNC_INTERVAL) return;
     lastSyncTime = now;
 
     // 1. Broadcast My Status (Only if playing)
