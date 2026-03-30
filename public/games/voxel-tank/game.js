@@ -4,7 +4,7 @@ import * as THREE from 'three';
 const CONFIG = {
     TANK: {
         FORWARD_SPEED: 5,
-        BACKWARD_SPEED: 0,
+        BACKWARD_SPEED: 3,
         ROTATE_SPEED: 4,
         TURRET_ROTATE_SPEED: 4,
         FIRE_COOLDOWN: 1000, // ms
@@ -25,43 +25,45 @@ const CONFIG = {
     COLORS: {
         SELF: 0x4d79ff, // Blue
         OTHER: 0xff4d4d, // Red
-        FLOOR_1: 0x1a1412, // Scorched Earth
-        FLOOR_2: 0x252019, // Ash Ground
-        FLOOR_3: 0x1f1c18, // Charred Soil
-        FLOOR_4: 0x2a2520, // Burnt Rubble
+        FLOOR: 0x3a3530,
         BULLET: 0xffff00,
-        WALL: 0x3a3530,
+        WALL: 0x252018,
         BOT: 0x9933ff // Purple for bots
     },
     MAP: {
         LAYOUT: [
-            // Corners - L-shaped barriers
             { x: -30, z: -30, w: 10, d: 2 }, { x: -34, z: -26, w: 2, d: 10 },
             { x: 30, z: -30, w: 10, d: 2 }, { x: 34, z: -26, w: 2, d: 10 },
             { x: -30, z: 30, w: 10, d: 2 }, { x: -34, z: 26, w: 2, d: 10 },
             { x: 30, z: 30, w: 10, d: 2 }, { x: 34, z: 26, w: 2, d: 10 },
-            // Middle Cross-style barriers
             { x: 0, z: 25, w: 20, d: 2 }, { x: 0, z: -25, w: 20, d: 2 },
             { x: 25, z: 0, w: 2, d: 20 }, { x: -25, z: 0, w: 2, d: 20 },
-            // Outer small cover
             { x: -40, z: 0, w: 4, d: 4 }, { x: 40, z: 0, w: 4, d: 4 },
-            { x: 0, z: -40, w: 4, d: 4 }, { x: 0, z: 40, w: 4, d: 4 }
+            { x: 0, z: -40, w: 4, d: 4 }, { x: 0, z: 40, w: 4, d: 4 },
+            { x: -15, z: 0, w: 8, d: 2 }, { x: 15, z: 0, w: 8, d: 2 },
+            { x: 0, z: -15, w: 2, d: 8 }, { x: 0, z: 15, w: 2, d: 8 }
+        ],
+        DAMAGED_FENCE: [
+            { x: -20, z: 10, w: 12, d: 2 },
+            { x: 20, z: -10, w: 12, d: 2 },
+            { x: -10, z: -20, w: 2, d: 12 },
+            { x: 10, z: 20, w: 2, d: 12 }
         ],
         WRECKS: [
-            { x: -15, z: -15 }, { x: 15, z: 15 },
-            { x: -18, z: 20 }, { x: 22, z: -12 },
-            { x: 5, z: 35 }, { x: -35, z: 8 }
+            { x: -12, z: -12 }, { x: 12, z: 12 },
+            { x: -20, z: 18 }, { x: 20, z: -18 },
+            { x: 8, z: -30 }, { x: -30, z: -8 }
         ],
         PROPS: [
-            { type: 'tree', x: -20, z: -25 }, { type: 'tree', x: 25, z: -30 },
-            { type: 'tree', x: -30, z: 15 }, { type: 'tree', x: 35, z: 20 },
-            { type: 'tree', x: -15, z: 35 }, { type: 'tree', x: 10, z: -40 },
-            { type: 'hedgehog', x: -25, z: 0 }, { type: 'hedgehog', x: 30, z: 10 },
-            { type: 'hedgehog', x: 0, z: -35 }, { type: 'hedgehog', x: -10, z: 40 },
-            { type: 'crate', x: -35, z: -20 }, { type: 'crate', x: 20, z: 35 },
-            { type: 'crate', x: 40, z: -15 }, { type: 'crate', x: -25, z: 30 },
-            { type: 'barrel', x: 15, z: -20 }, { type: 'barrel', x: -40, z: 25 },
-            { type: 'barrel', x: 35, z: -35 }, { type: 'barrel', x: -20, z: 10 }
+            { type: 'shack', x: -35, z: -30 }, { type: 'shack', x: 35, z: 30 },
+            { type: 'shack', x: -30, z: 35 }, { type: 'shack', x: 30, z: -35 },
+            { type: 'watchtower', x: -45, z: 30 }, { type: 'watchtower', x: 45, z: -30 },
+            { type: 'watchtower', x: 30, z: 45 }, { type: 'watchtower', x: -30, z: -45 },
+
+            { type: 'crate', x: -28, z: -18 }, { type: 'crate', x: 18, z: 28 },
+            { type: 'crate', x: 25, z: -25 }, { type: 'crate', x: -18, z: 25 },
+            { type: 'barrel', x: 22, z: -28 }, { type: 'barrel', x: -25, z: 22 },
+            { type: 'barrel', x: 28, z: 18 }, { type: 'barrel', x: -22, z: -28 }
         ]
     },
     BOT: {
@@ -107,8 +109,9 @@ const CONFIG = {
     },
     CAMERA: {
         HEIGHT: 20,
-        OFFSET_Z: 10,
-        FOV: 90
+        OFFSET_Z: 7,
+        PC_FOV: 80,
+        MOBILE_FOV: 70
     }
 };
 
@@ -204,7 +207,7 @@ let wreckSmokeTimer = 0;
 let directionalLight; // Global for shadow follow
 
 /* 3. Utilities (Helper functions) */
-function createVoxelBox(w, h, d, color, metalness = 0.2, roughness = 0.8) {
+function createVoxelBox(w, h, d, color, metalness = 0, roughness = 0.9) {
     const geometry = new THREE.BoxGeometry(w, h, d);
     const material = new THREE.MeshStandardMaterial({
         color,
@@ -257,13 +260,15 @@ function createItemLabel(emoji) {
 class ParticleSystem {
     constructor() {
         this.particles = [];
-        this.MAX_PARTICLES = 1000;
+        this.MAX_PARTICLES = 500;
         this.group = new THREE.Group();
         scene.add(this.group);
 
-        // --- PERFORMANCE: Shared objects ---
         this.sharedGeo = new THREE.BoxGeometry(1, 1, 1);
-        this.materials = new Map(); // Cache for materials
+        this.muzzleGeo = new THREE.BoxGeometry(1, 1, 1);
+        this.flashGeo = new THREE.BoxGeometry(1, 1, 1);
+        this.trailGeo = new THREE.SphereGeometry(1, 4, 4);
+        this.materials = new Map();
         // Pre-create common ones
         this.getMat = (color, opacity = 1) => {
             const key = `${color}_${opacity}`;
@@ -335,11 +340,11 @@ class ParticleSystem {
     }
 
     spawnMuzzleFlash(pos, dir, color = 0xffaa00) {
+        const mat = this.getMat(color);
         for (let i = 0; i < 20; i++) {
             const size = 0.08 + Math.random() * 0.18;
-            const geometry = new THREE.BoxGeometry(size, size, size);
-            const material = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
-            const p = new THREE.Mesh(geometry, material);
+            const p = new THREE.Mesh(this.muzzleGeo, mat);
+            p.scale.setScalar(size);
             p.position.copy(pos);
 
             const spread = 0.6;
@@ -359,11 +364,11 @@ class ParticleSystem {
             this.group.add(p);
         }
 
+        const flashMat = this.getMat(0xffffff);
         for (let i = 0; i < 6; i++) {
             const size = 0.25 + Math.random() * 0.25;
-            const geometry = new THREE.BoxGeometry(size, size, size);
-            const material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
-            const p = new THREE.Mesh(geometry, material);
+            const p = new THREE.Mesh(this.flashGeo, flashMat);
+            p.scale.setScalar(size);
             p.position.copy(pos);
             const vel = dir.clone().multiplyScalar(3 + Math.random() * 4);
             this.particles.push({ mesh: p, vel: vel, life: 50 + Math.random() * 50, maxLife: 100, gravity: 0 });
@@ -1040,28 +1045,25 @@ class Bullet {
     constructor(position, direction, ownerId) {
         this.group = new THREE.Group();
 
-        const body = createVoxelCylinder(0.08, 0.08, 0.35, 0xd4a017);
+        const bodyMat = new THREE.MeshBasicMaterial({ color: 0xd4a017 });
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.35, 12), bodyMat);
         body.rotation.x = Math.PI / 2;
         this.group.add(body);
 
-        const tip = createVoxelCone(0.08, 0.18, 0xffcc00);
+        const tipMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.18, 12), tipMat);
         tip.position.z = -0.26;
         tip.rotation.x = Math.PI / 2;
         this.group.add(tip);
 
-        const tracerGlow = new THREE.Mesh(
-            new THREE.SphereGeometry(0.12, 8, 8),
-            new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.6 })
-        );
-        tracerGlow.position.z = -0.32;
-        this.group.add(tracerGlow);
-
-        const base = createVoxelCylinder(0.09, 0.09, 0.04, 0x8d6e63);
+        const baseMat = new THREE.MeshBasicMaterial({ color: 0x8d6e63 });
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 12), baseMat);
         base.position.z = 0.18;
         base.rotation.x = Math.PI / 2;
         this.group.add(base);
 
-        const casing = createVoxelCylinder(0.06, 0.06, 0.08, 0x654321);
+        const casingMat = new THREE.MeshBasicMaterial({ color: 0x654321 });
+        const casing = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.08, 12), casingMat);
         casing.position.z = 0.22;
         casing.rotation.x = Math.PI / 2;
         this.group.add(casing);
@@ -1081,23 +1083,6 @@ class Bullet {
         this.group.position.add(this.direction.clone().multiplyScalar(CONFIG.BULLET.SPEED * dt));
 
         this.trailTimer += dt;
-        if (this.trailTimer > 0.02 && vfx) {
-            this.trailTimer = 0;
-            const trailPos = this.group.position.clone();
-            vfx.particles.push({
-                mesh: new THREE.Mesh(
-                    new THREE.SphereGeometry(0.04, 4, 4),
-                    new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5 })
-                ),
-                vel: new THREE.Vector3(0, 0.5, 0),
-                life: 200,
-                maxLife: 200,
-                gravity: 0,
-                friction: 0.95
-            });
-            vfx.particles[vfx.particles.length - 1].mesh.position.copy(trailPos);
-            vfx.group.add(vfx.particles[vfx.particles.length - 1].mesh);
-        }
 
         return Date.now() - this.startTime < CONFIG.BULLET.LIFE_TIME;
     }
@@ -1431,35 +1416,35 @@ class RepairStation {
         this.group.position.copy(this.position);
 
         const baseSize = CONFIG.REPAIR_STATION.RADIUS * 4.5;
-        const baseColor = 0x3d3d3d;
-        const metalDark = 0x2d2d2d;
-        const metalAccent = 0x4a4a4a;
-        const hazardOrange = 0xff6b35;
-        const warningStripes = 0xf39c12;
+        const baseColor = 0x252220;
+        const metalDark = 0x1a1815;
+        const metalAccent = 0x252220;
+        const hazardOrange = 0x3a2520;
+        const warningStripes = 0x2a2520;
         const techCyan = 0x00d4aa;
-        const boltSilver = 0xc0c0c0;
+        const boltSilver = 0x252220;
 
-        const base = createVoxelBox(baseSize, 0.5, baseSize, baseColor, 0.2, 0.8);
-        base.position.y = 0.25;
+        const base = createVoxelBox(baseSize, 0.1, baseSize, baseColor);
+        base.position.y = 0.05;
         base.receiveShadow = true;
         this.group.add(base);
 
-        const edgeTrim = createVoxelBox(baseSize + 0.2, 0.08, baseSize + 0.2, metalAccent, 0.8, 0.2);
-        edgeTrim.position.y = 0.54;
+        const edgeTrim = createVoxelBox(baseSize + 0.2, 0.05, baseSize + 0.2, metalAccent);
+        edgeTrim.position.y = 0.125;
         this.group.add(edgeTrim);
 
         for (let side of [-1, 1]) {
-            const hStrip = createVoxelBox(baseSize, 0.06, 0.3, warningStripes);
-            hStrip.position.set(0, 0.53, side * (baseSize / 2 - 0.2));
+            const hStrip = createVoxelBox(baseSize, 0.04, 0.2, warningStripes);
+            hStrip.position.set(0, 0.12, side * (baseSize / 2 - 0.2));
             this.group.add(hStrip);
 
-            const vStrip = createVoxelBox(0.3, 0.06, baseSize, warningStripes);
-            vStrip.position.set(side * (baseSize / 2 - 0.2), 0.53, 0);
+            const vStrip = createVoxelBox(0.2, 0.04, baseSize, warningStripes);
+            vStrip.position.set(side * (baseSize / 2 - 0.2), 0.12, 0);
             this.group.add(vStrip);
 
             for (let i = 0; i < 3; i++) {
                 const grate = createVoxelBox(0.8, 0.04, 0.4, 0x1a1a1a);
-                grate.position.set(side * (baseSize / 3 - i * 0.3), 0.52, 0);
+                grate.position.set(side * (baseSize / 3 - i * 0.3), 0.12, 0);
                 this.group.add(grate);
             }
         }
@@ -1472,9 +1457,9 @@ class RepairStation {
         for (let x of [-1, 1]) {
             for (let z of [-1, 1]) {
                 const pillar = new THREE.Group();
-                pillar.position.set(x * pillarDist, 0.5, z * pillarDist);
+                pillar.position.set(x * pillarDist, 0.1, z * pillarDist);
 
-                const body = createVoxelBox(1.2, pHeight, 1.2, hazardOrange, 0.3, 0.7);
+                const body = createVoxelBox(1.2, pHeight, 1.2, hazardOrange);
                 body.position.y = pHeight / 2;
                 pillar.add(body);
 
@@ -1482,18 +1467,18 @@ class RepairStation {
                 trim.position.y = pHeight - 0.5;
                 pillar.add(trim);
 
-                const basePlate = createVoxelBox(1.4, 0.3, 1.4, metalAccent, 0.9, 0.1);
+                const basePlate = createVoxelBox(1.4, 0.3, 1.4, metalAccent);
                 basePlate.position.y = 0.15;
                 pillar.add(basePlate);
 
                 for (let j = 0; j < 4; j++) {
-                    const bolt = createVoxelBox(0.12, 0.12, 0.12, boltSilver, 1.0, 0.1);
+                    const bolt = createVoxelBox(0.12, 0.12, 0.12, boltSilver);
                     const angle = (j / 4) * Math.PI * 2 + Math.PI / 4;
                     bolt.position.set(Math.cos(angle) * 0.55, 0.3, Math.sin(angle) * 0.55);
                     pillar.add(bolt);
                 }
 
-                const cylinder = createVoxelCylinder(0.2, 0.2, pHeight * 0.85, boltSilver, 0.95, 0.05);
+                const cylinder = createVoxelCylinder(0.2, 0.2, pHeight * 0.85, boltSilver);
                 cylinder.position.set(x * -0.3, pHeight / 2, z * -0.3);
                 pillar.add(cylinder);
 
@@ -1514,7 +1499,7 @@ class RepairStation {
                 this.pylons.push(pillar);
             }
 
-            const beamX = createVoxelBox(baseSize + 3.0, 0.8, 0.8, metalDark, 0.9, 0.1);
+            const beamX = createVoxelBox(baseSize + 3.0, 0.8, 0.8, metalDark);
             beamX.position.set(0, pHeight + 0.5, x * pillarDist);
             this.group.add(beamX);
 
@@ -1522,7 +1507,7 @@ class RepairStation {
             beamCapX.position.set(0, pHeight + 0.9, x * pillarDist);
             this.group.add(beamCapX);
 
-            const beamZ = createVoxelBox(0.8, 0.8, baseSize + 3.0, metalDark, 0.9, 0.1);
+            const beamZ = createVoxelBox(0.8, 0.8, baseSize + 3.0, metalDark);
             beamZ.position.set(x * pillarDist, pHeight + 0.5, 0);
             this.group.add(beamZ);
 
@@ -1534,11 +1519,11 @@ class RepairStation {
         const gantryCenter = new THREE.Group();
         gantryCenter.position.set(0, pHeight + 0.5, 0);
 
-        const winchBase = createVoxelBox(1.6, 1.0, 1.6, metalDark, 0.8, 0.2);
+        const winchBase = createVoxelBox(1.6, 1.0, 1.6, metalDark);
         winchBase.position.y = 0.5;
         gantryCenter.add(winchBase);
 
-        const winchDrum = createVoxelCylinder(0.5, 0.5, 1.2, metalAccent, 0.9, 0.1);
+        const winchDrum = createVoxelCylinder(0.5, 0.5, 1.2, metalAccent);
         winchDrum.position.y = 1.0;
         winchDrum.rotation.x = Math.PI / 2;
         gantryCenter.add(winchDrum);
@@ -1802,6 +1787,7 @@ class Tank {
         this.isLocal = isLocal;
         this.kills = 0;
         this.lastSeen = Date.now();
+        this.isDead = false;
         this.group = new THREE.Group();
 
         // Upgrade Levels (0 to 9)
@@ -2083,9 +2069,26 @@ class Tank {
         this.shake = 0;
         this.dustTimer = 0;
         this.damageSmokeTimer = 0;
-        this.exhaustTimer = 0; // NEW: Timer for exhaust smoke
+        this.exhaustTimer = 0;
         this.targetWorldAngle = this.group.rotation.y;
-        this.lastFireTime = 0; // NEW: Initialize lastFireTime for shooting logic
+        this.lastFireTime = 0;
+        this.trackTimer = 0;
+        this.lastTrackPos = null;
+        this.trackMarks = [];
+        this.trackLifetimes = [];
+        this.maxTrackMarks = 100;
+
+        // LOD
+        this._lodDistance = 60;
+        this._lastLodState = true;
+
+        // Reusable vectors for shoot() to reduce GC
+        this._tempPos = new THREE.Vector3();
+        this._tempPivotPos = new THREE.Vector3();
+        this._tempRight = new THREE.Vector3();
+        this._tempDir = new THREE.Vector3();
+        this._tempDirL = new THREE.Vector3();
+        this._tempDirR = new THREE.Vector3();
 
         // Armor Visual Groups
         this.hullArmorGroup = new THREE.Group();
@@ -2257,13 +2260,10 @@ class Tank {
         if (now - this.lastFireTime < cooldown) return;
         this.lastFireTime = now;
 
-        const pos = new THREE.Vector3();
-        this.muzzlePoint.getWorldPosition(pos);
-        const pivotPos = new THREE.Vector3();
-        this.barrelGroup.getWorldPosition(pivotPos);
-        const dir = pos.clone().sub(pivotPos).normalize();
+        this.muzzlePoint.getWorldPosition(this._tempPos);
+        this.barrelGroup.getWorldPosition(this._tempPivotPos);
+        const dir = this._tempPos.clone().sub(this._tempPivotPos).normalize();
 
-        // --- Cannon Upgrades: Scale & Multi-shot ---
         let bulletScale = 1.0 + (Math.min(3, this.levelCannon) * CONFIG.UPGRADE.CANNON.SCALE_INC);
         let bulletDamage = CONFIG.TANK.DAMAGE + (this.levelCannon * CONFIG.UPGRADE.CANNON.DAMAGE_INC);
 
@@ -2276,24 +2276,23 @@ class Tank {
         };
 
         if (this.levelCannon < 4) {
-            // Level 0-3: Single Shot (Scales up)
-            spawnBullet(pos, dir);
+            spawnBullet(this._tempPos, dir);
         } else if (this.levelCannon < 7) {
-            // Level 4-6: Double Shot (Parallel)
-            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.turretGroup.getWorldQuaternion(new THREE.Quaternion()));
-            const posL = pos.clone().add(right.clone().multiplyScalar(-0.2));
-            const posR = pos.clone().add(right.clone().multiplyScalar(0.2));
+            const quat = this.turretGroup.getWorldQuaternion(new THREE.Quaternion());
+            this._tempRight.set(1, 0, 0).applyQuaternion(quat);
+            const posL = this._tempPos.clone().add(this._tempRight.clone().multiplyScalar(-0.2));
+            const posR = this._tempPos.clone().add(this._tempRight.clone().multiplyScalar(0.2));
             spawnBullet(posL, dir);
             spawnBullet(posR, dir);
         } else {
-            // Level 7-9: Triple Shot (Spread)
-            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.turretGroup.getWorldQuaternion(new THREE.Quaternion()));
-            spawnBullet(pos, dir);
+            const quat = this.turretGroup.getWorldQuaternion(new THREE.Quaternion());
+            this._tempRight.set(1, 0, 0).applyQuaternion(quat);
+            spawnBullet(this._tempPos, dir);
 
-            const dirL = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.15);
-            const dirR = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.15);
-            spawnBullet(pos, dirL);
-            spawnBullet(pos, dirR);
+            this._tempDirL.copy(dir).applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.15);
+            this._tempDirR.copy(dir).applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.15);
+            spawnBullet(this._tempPos, this._tempDirL);
+            spawnBullet(this._tempPos, this._tempDirR);
         }
 
         this.playShootEffect();
@@ -2308,7 +2307,7 @@ class Tank {
                 type: 'broadcast',
                 event: 'fire',
                 payload: {
-                    pos: { x: pos.x, y: pos.y, z: pos.z },
+                    pos: { x: this._tempPos.x, y: this._tempPos.y, z: this._tempPos.z },
                     dir: { x: dir.x, y: dir.y, z: dir.z },
                     ownerId: this.id,
                     level: this.levelCannon
@@ -2318,6 +2317,63 @@ class Tank {
     }
 
     updateAnims(dt, isMoving) {
+        if (this.isLocal) {
+            this.group.visible = true;
+        } else if (camera) {
+            const dist = this.group.position.distanceTo(camera.position);
+            const lodState = dist < this._lodDistance;
+            if (lodState !== this._lastLodState) {
+                this.group.visible = lodState;
+                this._lastLodState = lodState;
+            }
+            if (!lodState) return;
+        }
+
+        if (isMoving && scene) {
+            this.trackTimer += dt;
+            if (this.trackTimer > 0.15) {
+                this.trackTimer = 0;
+                const pos = this.group.position;
+                if (!this.lastTrackPos || pos.distanceTo(this.lastTrackPos) > 0.3) {
+                    this.lastTrackPos = pos.clone();
+                    const angle = this.group.rotation.y;
+                    const trackGap = 0.5;
+                    const newTracks = [];
+                    for (let side = -1; side <= 1; side += 2) {
+                        const offset = trackGap * side;
+                        const tx = pos.x + Math.cos(angle) * offset;
+                        const tz = pos.z - Math.sin(angle) * offset;
+                        const track = createVoxelBox(0.2, 0.003, 0.4, CONFIG.COLORS.FLOOR);
+                        track.position.set(tx, -0.08, tz);
+                        track.rotation.y = angle;
+                        scene.add(track);
+                        newTracks.push(track);
+                    }
+                    this.trackMarks.push(...newTracks);
+                    this.trackLifetimes.push(...newTracks.map(() => Date.now()));
+                }
+            }
+        }
+
+        if (this.trackMarks.length > 0) {
+            const now = Date.now();
+            const maxLife = 30000;
+            for (let i = this.trackMarks.length - 1; i >= 0; i--) {
+                const age = now - this.trackLifetimes[i];
+                const lifeRatio = 1 - (age / maxLife);
+                if (lifeRatio <= 0) {
+                    const t = this.trackMarks[i];
+                    scene.remove(t);
+                    t.geometry.dispose();
+                    t.material.dispose();
+                    this.trackMarks.splice(i, 1);
+                    this.trackLifetimes.splice(i, 1);
+                } else {
+                    this.trackMarks[i].position.y = -0.08 - (1 - lifeRatio) * 0.1;
+                }
+            }
+        }
+
         // 1. Handle Recoil Recovery
         if (this.recoil > 0) {
             this.recoil = Math.max(0, this.recoil - dt * 4.5);
@@ -2509,6 +2565,7 @@ class Tank {
         }
         // Explosion sound and VFX for ANY tank dying
         if (this.hp <= 0) {
+            this.isDead = true;
             if (window.AudioSFX) window.AudioSFX.playExplosion();
             if (vfx) vfx.spawnExplosion(this.group.position);
 
@@ -2552,8 +2609,15 @@ class Bot extends Tank {
         this.blockedTimer = 0;
         this.strafeDir = Math.random() < 0.5 ? 1 : -1;
 
-        // Change bot color and name (Use synced color if provided, otherwise random)
         this.color = syncedColor || (CONFIG.BOT && CONFIG.BOT.COLORS ? CONFIG.BOT.COLORS[Math.floor(Math.random() * CONFIG.BOT.COLORS.length)] : 0x9933ff);
+
+        // Reusable vectors for AI to reduce GC
+        this._aiTargetVec = new THREE.Vector3();
+        this._aiForward = new THREE.Vector3();
+        this._aiDir = new THREE.Vector3();
+        this._aiFirePos = new THREE.Vector3();
+        this._aiWanderTarget = new THREE.Vector3();
+        this._aiWanderForward = new THREE.Vector3();
 
         if (this.body && this.body.material) {
             this.body.material.color.set(this.color);
@@ -2649,24 +2713,21 @@ class Bot extends Tank {
             const botSpeedScale = Math.pow(botAlignment, 0.4);
 
             if (botSpeedScale > 0.05 || moveDir < 0) {
-                // Blend forward and target directions for curved steering
-                const targetVec = new THREE.Vector3(-Math.sin(hullTargetAngle), 0, -Math.cos(hullTargetAngle));
-                const currentForward = new THREE.Vector3(-Math.sin(this.group.rotation.y), 0, -Math.cos(this.group.rotation.y));
-                const blendedDir = currentForward.clone().multiplyScalar(0.8).add(targetVec.multiplyScalar(0.2)).normalize();
+                this._aiTargetVec.set(-Math.sin(hullTargetAngle), 0, -Math.cos(hullTargetAngle));
+                this._aiForward.set(-Math.sin(this.group.rotation.y), 0, -Math.cos(this.group.rotation.y));
+                const blendedDir = this._aiForward.clone().multiplyScalar(0.8).add(this._aiTargetVec.multiplyScalar(0.2)).normalize();
 
                 const effectiveDir = moveDir > 0 ? moveDir * botSpeedScale : moveDir;
                 if (!this.move(effectiveDir, dt, blendedDir)) {
-                    // Blocked! Try to escape intelligently
-                    this.group.rotation.y += (this.strafeDir * 2.0) * dt; // Turn harder
-                    this.move(-0.5, dt); // Try backing up (Directly backwards)
+                    this.group.rotation.y += (this.strafeDir * 2.0) * dt;
+                    this.move(-0.5, dt);
                 }
             }
 
-            // 4. Intelligence: Shoot only if turret aimed well AND line of sight is clear
             const turretWorldAngle = this.group.rotation.y + this.turretGroup.rotation.y;
-            const currentDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), turretWorldAngle);
+            this._aiDir.set(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), turretWorldAngle);
             const targetDirRaw = new THREE.Vector3(dx, 0, dz).normalize();
-            const dot = currentDir.dot(targetDirRaw);
+            const dot = this._aiDir.dot(targetDirRaw);
 
             if (dot > 0.97 && dist < CONFIG.BOT.ATTACK_RANGE) {
                 // Line of Sight Check before shooting
@@ -2697,12 +2758,11 @@ class Bot extends Tank {
             const wanderSpeedScale = Math.pow(wanderAlignment, 0.4);
 
             if (wanderSpeedScale > 0.1) {
-                const wanderTargetVec = new THREE.Vector3(-Math.sin(this.wanderAngle), 0, -Math.cos(this.wanderAngle));
-                const wanderForward = new THREE.Vector3(-Math.sin(this.group.rotation.y), 0, -Math.cos(this.group.rotation.y));
-                const blendedWanderDir = wanderForward.clone().multiplyScalar(0.8).add(wanderTargetVec.multiplyScalar(0.2)).normalize();
+                this._aiWanderTarget.set(-Math.sin(this.wanderAngle), 0, -Math.cos(this.wanderAngle));
+                this._aiWanderForward.set(-Math.sin(this.group.rotation.y), 0, -Math.cos(this.group.rotation.y));
+                const blendedWanderDir = this._aiWanderForward.clone().multiplyScalar(0.8).add(this._aiWanderTarget.multiplyScalar(0.2)).normalize();
 
                 if (!this.move(1.0 * wanderSpeedScale, dt, blendedWanderDir)) {
-                    // If blocked, pick a new random angle immediately and try to move away
                     this.wanderAngle = (Math.random() - 0.5) * Math.PI * 2;
                     this.stateTimer = 0.5;
                 }
@@ -2722,17 +2782,15 @@ class Bot extends Tank {
         this.group.position.z = Math.max(-halfSize, Math.min(halfSize, this.group.position.z));
 
         // Proactive Wall Avoidance (Check ahead)
-        const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
+        this._aiForward.set(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.group.rotation.y);
         const probeDist = 3.5;
-        const probePos = this.group.position.clone().add(forward.multiplyScalar(probeDist));
+        const probePos = this.group.position.clone().add(this._aiForward.clone().multiplyScalar(probeDist));
 
         if (!isPositionSafe(probePos.x, probePos.z)) {
             this.blockedTimer += dt;
-            // Force rotation away from the wall
-            this.group.rotation.y += this.strafeDir * dt * (3.0 + (this.rotSpeedBonus || 0)); // Turn faster when sensing wall
+            this.group.rotation.y += this.strafeDir * dt * (3.0 + (this.rotSpeedBonus || 0));
 
             if (this.blockedTimer > 0.5) {
-                // Emergency Reserve
                 this.move(-0.6, dt);
             }
         } else {
@@ -2766,6 +2824,7 @@ class Bot extends Tank {
         }
 
         if (this.hp <= 0) {
+            this.isDead = true;
             if (vfx) vfx.spawnExplosion(this.group.position);
             // Find who shot this
             const allTanks = [myTank, ...Array.from(tanks.values()), ...bots];
@@ -2798,37 +2857,53 @@ class Bot extends Tank {
 
 /* 5. Input Handling (Pointer, Keyboard) */
 const keys = {};
-window.addEventListener('keydown', e => {
+const keyDownHandler = e => {
     keys[e.code] = true;
     keys[e.key.toLowerCase()] = true;
-});
-window.addEventListener('keyup', e => {
+};
+const keyUpHandler = e => {
     keys[e.code] = false;
     keys[e.key.toLowerCase()] = false;
-});
+};
+window.addEventListener('keydown', keyDownHandler);
+window.addEventListener('keyup', keyUpHandler);
 
 // Mouse Button Handling
 const mouseButtons = { left: false, right: false };
-window.addEventListener('mousedown', e => {
+const mouseDownHandler = e => {
     if (e.button === 0) mouseButtons.left = true;
     if (e.button === 2) mouseButtons.right = true;
-});
-window.addEventListener('mouseup', e => {
+};
+const mouseUpHandler = e => {
     if (e.button === 0) mouseButtons.left = false;
     if (e.button === 2) mouseButtons.right = false;
-});
+};
+window.addEventListener('mousedown', mouseDownHandler);
+window.addEventListener('mouseup', mouseUpHandler);
 
 // Mobile Joysticks
 const joystickLeft = { x: 0, y: 0 };
 const joystickRight = { x: 0, y: 0 };
 
 // Initialize Input tracking if not provided by core
-if (!window.WCGames.input) {
-    window.WCGames.input = { mouse: { x: window.innerWidth / 2, y: window.innerHeight / 2 } };
-    window.addEventListener('mousemove', (e) => {
+const mouseMoveHandler = e => {
+    if (window.WCGames.input && window.WCGames.input.mouse) {
         window.WCGames.input.mouse.x = e.clientX;
         window.WCGames.input.mouse.y = e.clientY;
-    });
+    }
+};
+if (!window.WCGames.input) {
+    window.WCGames.input = { mouse: { x: window.innerWidth / 2, y: window.innerHeight / 2 } };
+    window.addEventListener('mousemove', mouseMoveHandler);
+}
+
+// Cleanup function for game restart
+function cleanupInputListeners() {
+    window.removeEventListener('keydown', keyDownHandler);
+    window.removeEventListener('keyup', keyUpHandler);
+    window.removeEventListener('mousedown', mouseDownHandler);
+    window.removeEventListener('mouseup', mouseUpHandler);
+    window.removeEventListener('mousemove', mouseMoveHandler);
 }
 
 function setupJoysticks() {
@@ -3125,7 +3200,8 @@ function update(dt) {
         checkCollisions();
 
         // 8. Reverted Camera Follow (Top-down Fixed Offset)
-        camera.fov = CONFIG.CAMERA.FOV;
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        camera.fov = isMobile ? CONFIG.CAMERA.MOBILE_FOV : CONFIG.CAMERA.PC_FOV;
         camera.updateProjectionMatrix();
 
         let camX = myTank.group.position.x;
@@ -3227,7 +3303,7 @@ function update(dt) {
             div.style.left = '50%';
             div.style.transform = 'translate(-50%, -50%)';
             div.style.color = '#ff4d4d';
-            div.style.fontSize = '48px';
+            div.style.fontSize = '24px';
             div.style.fontWeight = 'bold';
             div.style.textShadow = '0 0 10px #000';
             div.style.zIndex = '1000';
@@ -3793,8 +3869,8 @@ const Game = {
 
         vfx = new ParticleSystem();
         cameraShakeTime = 0;
-        scene.background = new THREE.Color(0x12100e);
-        scene.fog = new THREE.FogExp2(0x12100e, 0.025);
+        scene.background = new THREE.Color(CONFIG.COLORS.FLOOR);
+        scene.fog = new THREE.FogExp2(CONFIG.COLORS.FLOOR, 0.02);
 
         camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
@@ -3812,11 +3888,11 @@ const Game = {
             renderer.domElement.style.width = '100%';
             renderer.domElement.style.height = '100%';
             renderer.domElement.style.objectFit = 'contain';
-            renderer.domElement.style.backgroundColor = '#111'; // Black bars for non-16:9 screens
+            renderer.domElement.style.backgroundColor = '#' + CONFIG.COLORS.FLOOR.toString(16).padStart(6, '0');
         }
 
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.type = THREE.BasicShadowMap;
         container.appendChild(renderer.domElement);
 
         if (clock) clock.stop();
@@ -3832,9 +3908,9 @@ const Game = {
         directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
         directionalLight.position.set(30, 50, 20);
         directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 2048; // Higher quality for Voxel detail
-        directionalLight.shadow.mapSize.height = 2048;
-        directionalLight.shadow.camera.left = -40; // Tighter box for higher density
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        directionalLight.shadow.camera.left = -40;
         directionalLight.shadow.camera.right = 40;
         directionalLight.shadow.camera.top = 40;
         directionalLight.shadow.camera.bottom = -40;
@@ -3844,66 +3920,94 @@ const Game = {
         scene.add(directionalLight);
         scene.add(directionalLight.target); // Need to add target specifically for following
 
-        const tileSize = 5;
-        const tilesPerSide = CONFIG.WORLD.SIZE / tileSize;
-        const groundColors = [CONFIG.COLORS.FLOOR_1, CONFIG.COLORS.FLOOR_2, CONFIG.COLORS.FLOOR_3, CONFIG.COLORS.FLOOR_4];
+        const groundGeo = new THREE.PlaneGeometry(CONFIG.WORLD.SIZE, CONFIG.WORLD.SIZE);
+        const groundMat = new THREE.MeshLambertMaterial({ color: CONFIG.COLORS.FLOOR });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.1;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
-        for (let ix = 0; ix < tilesPerSide; ix++) {
-            for (let iz = 0; iz < tilesPerSide; iz++) {
-                const colorIdx = Math.floor(seededRandom(ix * 13 + iz * 7) * groundColors.length);
-                const color = groundColors[colorIdx];
+        for (let i = 0; i < 600; i++) {
+            const x = (seededRandom(i * 1.1) - 0.5) * CONFIG.WORLD.SIZE * 0.95;
+            const z = (seededRandom(i * 2.2) - 0.5) * CONFIG.WORLD.SIZE * 0.95;
+            const type = seededRandom(i * 3.3);
 
-                const tileX = (ix - tilesPerSide / 2 + 0.5) * tileSize;
-                const tileZ = (iz - tilesPerSide / 2 + 0.5) * tileSize;
-
-                const tileH = 0.2;
-                const tile = createVoxelBox(tileSize, tileH, tileSize, color, 0.1, 0.9);
-                tile.position.set(tileX, -0.1, tileZ);
-                tile.receiveShadow = true;
-                scene.add(tile);
-
-                if (seededRandom(ix * 55 + iz * 23) < 0.15) {
-                    const pSize = 0.1 + seededRandom(ix + iz) * 0.2;
-                    const pebble = createVoxelBox(pSize, pSize, pSize, 0x2a2520);
-                    pebble.position.set(
-                        tileX + (seededRandom(ix * 2) - 0.5) * (tileSize - 1),
-                        0.05,
-                        tileZ + (seededRandom(iz * 2) - 0.5) * (tileSize - 1)
-                    );
-                    scene.add(pebble);
-                }
-
-                if (seededRandom(ix * 31 + iz * 17) < 0.12) {
-                    const crack = createVoxelBox(1.5, 0.02, 0.08, 0x0d0a08, 0, 1);
-                    crack.position.set(
-                        tileX + (seededRandom(ix) - 0.5) * (tileSize - 2),
-                        0.01,
-                        tileZ + (seededRandom(iz) - 0.5) * (tileSize - 2)
-                    );
-                    crack.rotation.y = seededRandom(ix + iz * 3) * Math.PI;
-                    scene.add(crack);
-                }
-
-                if (seededRandom(ix * 41 + iz * 29) < 0.08) {
-                    const mud = createVoxelBox(1.2, 0.03, 0.9, 0x1a120d, 0, 1);
-                    mud.position.set(
-                        tileX + (seededRandom(ix * 3) - 0.5) * (tileSize - 2),
-                        0.015,
-                        tileZ + (seededRandom(iz * 3) - 0.5) * (tileSize - 2)
-                    );
-                    scene.add(mud);
-                }
-
-                if (seededRandom(ix * 17 + iz * 43) < 0.1) {
-                    const debris = createVoxelBox(0.3, 0.15, 0.4, 0x252220, 0, 0.9);
-                    debris.position.set(
-                        tileX + (seededRandom(ix * 7) - 0.5) * (tileSize - 2),
-                        0.075,
-                        tileZ + (seededRandom(iz * 7) - 0.5) * (tileSize - 2)
-                    );
-                    debris.rotation.y = seededRandom(ix * iz) * Math.PI * 2;
-                    scene.add(debris);
-                }
+            if (type < 0.15) {
+                const r = 0.05 + seededRandom(i * 4) * 0.15;
+                const h = r * 0.5;
+                const pebble = createVoxelCylinder(r, r * 1.2, h, 0x151210);
+                pebble.position.set(x, h / 2, z);
+                pebble.rotation.set(
+                    seededRandom(i * 5) * Math.PI,
+                    seededRandom(i * 5.1) * Math.PI,
+                    seededRandom(i * 5.2) * Math.PI
+                );
+                scene.add(pebble);
+            } else if (type < 0.3) {
+                const r1 = 0.08 + seededRandom(i * 6) * 0.2;
+                const r2 = r1 * (0.7 + seededRandom(i * 7) * 0.3);
+                const h = 0.1 + seededRandom(i * 8) * 0.3;
+                const rock = createVoxelCylinder(r1, r2, h, 0x1a1510);
+                rock.position.set(x, h / 2, z);
+                rock.rotation.set(
+                    seededRandom(i * 9) * 0.6,
+                    seededRandom(i * 10) * Math.PI * 2,
+                    seededRandom(i * 11) * 0.6
+                );
+                scene.add(rock);
+            } else if (type < 0.45) {
+                const w = 0.4 + seededRandom(i * 12) * 0.8;
+                const h = 0.05 + seededRandom(i * 13) * 0.12;
+                const d = 0.4 + seededRandom(i * 14) * 0.8;
+                const bump = createVoxelBox(w, h, d, 0x1a1510);
+                bump.position.set(x, h / 2, z);
+                bump.rotation.y = seededRandom(i * 15) * Math.PI;
+                scene.add(bump);
+            } else if (type < 0.6) {
+                const w = 1.5 + seededRandom(i * 16) * 2;
+                const d = 0.08 + seededRandom(i * 17) * 0.15;
+                const crack = createVoxelBox(w, 0.015, d, 0x0d0a08);
+                crack.position.set(x, 0.007, z);
+                crack.rotation.y = seededRandom(i * 18) * Math.PI;
+                scene.add(crack);
+            } else if (type < 0.7) {
+                const w = 0.8 + seededRandom(i * 19) * 1.5;
+                const d = 0.6 + seededRandom(i * 20) * 1.2;
+                const mud = createVoxelBox(w, 0.025, d, 0x151210);
+                mud.position.set(x, 0.012, z);
+                scene.add(mud);
+            } else if (type < 0.82) {
+                const w = 0.3 + seededRandom(i * 21) * 0.6;
+                const h = 0.1 + seededRandom(i * 22) * 0.2;
+                const d = 0.3 + seededRandom(i * 23) * 0.5;
+                const debris = createVoxelBox(w, h, d, 0x1a1510);
+                debris.position.set(x, h / 2, z);
+                debris.rotation.set(
+                    seededRandom(i * 24) * 0.7,
+                    seededRandom(i * 25) * Math.PI * 2,
+                    seededRandom(i * 26) * 0.7
+                );
+                scene.add(debris);
+            } else if (type < 0.92) {
+                const r = 0.15 + seededRandom(i * 27) * 0.25;
+                const h = 0.15 + seededRandom(i * 28) * 0.25;
+                const rock = createVoxelCylinder(r, r, h, 0x1f1a15);
+                rock.position.set(x, h / 2, z);
+                rock.rotation.set(
+                    seededRandom(i * 29) * 0.4,
+                    seededRandom(i * 30) * Math.PI,
+                    seededRandom(i * 31) * 0.4
+                );
+                scene.add(rock);
+            } else {
+                const w = 0.5 + seededRandom(i * 32) * 1;
+                const r = 0.08 + seededRandom(i * 33) * 0.12;
+                const log = createVoxelCylinder(r, r * 1.2, w, 0x151008);
+                log.position.set(x, r * 0.5, z);
+                log.rotation.x = Math.PI / 2 + seededRandom(i * 34) * 0.5;
+                log.rotation.z = seededRandom(i * 35) * Math.PI;
+                scene.add(log);
             }
         }
 
@@ -3919,11 +4023,11 @@ const Game = {
         // Helper: Create Czech Hedgehog (대전차 장애물)
         function createHedgehog(x, z) {
             const group = new THREE.Group();
-            const color = 0x222222;
+            const color = 0x1a1815;
             const s = 1.2;
-            const b1 = createVoxelBox(s, 0.15, 0.15, color, 0.7, 0.3); // Metallic hedgehog
-            const b2 = createVoxelBox(s, 0.15, 0.15, color, 0.7, 0.3); // Metallic hedgehog
-            const b3 = createVoxelBox(s, 0.15, 0.15, color, 0.7, 0.3); // Metallic hedgehog
+            const b1 = createVoxelBox(s, 0.15, 0.15, color);
+            const b2 = createVoxelBox(s, 0.15, 0.15, color);
+            const b3 = createVoxelBox(s, 0.15, 0.15, color);
             b1.rotation.set(Math.PI / 4, 0, 0);
             b2.rotation.set(-Math.PI / 4, 0, 0);
             b3.rotation.set(0, 0, Math.PI / 2);
@@ -3942,33 +4046,147 @@ const Game = {
         // Helper: Create Props (Crates & Barrels)
         function createProp(type, x, z) {
             if (type === 'crate') {
-                const crate = createVoxelBox(0.8, 0.8, 0.8, 0x5d4037, 0, 0.8); // Matte wood crate
+                const crate = createVoxelBox(0.8, 0.8, 0.8, 0x252018);
                 crate.position.set(x, 0.4, z);
                 crate.userData = { isBreakable: true, type: 'crate' };
                 scene.add(crate);
                 walls.push(crate);
 
-                // Rivet details on crate
                 for (let i = 0; i < 4; i++) {
-                    const d = createVoxelBox(0.82, 0.1, 0.1, 0x3e2723, 0, 0.8); // Matte wood details
+                    const d = createVoxelBox(0.82, 0.1, 0.1, 0x1a1510);
                     d.position.set(x, 0.4 + (i % 2 ? 0.3 : -0.3), z);
-                    crate.add(d); // Attach to crate for easier removal
+                    crate.add(d);
                 }
             } else if (type === 'barrel') {
-                const barrel = createVoxelCylinder(0.3, 0.3, 0.9, 0xc62828, 0.6, 0.4); // Metallic barrel
+                const barrel = createVoxelCylinder(0.3, 0.3, 0.9, 0x3a2520);
                 barrel.position.set(x, 0.45, z);
                 barrel.userData = { isBreakable: true, type: 'barrel' };
                 scene.add(barrel);
                 walls.push(barrel);
 
-                // Barrel rings
-                const r1 = createVoxelCylinder(0.32, 0.32, 0.05, 0x333333, 0.7, 0.3); // Metallic rings
+                const r1 = createVoxelCylinder(0.32, 0.32, 0.05, 0x1a1510);
                 r1.position.y = 0.2;
                 barrel.add(r1);
-                const r2 = createVoxelCylinder(0.32, 0.32, 0.05, 0x333333, 0.7, 0.3); // Metallic rings
+                const r2 = createVoxelCylinder(0.32, 0.32, 0.05, 0x1a1510);
                 r2.position.y = -0.2;
                 barrel.add(r2);
             }
+        }
+
+        function createShack(x, z, rot = 0) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rot;
+            scene.add(group);
+
+            const wallColor = 0x252018;
+            const roofColor = 0x1a1510;
+
+            // Foundation
+            const floor = createVoxelBox(2.5, 0.15, 2.5, 0x1a1510);
+            floor.position.y = 0.075;
+            group.add(floor);
+
+            // Walls
+            const backWall = createVoxelBox(2.5, 1.8, 0.15, wallColor);
+            backWall.position.set(0, 1.0, -1.175);
+            group.add(backWall);
+
+            const leftWall = createVoxelBox(0.15, 1.8, 2.5, wallColor);
+            leftWall.position.set(-1.175, 1.0, 0);
+            group.add(leftWall);
+
+            const rightWall = createVoxelBox(0.15, 1.8, 2.5, wallColor);
+            rightWall.position.set(1.175, 1.0, 0);
+            group.add(rightWall);
+
+            // Collapsed front wall (一半만 있음)
+            const frontWallL = createVoxelBox(0.8, 1.4, 0.15, wallColor);
+            frontWallL.position.set(-0.7, 0.7, 1.175);
+            frontWallL.rotation.z = 0.1;
+            group.add(frontWallL);
+
+            const frontWallR = createVoxelBox(0.8, 1.0, 0.15, wallColor);
+            frontWallR.position.set(0.8, 0.5, 1.175);
+            frontWallR.rotation.z = -0.15;
+            group.add(frontWallR);
+
+            // Roof (一部分塌陷)
+            const roof = createVoxelBox(2.8, 0.15, 2.8, roofColor);
+            roof.position.set(0.3, 1.95, 0.2);
+            roof.rotation.x = 0.15;
+            roof.rotation.z = 0.1;
+            group.add(roof);
+
+            // Debris on roof
+            const debris1 = createVoxelBox(0.4, 0.3, 0.5, 0x1a1510);
+            debris1.position.set(0.8, 2.1, -0.5);
+            group.add(debris1);
+
+            // collision
+            const col = createVoxelBox(2.5, 1.8, 2.5, 0x000000);
+            col.position.set(x, 0.9, z);
+            col.visible = false;
+            scene.add(col);
+            walls.push(col);
+        }
+
+        function createWatchtower(x, z) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            scene.add(group);
+
+            const towerColor = 0x1a1510;
+            const metalColor = 0x252018;
+
+            // Foundation
+            const base = createVoxelBox(1.8, 0.3, 1.8, 0x151210);
+            base.position.y = 0.15;
+            group.add(base);
+
+            // Legs
+            const legPositions = [
+                [-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]
+            ];
+            legPositions.forEach(([lx, lz]) => {
+                const leg = createVoxelBox(0.2, 3.0, 0.2, metalColor);
+                leg.position.set(lx, 1.5, lz);
+                group.add(leg);
+            });
+
+            // Platform (一部分塌陷)
+            const platform = createVoxelBox(2.2, 0.15, 2.2, towerColor);
+            platform.position.set(0.1, 3.0, 0.1);
+            platform.rotation.x = 0.1;
+            platform.rotation.z = -0.1;
+            group.add(platform);
+
+            // Damaged railing
+            const rail1 = createVoxelBox(2.0, 0.1, 0.1, metalColor);
+            rail1.position.set(0, 3.3, -1.0);
+            rail1.rotation.z = 0.2;
+            group.add(rail1);
+
+            const rail2 = createVoxelBox(0.1, 0.1, 1.8, metalColor);
+            rail2.position.set(-1.0, 3.2, 0);
+            group.add(rail2);
+
+            // Top shelter (一半塌陷)
+            const shelter = createVoxelBox(1.5, 0.8, 1.5, towerColor);
+            shelter.position.set(-0.2, 3.6, -0.2);
+            shelter.rotation.z = 0.15;
+            group.add(shelter);
+
+            const shelterRoof = createVoxelBox(1.7, 0.1, 1.7, metalColor);
+            shelterRoof.position.set(-0.2, 4.1, -0.2);
+            group.add(shelterRoof);
+
+            // collision
+            const col = createVoxelBox(1.8, 4.0, 1.8, 0x000000);
+            col.position.set(x, 2.0, z);
+            col.visible = false;
+            scene.add(col);
+            walls.push(col);
         }
 
         // Helper: Create Destroyed Tank (Wreck)
@@ -4091,67 +4309,162 @@ const Game = {
             walls.push(col);
         }
 
-        // Helper: Create Fortress Wall (단조로움 해결을 위한 다층 구조 장벽)
         function createFortressWall(wallDef) {
             const { x, z, w, d } = wallDef;
-            const h = 2.4; // Slightly taller
-            const color = CONFIG.COLORS.WALL;
+            const h = 2.0;
+            const color = 0x1a1815;
+            const wireColor = 0x151210;
             const group = new THREE.Group();
             group.position.set(x, 0, z);
             scene.add(group);
 
-            // 1. Foundation (기초부 - Slightly wider and darker)
-            const foundation = createVoxelBox(w + 0.4, 0.4, d + 0.4, 0x333333);
-            foundation.position.y = 0.2;
-            group.add(foundation);
-
-            // 2. Main Wall Body
-            const main = createVoxelBox(w, h - 0.4, d, color);
-            main.position.y = h / 2 + 0.2;
-            group.add(main);
-
-            // 3. Crenelations (상단 총안구 - Jagged top)
-            const cSize = 0.4;
             const isHorizontal = w > d;
-            if (isHorizontal) {
-                const count = Math.floor(w / (cSize * 2));
-                for (let i = 0; i < count; i++) {
-                    const c = createVoxelBox(cSize, cSize, d, color);
-                    c.position.set(-w / 2 + cSize + i * cSize * 2, h + 0.2, 0);
-                    group.add(c);
-                }
-            } else {
-                const count = Math.floor(d / (cSize * 2));
-                for (let i = 0; i < count; i++) {
-                    const c = createVoxelBox(w, cSize, cSize, color);
-                    c.position.set(0, h + 0.2, -d / 2 + cSize + i * cSize * 2);
-                    group.add(c);
+            const length = isHorizontal ? w : d;
+
+            const postSpacing = 2.5;
+            const numPosts = Math.floor(length / postSpacing) + 1;
+
+            for (let i = 0; i <= numPosts; i++) {
+                const pos = -length / 2 + i * postSpacing;
+                const postH = h + 0.3 + (i % 2) * 0.4;
+
+                const post = createVoxelBox(0.15, postH, 0.15, wireColor);
+                if (isHorizontal) post.position.set(pos, postH / 2, 0);
+                else post.position.set(0, postH / 2, pos);
+                group.add(post);
+
+                const cap = createVoxelBox(0.25, 0.1, 0.25, wireColor);
+                if (isHorizontal) cap.position.set(pos, postH + 0.05, 0);
+                else cap.position.set(0, postH + 0.05, pos);
+                group.add(cap);
+            }
+
+            for (let layer = 0; layer < 3; layer++) {
+                const wireH = 0.3 + layer * (h / 3);
+                const wire = createVoxelBox(isHorizontal ? w : 0.05, 0.05, isHorizontal ? 0.05 : d, wireColor);
+                wire.position.set(0, wireH, 0);
+                group.add(wire);
+            }
+
+            for (let i = 0; i < numPosts; i++) {
+                const pos1 = -length / 2 + i * postSpacing;
+                const pos2 = Math.min(pos1 + postSpacing, length / 2);
+
+                for (let layer = 0; layer < 3; layer++) {
+                    const wireH = 0.3 + layer * (h / 3);
+                    const diag = createVoxelBox(0.03, 0.03, Math.sqrt(postSpacing * postSpacing + 0.09), wireColor);
+                    if (isHorizontal) {
+                        diag.position.set((pos1 + pos2) / 2, wireH, 0);
+                        diag.rotation.y = Math.atan2(0.3, pos2 - pos1);
+                    } else {
+                        diag.position.set(0, wireH, (pos1 + pos2) / 2);
+                        diag.rotation.x = Math.atan2(0.3, pos2 - pos1);
+                    }
+                    group.add(diag);
                 }
             }
 
-            // 4. Detail: Reinforcement Pillars (보강 필러)
-            const pillarW = isHorizontal ? 0.3 : w + 0.1;
-            const pillarD = isHorizontal ? d + 0.1 : 0.3;
-            for (let i of [-1, 1]) {
-                const p = createVoxelBox(pillarW, h, pillarD, 0x444444);
-                if (isHorizontal) p.position.set(i * (w / 2 - 0.2), h / 2, 0);
-                else p.position.set(0, h / 2, i * (d / 2 - 0.2));
-                group.add(p);
-            }
-
-            // 5. Warning Stripe (중앙 노란 띠)
-            const sW = isHorizontal ? 0.1 : w + 0.05;
-            const sD = isHorizontal ? d + 0.05 : 0.1;
-            const stripe = createVoxelBox(sW, h - 0.8, sD, 0xffaa00, 0.5, 0.5);
-            stripe.position.y = h / 2 + 0.2;
-            group.add(stripe);
-
-            // Add invisible collision box to walls array
             const col = createVoxelBox(w + 0.2, h + 0.5, d + 0.2, 0x000000);
             col.position.set(x, h / 2 + 0.2, z);
             col.visible = false;
             col.userData = { type: 'fortress' };
-            scene.add(col); // CRITICAL: Must be in scene to update world matrices
+            scene.add(col);
+            walls.push(col);
+        }
+
+        function createDamagedFence(wallDef) {
+            const { x, z, w, d } = wallDef;
+            const h = 1.8;
+            const wireColor = 0x151210;
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            scene.add(group);
+
+            const isHorizontal = w > d;
+            const length = isHorizontal ? w : d;
+
+            const postSpacing = 3.0;
+            const numPosts = Math.floor(length / postSpacing) + 1;
+
+            const skipPosts = [Math.floor(numPosts / 3), Math.floor(numPosts * 2 / 3)];
+
+            for (let i = 0; i <= numPosts; i++) {
+                if (skipPosts.includes(i)) continue;
+
+                const pos = -length / 2 + i * postSpacing;
+                const tilt = (Math.random() - 0.5) * 0.2;
+                const postH = h - (i % 2) * 0.3;
+
+                const post = createVoxelBox(0.12, postH, 0.12, wireColor);
+                if (isHorizontal) {
+                    post.position.set(pos, postH / 2, 0);
+                    post.rotation.z = tilt;
+                } else {
+                    post.position.set(0, postH / 2, pos);
+                    post.rotation.x = tilt;
+                }
+                group.add(post);
+            }
+
+            const wireLayers = [0.4, 0.9, 1.4];
+            wireLayers.forEach((wireH, li) => {
+                if (li === 1) return;
+
+                for (let i = 0; i < numPosts; i++) {
+                    const startPos = -length / 2 + i * postSpacing;
+                    const endPos = Math.min(startPos + postSpacing, length / 2);
+
+                    if (skipPosts.includes(i)) continue;
+
+                    const broken = Math.random() < 0.15;
+                    if (broken) continue;
+
+                    const wire = createVoxelBox(isHorizontal ? postSpacing : 0.03, 0.03, isHorizontal ? 0.03 : postSpacing, wireColor);
+                    if (isHorizontal) {
+                        wire.position.set((startPos + endPos) / 2, wireH, 0);
+                    } else {
+                        wire.position.set(0, wireH, (startPos + endPos) / 2);
+                    }
+                    group.add(wire);
+                }
+            });
+
+            const fallenCount = Math.floor(numPosts / 4);
+            for (let f = 0; f < fallenCount; f++) {
+                const i = Math.floor(Math.random() * numPosts);
+                const pos = -length / 2 + i * postSpacing;
+                const fallen = createVoxelBox(0.1, 0.1, 1.5 + Math.random(), wireColor);
+                if (isHorizontal) {
+                    fallen.position.set(pos, 0.15, (Math.random() - 0.5) * 0.5);
+                    fallen.rotation.z = Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+                } else {
+                    fallen.position.set((Math.random() - 0.5) * 0.5, 0.15, pos);
+                    fallen.rotation.x = Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+                }
+                group.add(fallen);
+            }
+
+            for (let i = 0; i <= numPosts; i++) {
+                const pos = -length / 2 + i * postSpacing;
+                const postH = h - (i % 2) * 0.3;
+                const colW = isHorizontal ? 0.4 : 0.4;
+                const colD = isHorizontal ? 0.4 : 0.4;
+                const col = createVoxelBox(colW, postH, colD, 0x000000);
+                if (isHorizontal) col.position.set(x + pos, postH / 2, z);
+                else col.position.set(x, postH / 2, z + pos);
+                col.visible = false;
+                col.userData = { type: 'fence' };
+                scene.add(col);
+                walls.push(col);
+            }
+
+            const colW = isHorizontal ? w : 0.2;
+            const colD = isHorizontal ? 0.2 : d;
+            const col = createVoxelBox(colW, h * 0.3, colD, 0x000000);
+            col.position.set(x, h * 0.15, z);
+            col.visible = false;
+            col.userData = { type: 'fence' };
+            scene.add(col);
             walls.push(col);
         }
 
@@ -4161,6 +4474,8 @@ const Game = {
             else if (prop.type === 'hedgehog') createHedgehog(prop.x, prop.z);
             else if (prop.type === 'crate') createProp('crate', prop.x, prop.z);
             else if (prop.type === 'barrel') createProp('barrel', prop.x, prop.z);
+            else if (prop.type === 'shack') createShack(prop.x, prop.z, prop.rot || 0);
+            else if (prop.type === 'watchtower') createWatchtower(prop.x, prop.z);
         });
 
         // Fixed Destroyed Tanks (Wrecks)
@@ -4171,6 +4486,12 @@ const Game = {
         CONFIG.MAP.LAYOUT.forEach(wallDef => {
             createFortressWall(wallDef);
         });
+
+        if (CONFIG.MAP.DAMAGED_FENCE) {
+            CONFIG.MAP.DAMAGED_FENCE.forEach(fenceDef => {
+                createDamagedFence(fenceDef);
+            });
+        }
 
         // CRITICAL: Update all world matrices before any safety checks (getRandomSpawnPoint uses these)
         scene.updateMatrixWorld(true);
@@ -4362,6 +4683,12 @@ WCGames.init({
         updateMasterStatus();
     },
     onRestart: () => {
+        cleanupInputListeners();
+        window.addEventListener('keydown', keyDownHandler);
+        window.addEventListener('keyup', keyUpHandler);
+        window.addEventListener('mousedown', mouseDownHandler);
+        window.addEventListener('mouseup', mouseUpHandler);
+        window.addEventListener('mousemove', mouseMoveHandler);
         if (bullets) {
             bullets.forEach(b => b.destroy());
             bullets.length = 0;
