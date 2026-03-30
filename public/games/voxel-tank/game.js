@@ -3363,9 +3363,13 @@ function update(dt) {
             div.style.fontFamily = 'monospace';
             div.innerText = '⚠️ AIR RAID WARNING ⚠️';
             document.body.appendChild(div);
-            // 경보 최초 표시 시 사이렌 재생
+            // 경보 표시 시 사이렌 재생
             if (window.AudioSFX) window.AudioSFX.playAirRaidSiren();
         } else {
+            // 이전에 숨겨져 있다가 다시 나타나는 순간에만 사이렌 재생
+            if (warningElement.style.display === 'none') {
+                if (window.AudioSFX) window.AudioSFX.playAirRaidSiren();
+            }
             warningElement.style.display = 'block';
             warningElement.style.opacity = Math.sin(now * 0.01) * 0.5 + 0.5; // 깜빡임 효과
         }
