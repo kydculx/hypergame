@@ -205,6 +205,8 @@ let animationId = null;
 let cameraShakeTime = 0;
 let wreckSmokeTimer = 0;
 let directionalLight; // Global for shadow follow
+// 모바일 감지: 초당 60번 정규식 실행을 막기 위해 전역에서 1회만 실행
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 /* 3. Utilities (Helper functions) */
 function createVoxelBox(w, h, d, color, metalness = 0, roughness = 0.9) {
@@ -672,7 +674,8 @@ const AudioSFX = {
             // Preload sounds (Async in background)
             this.load('cannon_shot.mp3', 'cannon');
             this.load('tank_move.mp3', 'engine');
-            this.load('explosion.mp3', 'explosion'); // NEW: Explosion sound
+            this.load('explosion.mp3', 'explosion');
+            this.load('air_raid_siren.mp3', 'siren'); // 공습경보 사이렌
         } catch (e) {
             console.warn("Audio init failed", e);
         }
@@ -801,6 +804,44 @@ const AudioSFX = {
         gain.connect(this.master);
         osc.start();
         osc.stop(now + 0.3);
+    },
+
+    playAirRaidSiren() {
+        if (!this.ctx) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        if (this.buffers['siren']) {
+            // 실제 사이렌 파일 재생
+            if (this._sirenSource) {
+                try { this._sirenSource.stop(); } catch (e) {}
+            }
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.buffers['siren'];
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.8, now);
+            source.connect(gain);
+            gain.connect(this.master);
+            source.start(now);
+            this._sirenSource = source;
+        } else {
+            // 파일 미로드 시 합성 사이렌 폴백
+            for (let i = 0; i < 3; i++) {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const t = now + i * 0.8;
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(600, t);
+                osc.frequency.linearRampToValueAtTime(900, t + 0.4);
+                osc.frequency.linearRampToValueAtTime(600, t + 0.8);
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.8);
+                osc.connect(gain);
+                gain.connect(this.master);
+                osc.start(t);
+                osc.stop(t + 0.8);
+            }
+        }
     }
 };
 window.AudioSFX = AudioSFX; // Expose globally
@@ -2334,16 +2375,28 @@ class Tank {
             if (!lodState) return;
         }
 
-        if (isMoving && scene) {
+        // 플레이어 탱크만 트랙마크 생성 (봇은 성능상 비활성화)
+        if (isMoving && scene && this.isLocal) {
             this.trackTimer += dt;
             if (this.trackTimer > 0.15) {
                 this.trackTimer = 0;
                 const pos = this.group.position;
                 if (!this.lastTrackPos || pos.distanceTo(this.lastTrackPos) > 0.3) {
+                    // 최대 개수 초과 시 생성 중단
+                    if (this.trackMarks.length >= this.maxTrackMarks) {
+                        // 가장 오래된 것을 즉시 제거 (앞에서 2개)
+                        for (let r = 0; r < 2 && this.trackMarks.length > 0; r++) {
+                            const old = this.trackMarks.shift();
+                            this.trackLifetimes.shift();
+                            scene.remove(old);
+                            old.geometry.dispose();
+                            old.material.dispose();
+                        }
+                    }
+
                     this.lastTrackPos = pos.clone();
                     const angle = this.group.rotation.y;
                     const trackGap = 0.5;
-                    const newTracks = [];
                     for (let side = -1; side <= 1; side += 2) {
                         const offset = trackGap * side;
                         const tx = pos.x + Math.cos(angle) * offset;
@@ -2352,17 +2405,16 @@ class Tank {
                         track.position.set(tx, -0.08, tz);
                         track.rotation.y = angle;
                         scene.add(track);
-                        newTracks.push(track);
+                        this.trackMarks.push(track);
+                        this.trackLifetimes.push(Date.now());
                     }
-                    this.trackMarks.push(...newTracks);
-                    this.trackLifetimes.push(...newTracks.map(() => Date.now()));
                 }
             }
         }
 
         if (this.trackMarks.length > 0) {
             const now = Date.now();
-            const maxLife = 30000;
+            const maxLife = 8000; // 30초 → 8초로 단축
             for (let i = this.trackMarks.length - 1; i >= 0; i--) {
                 const age = now - this.trackLifetimes[i];
                 const lifeRatio = 1 - (age / maxLife);
@@ -2373,8 +2425,6 @@ class Tank {
                     t.material.dispose();
                     this.trackMarks.splice(i, 1);
                     this.trackLifetimes.splice(i, 1);
-                } else {
-                    this.trackMarks[i].position.y = -0.08 - (1 - lifeRatio) * 0.1;
                 }
             }
         }
@@ -3205,9 +3255,6 @@ function update(dt) {
         checkCollisions();
 
         // 8. Reverted Camera Follow (Top-down Fixed Offset)
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        camera.fov = isMobile ? CONFIG.CAMERA.MOBILE_FOV : CONFIG.CAMERA.PC_FOV;
-        camera.updateProjectionMatrix();
 
         let camX = myTank.group.position.x;
         let camY = CONFIG.CAMERA.HEIGHT;
@@ -3316,6 +3363,8 @@ function update(dt) {
             div.style.fontFamily = 'monospace';
             div.innerText = '⚠️ AIR RAID WARNING ⚠️';
             document.body.appendChild(div);
+            // 경보 최초 표시 시 사이렌 재생
+            if (window.AudioSFX) window.AudioSFX.playAirRaidSiren();
         } else {
             warningElement.style.display = 'block';
             warningElement.style.opacity = Math.sin(now * 0.01) * 0.5 + 0.5; // 깜빡임 효과
@@ -3381,7 +3430,7 @@ function update(dt) {
         vfx.update(dt);
 
         wreckSmokeTimer += dt;
-        if (wreckSmokeTimer > 0.08) {
+        if (wreckSmokeTimer > 0.25) { // 0.08 → 0.25: 파티클 생성 빈도 감소
             wreckSmokeTimer = 0;
             wrecks.forEach(wreck => {
                 const basePos = new THREE.Vector3(0, 0.6, 0).add(wreck.position);
@@ -3878,6 +3927,9 @@ const Game = {
         scene.fog = new THREE.FogExp2(CONFIG.COLORS.FLOOR, 0.02);
 
         camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // FOV는 isMobile 전역값 기준으로 init 시 1회 설정
+        camera.fov = isMobile ? CONFIG.CAMERA.MOBILE_FOV : CONFIG.CAMERA.PC_FOV;
+        camera.updateProjectionMatrix();
 
         const container = document.getElementById('game-container');
         container.innerHTML = ''; // Clear previous canvas if any
