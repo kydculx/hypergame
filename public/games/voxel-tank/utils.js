@@ -38,8 +38,8 @@ export function createVoxelBox(w, h, d, color, metalness = 0, roughness = 0.9) {
  * @param {number} roughness - 거칠기
  * @returns {THREE.Mesh} 생성된 메시
  */
-export function createVoxelCylinder(radiusTop, radiusBottom, height, color, metalness = 0.2, roughness = 0.8) {
-    const geometry = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 12);
+export function createVoxelCylinder(radiusTop, radiusBottom, height, color, metalness = 0.2, roughness = 0.8, segments = 12) {
+    const geometry = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, segments);
     const material = new THREE.MeshStandardMaterial({ color, metalness, roughness });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;

@@ -146,7 +146,7 @@ const CONFIG = {
         AIM_JITTER_RANGE: [0.06, 0.45],      // 조준 오차 범위 (최소 0.05 -> 0.06)
         FIRING_THRESHOLD_RANGE: [0.96, 0.985], // 사격 정렬 임계값 (최대 0.995 -> 0.985)
         JITTER_UPDATE_INTERVAL_RANGE: [0.6, 2.0], // 조준 오차 갱신 간격 (최소 0.5 -> 0.6)
-        
+
         NAME_PREFIX: "Guest",        // 이름 접두사
         COLORS: [0x9933ff, 0xff9900, 0x00ffcc, 0xff0066, 0x33cc33, 0xffdd00] // 봇 색상
     },
@@ -178,12 +178,16 @@ const CONFIG = {
         INTERVAL_MAX: 120,           // 최대 간격 (초)
         PLANE_SPEED: 25,            // 전투기 속도
         PLANE_HEIGHT: 10,            // 전투기 높이
-        BOMB_COUNT: 10,              // 폭탄 수
+        BOMB_COUNT: 15,              // 폭탄 수
         BOMB_INTERVAL: 0.15,         // 폭탄 투하 간격 (초)
         BOMB_DAMAGE: 45,             // 폭탄 데미지
-        BOMB_RADIUS: 10,              // 폭탄 반경
-        TARGETING_RADIUS: 25,       // 목표 탐지 반경
-        FALL_SPEED: 18               // 폭탄下落 속도
+        BOMB_RADIUS: 8,              // 폭탄 반경
+        WARNING_DURATION: 0,         // 공습 전 경보 시간 (초)
+        SIREN_DURATION: 5,           // 사이렌 유지 시간 (초)
+        SIREN_FADE_OUT: 5,            // 사이렌 페이드아웃 시간 (초)
+        PLAYER_TARGET_CHANCE: 0.3,   // 플레이어가 공습 타겟이 될 확률 (0.0 ~ 1.0)
+        TARGETING_RADIUS: 30,       // 목표 탐지 반경
+        FALL_SPEED: 18               // 폭탄투하 속도
     },
 
     // ------------------------------------------------------------------------
@@ -201,6 +205,8 @@ const CONFIG = {
     // ------------------------------------------------------------------------
     CAMERA: {
         HEIGHT: 20,                 // 카메라 높이
+        SIREN_HEIGHT: 40,           // 공습 시 카메라 높이
+        SIREN_ZOOM_DELAY: 3,        // 사이렌 시작 후 줌 아웃 대기 시간 (초)
         OFFSET_Z: 7,                // Z축 오프셋
         PC_FOV: 80,                 // PC 시야각
         MOBILE_FOV: 60              // 모바일 시야각

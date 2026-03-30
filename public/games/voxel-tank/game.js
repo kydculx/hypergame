@@ -81,6 +81,7 @@ let lastPowerupSpawnTime = 0; // 마지막 파워업 스폰 시간
 let animationId = null; // 애니메이션 프레임 ID
 let minimapCanvas, minimapCtx; // 미니맵 캔버스
 let cameraShakeTime = 0; // 카메라 흔들림 시간
+let currentCameraHeight = (CONFIG && CONFIG.CAMERA && CONFIG.CAMERA.HEIGHT) || 20; // 현재 카메라 높이 (보간용)
 let wreckSmokeTimer = 0; // 유적 연기 타이머
 let directionalLight; // 그림자-follow용 글로벌 조명
 // 모바일 감지: 초당 60번 정규식 실행을 막기 위해 전역에서 1회만 실행
@@ -649,23 +650,34 @@ const AudioSFX = {
         if (!this.ctx) return;
         this.resume();
         const now = this.ctx.currentTime;
+        
+        // CONFIG에서 설정값 가져오기 (기본값 설정 포함)
+        const duration = (CONFIG.AIRSTRIKE && CONFIG.AIRSTRIKE.SIREN_DURATION) || 7.0;
+        const fadeOut = (CONFIG.AIRSTRIKE && CONFIG.AIRSTRIKE.SIREN_FADE_OUT) || 4.0;
+        const totalTime = duration + fadeOut;
 
         if (this.buffers['siren']) {
-            // 실제 사이렌 파일 재생
             if (this._sirenSource) {
                 try { this._sirenSource.stop(); } catch (e) { }
             }
             const source = this.ctx.createBufferSource();
             source.buffer = this.buffers['siren'];
             const gain = this.ctx.createGain();
+            
+            // 볼륨 설정: duration 유지 후 fadeOut간 페이드 아웃
             gain.gain.setValueAtTime(0.8, now);
+            gain.gain.setValueAtTime(0.8, now + duration);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + totalTime);
+            
             source.connect(gain);
             gain.connect(this.master);
             source.start(now);
+            source.stop(now + totalTime);
             this._sirenSource = source;
         } else {
-            // 파일 미로드 시 합성 사이렌 폴백
-            for (let i = 0; i < 3; i++) {
+            // 합성 사이렌 폴백 - 설정된 총 시간에 맞춰 반복 횟수 및 볼륨 감쇄 자동 계산
+            const cycles = Math.ceil(totalTime / 0.8);
+            for (let i = 0; i < cycles; i++) {
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 const t = now + i * 0.8;
@@ -673,8 +685,12 @@ const AudioSFX = {
                 osc.frequency.setValueAtTime(600, t);
                 osc.frequency.linearRampToValueAtTime(900, t + 0.4);
                 osc.frequency.linearRampToValueAtTime(600, t + 0.8);
-                gain.gain.setValueAtTime(0.3, t);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.8);
+                
+                // 전체 회차에 비례하여 볼륨 감소
+                const vol = 0.3 * (1 - (i / (cycles + 1)));
+                gain.gain.setValueAtTime(vol, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+                
                 osc.connect(gain);
                 gain.connect(this.master);
                 osc.start(t);
@@ -1304,143 +1320,49 @@ class RepairStation {
         const techCyan = 0x00d4aa;
         const boltSilver = 0x252220;
 
-        const base = createVoxelBox(baseSize, 0.1, baseSize, baseColor);
+        // 6각형 메인 베이스 (Y=0.05)
+        const radius = baseSize / 1.7;
+        const base = createVoxelCylinder(radius, radius, 0.1, baseColor, 0.2, 0.8, 6);
         base.position.y = 0.05;
+        base.rotation.y = Math.PI / 6;
         base.receiveShadow = true;
         this.group.add(base);
 
-        const edgeTrim = createVoxelBox(baseSize + 0.2, 0.05, baseSize + 0.2, metalAccent);
-        edgeTrim.position.y = 0.125;
+        // 6각형 테두리 장식 (Y=0.15로 높임 - 울렁거림 방지)
+        const edgeTrim = createVoxelCylinder(radius + 0.1, radius + 0.1, 0.05, metalAccent, 0.4, 0.6, 6);
+        edgeTrim.position.y = 0.15;
+        edgeTrim.rotation.y = Math.PI / 6;
         this.group.add(edgeTrim);
 
-        for (let side of [-1, 1]) {
-            const hStrip = createVoxelBox(baseSize, 0.04, 0.2, warningStripes);
-            hStrip.position.set(0, 0.12, side * (baseSize / 2 - 0.2));
-            this.group.add(hStrip);
+        // 6각형 내부 그리드 플레이트 (Y=0.20으로 높임)
+        const innerPlate = createVoxelCylinder(radius - 0.3, radius - 0.3, 0.02, 0x1a1a1a, 0.1, 1.0, 6);
+        innerPlate.position.y = 0.20;
+        innerPlate.rotation.y = Math.PI / 6;
+        this.group.add(innerPlate);
 
-            const vStrip = createVoxelBox(0.2, 0.04, baseSize, warningStripes);
-            vStrip.position.set(side * (baseSize / 2 - 0.2), 0.12, 0);
-            this.group.add(vStrip);
+        // 6각형 구석 소품들 (높이 간격 최적화)
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 + Math.PI / 6;
+            const dist = radius - 0.5;
+            
+            const bolt = createVoxelBox(0.2, 0.2, 0.2, boltSilver);
+            bolt.position.set(Math.cos(angle) * dist, 0.25, Math.sin(angle) * dist);
+            this.group.add(bolt);
 
-            for (let i = 0; i < 3; i++) {
-                const grate = createVoxelBox(0.8, 0.04, 0.4, 0x1a1a1a);
-                grate.position.set(side * (baseSize / 3 - i * 0.3), 0.12, 0);
-                this.group.add(grate);
+            if (i % 2 === 0) {
+                const marker = createVoxelBox(0.4, 0.02, 0.4, warningStripes);
+                marker.position.set(Math.cos(angle) * (dist - 0.6), 0.22, Math.sin(angle) * (dist - 0.6));
+                marker.rotation.y = angle;
+                this.group.add(marker);
             }
         }
-
-        this.pylons = [];
-        this.strobes = [];
-        const pillarDist = baseSize / 2 + 0.8;
-        const pHeight = 6.0;
-
-        for (let x of [-1, 1]) {
-            for (let z of [-1, 1]) {
-                const pillar = new THREE.Group();
-                pillar.position.set(x * pillarDist, 0.1, z * pillarDist);
-
-                const body = createVoxelBox(1.2, pHeight, 1.2, hazardOrange);
-                body.position.y = pHeight / 2;
-                pillar.add(body);
-
-                const trim = createVoxelBox(1.3, 0.1, 1.3, metalDark);
-                trim.position.y = pHeight - 0.5;
-                pillar.add(trim);
-
-                const basePlate = createVoxelBox(1.4, 0.3, 1.4, metalAccent);
-                basePlate.position.y = 0.15;
-                pillar.add(basePlate);
-
-                for (let j = 0; j < 4; j++) {
-                    const bolt = createVoxelBox(0.12, 0.12, 0.12, boltSilver);
-                    const angle = (j / 4) * Math.PI * 2 + Math.PI / 4;
-                    bolt.position.set(Math.cos(angle) * 0.55, 0.3, Math.sin(angle) * 0.55);
-                    pillar.add(bolt);
-                }
-
-                const cylinder = createVoxelCylinder(0.2, 0.2, pHeight * 0.85, boltSilver);
-                cylinder.position.set(x * -0.3, pHeight / 2, z * -0.3);
-                pillar.add(cylinder);
-
-                const lightBase = createVoxelBox(0.3, 0.15, 0.15, metalDark);
-                lightBase.position.set(0, pHeight - 0.3, 0.6);
-                pillar.add(lightBase);
-
-                const light = createVoxelBox(0.25, 0.25, 0.1, 0xff8c00);
-                light.position.set(0, pHeight - 0.1, 0.65);
-                if (light.material) {
-                    light.material.emissive = new THREE.Color(0xff8c00);
-                    light.material.emissiveIntensity = 0.5;
-                }
-                pillar.add(light);
-                this.strobes.push(light);
-
-                this.group.add(pillar);
-                this.pylons.push(pillar);
-            }
-
-            const beamX = createVoxelBox(baseSize + 3.0, 0.8, 0.8, metalDark);
-            beamX.position.set(0, pHeight + 0.5, x * pillarDist);
-            this.group.add(beamX);
-
-            const beamCapX = createVoxelBox(0.4, 0.4, 0.9, metalAccent);
-            beamCapX.position.set(0, pHeight + 0.9, x * pillarDist);
-            this.group.add(beamCapX);
-
-            const beamZ = createVoxelBox(0.8, 0.8, baseSize + 3.0, metalDark);
-            beamZ.position.set(x * pillarDist, pHeight + 0.5, 0);
-            this.group.add(beamZ);
-
-            const beamCapZ = createVoxelBox(0.9, 0.4, 0.4, metalAccent);
-            beamCapZ.position.set(x * pillarDist, pHeight + 0.9, 0);
-            this.group.add(beamCapZ);
-        }
-
-        const gantryCenter = new THREE.Group();
-        gantryCenter.position.set(0, pHeight + 0.5, 0);
-
-        const winchBase = createVoxelBox(1.6, 1.0, 1.6, metalDark);
-        winchBase.position.y = 0.5;
-        gantryCenter.add(winchBase);
-
-        const winchDrum = createVoxelCylinder(0.5, 0.5, 1.2, metalAccent);
-        winchDrum.position.y = 1.0;
-        winchDrum.rotation.x = Math.PI / 2;
-        gantryCenter.add(winchDrum);
-
-        const winchMotor = createVoxelBox(0.6, 0.5, 0.6, 0x1a1a1a);
-        winchMotor.position.set(0.8, 0.8, 0);
-        gantryCenter.add(winchMotor);
-
-        this.group.add(gantryCenter);
-
-        this.hookWire = createVoxelCylinder(0.04, 0.04, 3.0, 0x555555);
-        this.hookWire.position.set(0, pHeight - 1.0, 0);
-        this.group.add(this.hookWire);
-
-        this.hookGroup = new THREE.Group();
-        this.hookGroup.position.set(0, pHeight - 2.5, 0);
-
-        const hookTop = createVoxelBox(0.6, 0.3, 0.6, metalDark);
-        this.hookGroup.add(hookTop);
-
-        const hookArm = createVoxelBox(0.15, 0.8, 0.15, metalAccent);
-        hookArm.position.y = -0.55;
-        this.hookGroup.add(hookArm);
-
-        const hookClaw = createVoxelBox(0.5, 0.15, 0.5, hazardOrange);
-        hookClaw.position.y = -1.0;
-        this.hookGroup.add(hookClaw);
-
-        this.group.add(this.hookGroup);
-
-        this.addCables(pillarDist, pHeight);
 
         this.arms = [];
         for (let i = 0; i < 2; i++) {
             const side = i === 0 ? -1 : 1;
             const armGroup = new THREE.Group();
-            armGroup.position.set(side * (pillarDist - 0.3), 0.5, 0);
+            // 로봇 팔을 베이스의 바깥쪽 끝으로 이동 (개방적인 수리 구역 확보)
+            armGroup.position.set(side * (baseSize / 2.0), 0.5, 0);
 
             const baseMount = createVoxelBox(1.2, 0.5, 1.2, metalDark, 0.8, 0.2);
             baseMount.position.y = 0.25;
@@ -1490,90 +1412,44 @@ class RepairStation {
             this.arms.push({ group: armGroup, s1: s1, s2: s2Group, tip: torchTip, side: side });
         }
 
-        this.addProps(baseSize, pHeight);
+        this.addProps(baseSize);
 
         scene.add(this.group);
         this.animTime = 0;
     }
 
-    addCables(dist, height) {
-        for (let i = 0; i < 4; i++) {
-            const sideX = i < 2 ? -1 : 1;
-            const sideZ = i % 2 === 0 ? -1 : 1;
 
-            const cable = createVoxelCylinder(0.04, 0.04, dist * 0.85, 0x222222);
-            cable.position.set(sideX * (dist * 0.65), height + 0.4, sideZ * (dist * 0.65));
-            cable.rotation.y = Math.atan2(sideZ, sideX);
-            cable.rotation.z = Math.PI / 5;
-            this.group.add(cable);
-        }
-    }
 
     addProps(baseSize, pHeight) {
+        const radius = baseSize / 1.7; // radius 정의 추가 (ReferenceError 해결)
         const metalDark = 0x2d2d2d;
         const hazardOrange = 0xff6b35;
         const techCyan = 0x00d4aa;
 
-        const cab = createVoxelBox(1.2, 2.0, 1.0, metalDark, 0.7, 0.3);
-        cab.position.set(-baseSize / 2 - 2.5, 1.0, baseSize / 4);
-        this.group.add(cab);
 
-        const cabRoof = createVoxelBox(1.4, 0.2, 1.2, 0x1a1a1a);
-        cabRoof.position.set(-baseSize / 2 - 2.5, 2.1, baseSize / 4);
-        this.group.add(cabRoof);
 
-        const screenFrame = createVoxelBox(0.8, 0.5, 0.1, metalDark);
-        screenFrame.position.set(-baseSize / 2 - 2.5, 1.6, baseSize / 4 + 0.46);
-        this.group.add(screenFrame);
 
-        this.monitorDisplay = createVoxelBox(0.7, 0.4, 0.02, techCyan);
-        this.monitorDisplay.position.set(-baseSize / 2 - 2.5, 1.6, baseSize / 4 + 0.52);
-        if (this.monitorDisplay.material) {
-            this.monitorDisplay.material.emissive = new THREE.Color(techCyan);
-            this.monitorDisplay.material.emissiveIntensity = 0.3;
+
+        // 6각형 모서리 전구등 (5~6개)
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 + Math.PI / 6;
+            const dist = radius; 
+            
+            // 조명 지지대
+            const lightBase = createVoxelBox(0.4, 0.4, 0.4, 0x1a1a1a);
+            lightBase.position.set(Math.cos(angle) * dist, 0.15, Math.sin(angle) * dist);
+            lightBase.rotation.y = angle;
+            this.group.add(lightBase);
+
+            // 실제 빛나는 전구 부분
+            const bulb = createVoxelCylinder(0.12, 0.12, 0.5, 0x00ffff);
+            bulb.position.set(Math.cos(angle) * dist, 0.5, Math.sin(angle) * dist);
+            if (bulb.material) {
+                bulb.material.emissive = new THREE.Color(0x00ffff);
+                bulb.material.emissiveIntensity = 1.0;
+            }
+            this.group.add(bulb);
         }
-        this.group.add(this.monitorDisplay);
-
-        this.beacon = new THREE.Group();
-        this.beacon.position.set(0, pHeight + 1.2, 0);
-        this.group.add(this.beacon);
-
-        const bBase = createVoxelBox(0.5, 0.4, 0.5, metalDark);
-        this.beacon.add(bBase);
-
-        const bPole = createVoxelBox(0.15, 0.8, 0.15, 0x4a4a4a);
-        bPole.position.y = 0.6;
-        this.beacon.add(bPole);
-
-        // 본래대로 빨간불 하나
-        this.beaconLight = createVoxelCylinder(0.2, 0.15, 0.3, 0xff0000);
-        this.beaconLight.position.y = 1.15;
-        if (this.beaconLight.material) {
-            this.beaconLight.material.emissive = new THREE.Color(0xff0000);
-            this.beaconLight.material.emissiveIntensity = 0.5;
-        }
-        this.beacon.add(this.beaconLight);
-
-        for (let side of [-1, 1]) {
-            const oilStain = createVoxelBox(1.5, 0.01, 1.0, 0x1a1a1a, 0.1, 1.0);
-            oilStain.position.set(side * (baseSize / 4), 0.52, 0);
-            this.group.add(oilStain);
-        }
-
-        for (let h = 0; h < 3; h++) {
-            const barrel = createVoxelCylinder(0.25, 0.3, 1.5, hazardOrange, 0.5, 0.5);
-            barrel.position.set(baseSize / 2 + 2.5, 0.75 + h * 0.5, -baseSize / 4 + h * 0.3);
-            barrel.rotation.z = 0.2 * h;
-            this.group.add(barrel);
-        }
-
-        const toolBox = createVoxelBox(1.0, 0.6, 0.8, metalDark, 0.8, 0.2);
-        toolBox.position.set(baseSize / 2 + 2.5, 0.3, baseSize / 2 - 1);
-        this.group.add(toolBox);
-
-        const toolHandle = createVoxelBox(0.8, 0.1, 0.1, 0xff6b35);
-        toolHandle.position.set(baseSize / 2 + 2.5, 0.65, baseSize / 2 - 1);
-        this.group.add(toolHandle);
     }
 
     update(dt) {
@@ -1582,52 +1458,13 @@ class RepairStation {
             myTank.group.position.distanceTo(this.position) < (CONFIG.REPAIR_STATION.RADIUS + 2.0) &&
             myTank.hp < myTank.maxHp;
 
-        // 1. 비콘 라이트 애니메이션
-        if (this.beaconLight) {
-            if (isRepairing) {
-                // 수리 중: 연두색으로 깜빡임
-                const blinkPhase = Math.sin(this.animTime * 8);
-                this.beaconLight.material.emissive.setHex(0x00ff00);
-                this.beaconLight.material.emissiveIntensity = blinkPhase > 0 ? 1.2 : 0.3;
-            } else {
-                // 작동하지 않을 때: 어두운 빨강
-                this.beaconLight.material.emissive.setHex(0x440000);
-                this.beaconLight.material.emissiveIntensity = 0.8;
-            }
-        }
 
-        // Hook 애니메이션
-        if (this.hookGroup) {
-            if (isRepairing) {
-                const hookOffset = Math.sin(this.animTime * 3) * 0.3;
-                this.hookGroup.position.y = -2.5 + hookOffset;
-            }
-        }
 
-        // 2. 진단 모니터 깜빡임
-        if (this.monitorDisplay) {
-            if (isRepairing) {
-                const flicker = Math.random() < 0.1 ? 0.2 : 0.8 + Math.random() * 0.4;
-                this.monitorDisplay.material.emissive.setHex(0x2ecc71);
-                this.monitorDisplay.material.emissiveIntensity = flicker;
-                if (Math.random() < 0.05) {
-                    this.monitorDisplay.material.color.setHex(Math.random() < 0.5 ? 0x2ecc71 : 0x3498db);
-                }
-            } else {
-                this.monitorDisplay.material.emissiveIntensity = 0.2;
-                this.monitorDisplay.material.color.setHex(0x2ecc71);
-            }
-        }
 
-        this.strobes.forEach((light, i) => {
-            if (isRepairing) {
-                const flash = 0.5 + Math.sin(this.animTime * 18 + i) * 0.5;
-                light.material.emissive.setHex(0xffaa00);
-                light.material.emissiveIntensity = flash * 1.5;
-            } else {
-                light.material.emissiveIntensity = 0;
-            }
-        });
+
+
+
+
 
         this.arms.forEach((arm, i) => {
             if (isRepairing) {
@@ -1654,6 +1491,17 @@ class RepairStation {
         if (isRepairing) {
             this.healTank(myTank, dt);
             if (Math.random() < 0.25) vfx.spawnHeal(myTank.group.position);
+        }
+
+        // 수리 완료 시 강제 배출 로직 (밸런스 조정)
+        const currentDist = myTank.group.position.distanceTo(this.position);
+        const repairThreshold = CONFIG.REPAIR_STATION.RADIUS + 3.0; // 배출 거리 최적화
+
+        if (myTank.hp >= myTank.maxHp && currentDist < repairThreshold) {
+            // 탱크의 정면 방향 계산 (Forward Vector)
+            const forwardDir = new THREE.Vector3(-Math.sin(myTank.group.rotation.y), 0, -Math.cos(myTank.group.rotation.y));
+            const pushSpeed = 5.0; // 배출 속도 최종 하향 (5.0)
+            myTank.group.position.add(forwardDir.multiplyScalar(pushSpeed * dt));
         }
     }
 
@@ -2145,7 +1993,8 @@ class Tank {
     shoot(jitter = 0) {
         if (repairStation) {
             const dist = this.group.position.distanceTo(repairStation.group.position);
-            if (dist < CONFIG.REPAIR_STATION.RADIUS + 1) return;
+            // 수리 반경(RADIUS + 2.0) 내에서는 사격 불가
+            if (dist < CONFIG.REPAIR_STATION.RADIUS + 2.0) return;
         }
 
         const now = Date.now();
@@ -2935,7 +2784,7 @@ function renderMinimap() {
     const mapCenter = size / 2;
 
     minimapCtx.clearRect(0, 0, size, size);
-        minimapCtx.fillStyle = 'rgba(40, 40, 40, 0.2)';
+    minimapCtx.fillStyle = 'rgba(40, 40, 40, 0.2)';
     minimapCtx.fillRect(0, 0, size, size);
 
     if (repairStation) {
@@ -3147,8 +2996,24 @@ function update(dt) {
 
         // 8. Reverted Camera Follow (Top-down Fixed Offset)
 
+        // --- Dynamic Camera Height (Airstrike Zoom) ---
+        const warningElement = document.getElementById('air-raid-warning');
+        const warningActive = (warningElement && warningElement.style.display !== 'none');
+        
+        // 사이렌 시작 시점 계산 (공습 예정 시간 - 경보 시간)
+        const warningDuration = (CONFIG.AIRSTRIKE.WARNING_DURATION || 3) * 1000;
+        const sirenStartTime = nextAirstrikeTime - warningDuration;
+        const zoomDelay = (CONFIG.CAMERA.SIREN_ZOOM_DELAY || 3) * 1000;
+        
+        // 사이렌 시작 후 지정된 딜레이가 지났거나, 비행기 혹은 폭탄이 존재하는 경우 줌 아웃 유지
+        const isZoomActive = (warningActive && (now > sirenStartTime + zoomDelay)) || airstrikePlanes.length > 0 || airstrikeBombs.length > 0;
+        const targetHeight = isZoomActive ? (CONFIG.CAMERA.SIREN_HEIGHT || 40) : CONFIG.CAMERA.HEIGHT;
+        
+        // 부드러운 높이 보간 (Lerp)
+        currentCameraHeight = THREE.MathUtils.lerp(currentCameraHeight, targetHeight, dt * 1.5);
+
         let camX = myTank.group.position.x;
-        let camY = CONFIG.CAMERA.HEIGHT;
+        let camY = currentCameraHeight;
         let camZ = myTank.group.position.z + CONFIG.CAMERA.OFFSET_Z;
 
         // Add Screen Shake
@@ -3159,7 +3024,6 @@ function update(dt) {
             camY += (Math.random() - 0.5) * shake;
             camZ += (Math.random() - 0.5) * shake;
         }
-
 
         camera.position.set(camX, camY, camZ);
         camera.lookAt(myTank.group.position);
@@ -3196,27 +3060,27 @@ function update(dt) {
         powerups.push(p);
     }
 
-        // --- Local PowerUp Update & Collision ---
-        const currentTime = Date.now() * 0.001;
-        for (let i = powerups.length - 1; i >= 0; i--) {
-            const p = powerups[i];
-            p.update(dt, currentTime);
+    // --- Local PowerUp Update & Collision ---
+    const currentTime = Date.now() * 0.001;
+    for (let i = powerups.length - 1; i >= 0; i--) {
+        const p = powerups[i];
+        p.update(dt, currentTime);
 
-            // Check collision for both player and bots
-            const candidates = [myTank, ...bots];
-            for (const tank of candidates) {
-                if (!tank || tank.hp <= 0) continue;
-                
-                const dist = tank.group.position.distanceTo(p.group.position);
-                if (dist < 1.5) {
-                    tank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
-                    spawnFloatingText(tank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), "HP UP", "#27ae60");
-                    p.destroy();
-                    powerups.splice(i, 1);
-                    break; // Potion consumed
-                }
+        // Check collision for both player and bots
+        const candidates = [myTank, ...bots];
+        for (const tank of candidates) {
+            if (!tank || tank.hp <= 0) continue;
+
+            const dist = tank.group.position.distanceTo(p.group.position);
+            if (dist < 1.5) {
+                tank.heal(CONFIG.POWERUP.HEAL_AMOUNT);
+                spawnFloatingText(tank.group.position.clone().add(new THREE.Vector3(0, 2, 0)), "HP UP", "#27ae60");
+                p.destroy();
+                powerups.splice(i, 1);
+                break; // Potion consumed
             }
         }
+    }
 
     if (vfx) vfx.update(dt);
 
@@ -3241,7 +3105,7 @@ function update(dt) {
         nextAirstrikeTime = now + (CONFIG.AIRSTRIKE.INTERVAL_MIN + Math.random() * (CONFIG.AIRSTRIKE.INTERVAL_MAX - CONFIG.AIRSTRIKE.INTERVAL_MIN)) * 1000;
     }
 
-    const warningTime = 3000;
+    const warningTime = (CONFIG.AIRSTRIKE.WARNING_DURATION || 3) * 1000;
     const warningElement = document.getElementById('air-raid-warning');
     if (now > nextAirstrikeTime - warningTime && now < nextAirstrikeTime) {
         if (!warningElement) {
@@ -3285,7 +3149,23 @@ function update(dt) {
         let targetZ = (Math.random() - 0.5) * CONFIG.WORLD.SIZE * 0.5;
 
         if (allPotentialTargets.length > 0) {
-            const victim = allPotentialTargets[Math.floor(Math.random() * allPotentialTargets.length)];
+            let victim;
+            const playerChance = (CONFIG.AIRSTRIKE && CONFIG.AIRSTRIKE.PLAYER_TARGET_CHANCE) !== undefined ? CONFIG.AIRSTRIKE.PLAYER_TARGET_CHANCE : 0.3;
+            
+            // 플레이어가 살아있고 확률에 당첨된 경우 플레이어 조준
+            if (myTank && myTank.hp > 0 && Math.random() < playerChance) {
+                victim = myTank;
+            } else {
+                // 그 외에는 생존한 봇들 중 무작위 선택
+                const liveBots = bots.filter(b => b.hp > 0);
+                if (liveBots.length > 0) {
+                    victim = liveBots[Math.floor(Math.random() * liveBots.length)];
+                } else {
+                    // 봇도 없으면 아무나 (백업)
+                    victim = allPotentialTargets[Math.floor(Math.random() * allPotentialTargets.length)];
+                }
+            }
+            
             targetX = victim.group.position.x;
             targetZ = victim.group.position.z;
         }
@@ -3466,16 +3346,16 @@ function checkCollisions() {
 
 function updateBullets() {
     if (!bulletManager) return;
-    
+
     const dt = 0.016;
     const bullets = bulletManager.getBulletArray();
-    
+
     for (let i = bullets.length - 1; i >= 0; i--) {
         const bullet = bullets[i];
-        
+
         // 총알 위치 업데이트
         bullet.group.position.add(bullet.direction.clone().multiplyScalar(CONFIG.BULLET.SPEED * dt));
-        
+
         // 수명 확인
         if (Date.now() - bullet.startTime > CONFIG.BULLET.LIFE_TIME) {
             bulletManager.remove(i);
@@ -3862,7 +3742,7 @@ const Game = {
         vfx = new ParticleSystem();
         cameraShakeTime = 0;
         scene.background = new THREE.Color(CONFIG.COLORS.FLOOR);
-        scene.fog = new THREE.FogExp2(CONFIG.COLORS.FLOOR, 0.02);
+        // scene.fog = new THREE.FogExp2(CONFIG.COLORS.FLOOR, 0.02); // Fog removed for clarity per user request
 
         camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         // FOV는 isMobile 전역값 기준으로 init 시 1회 설정
@@ -4205,7 +4085,7 @@ const Game = {
 
             // 포대자루 형태: 가운데가 더 두껍고 양쪽이 좁음
             // createVoxelCylinder(topRadius, bottomRadius, height) 사용
-            
+
             // 1단 (6개)
             for (let i = 0; i < 6; i++) {
                 const color = [sandBrown, sandDark, sandMuddy, sandBrown, sandDark, sandMuddy][i];
@@ -4279,10 +4159,10 @@ const Game = {
             const tiltX = (seededRandom(x * 11 + z * 13) - 0.5) * 0.7;
             const tiltZ = (seededRandom(x * 17 + z * 19) - 0.5) * 0.7;
             const colorVar = seededRandom(x * 23 + z * 29);
-            
+
             // 색상: 올리브~녹슨 갈색 다양화
             const baseHue = colorVar < 0.5 ? 0.25 : 0.08; // green vs brown
-            const color = colorVar < 0.5 ? 
+            const color = colorVar < 0.5 ?
                 0x2a3a2a : // 올리브
                 (colorVar < 0.75 ? 0x3d4a3a : 0x4a3525); // 녹슨 올리브 : 녹슨 갈색
             const burntColor = colorVar < 0.3 ? 0x1a1a1a : color;
@@ -4290,7 +4170,7 @@ const Game = {
             // 1.赫尔 (본체)
             const hullGroup = new THREE.Group();
             hullGroup.rotation.set(tiltX, 0, tiltZ);
-            
+
             // 메인 바디
             const hullMain = createVoxelBox(1.35, 0.32, 2.3, burntColor, 0.3, 0.7);
             hullMain.position.y = 0.3;
@@ -4493,15 +4373,15 @@ const Game = {
             const turretGroup = new THREE.Group();
             turretGroup.position.set(0, 0.75, 0.1);
             turretGroup.rotation.set(0.05 * (rand - 0.5), 0.1 * rand, 0.03);
-            
+
             const turretMain = createVoxelBox(1.0, 0.35, 1.2, color, 0.4, 0.6);
             turretGroup.add(turretMain);
-            
+
             const barrel = createVoxelCylinder(0.08, 0.1, 1.5, 0x333333, 0.6, 0.4);
             barrel.position.set(0, 0.2, -0.7);
             barrel.rotation.x = -Math.PI / 2;
             turretGroup.add(barrel);
-            
+
             group.add(turretGroup);
 
             // 충돌 박스
@@ -4563,16 +4443,16 @@ const Game = {
             const turretGroup = new THREE.Group();
             turretGroup.position.set(-0.2, 0.55, 0.2);
             turretGroup.rotation.set(0.2, 0.6 * rand, 0.15);
-            
+
             const turret = createVoxelBox(0.9, 0.32, 1.1, damagedColor, 0.2, 0.8);
             turretGroup.add(turret);
-            
+
             // 짧아진 포신
             const barrel = createVoxelCylinder(0.07, 0.09, 0.9, damagedColor, 0.3, 0.7);
             barrel.position.set(0, 0.15, -0.5);
             barrel.rotation.x = -Math.PI / 2 + 0.2;
             turretGroup.add(barrel);
-            
+
             group.add(turretGroup);
 
             // 충돌 박스
@@ -4603,7 +4483,7 @@ const Game = {
             //赫尔
             const hullGroup = new THREE.Group();
             hullGroup.rotation.z = tiltAngle * tiltDir;
-            
+
             const hull = createVoxelBox(1.35, 0.32, 2.3, color, 0.35, 0.65);
             hull.position.y = 0.3;
             hullGroup.add(hull);
@@ -4639,15 +4519,15 @@ const Game = {
             const turretGroup = new THREE.Group();
             turretGroup.position.set(0, 0.75 + tiltAngle * 0.3, 0.1);
             turretGroup.rotation.set(tiltAngle * 0.5 * tiltDir, 0.15 * rand, 0.1);
-            
+
             const turretMain = createVoxelBox(1.0, 0.35, 1.2, color);
             turretGroup.add(turretMain);
-            
+
             const barrel = createVoxelCylinder(0.08, 0.1, 1.5, 0x333333);
             barrel.position.set(0, 0.2, -0.7);
             barrel.rotation.x = -Math.PI / 2;
             turretGroup.add(barrel);
-            
+
             group.add(turretGroup);
 
             // 충돌 박스
@@ -4964,7 +4844,7 @@ const Game = {
             // 완전히 뒤집힌赫尔
             const hullGroup = new THREE.Group();
             hullGroup.rotation.x = Math.PI;
-            
+
             const hull = createVoxelBox(1.35, 0.32, 2.3, flippedColor, 0, 1);
             hull.position.y = 0.3;
             hullGroup.add(hull);
@@ -5001,15 +4881,15 @@ const Game = {
             const turretGroup = new THREE.Group();
             turretGroup.position.set(0, 0.35, 0.15);
             turretGroup.rotation.x = Math.PI + 0.2;
-            
+
             const turret = createVoxelBox(1.0, 0.35, 1.2, underColor, 0, 1);
             turretGroup.add(turret);
-            
+
             const barrel = createVoxelCylinder(0.08, 0.1, 1.5, underColor, 0, 1);
             barrel.position.set(0, 0.2, -0.7);
             barrel.rotation.x = -Math.PI / 2;
             turretGroup.add(barrel);
-            
+
             group.add(turretGroup);
 
             const col = createVoxelBox(1.6, 1.3, 2.4, 0x000000);
@@ -5964,7 +5844,7 @@ function setupChannelListeners() {
 
         const level = payload.l !== undefined ? payload.l : payload.level;
         const bulletScale = level ? 1.0 + (Math.min(3, level) * CONFIG.UPGRADE.CANNON.SCALE_INC) : 1.0;
-        
+
         bulletManager.add(bPos, bDir, id, CONFIG.TANK.DAMAGE, bulletScale);
 
         const tank = tanks.get(id);
