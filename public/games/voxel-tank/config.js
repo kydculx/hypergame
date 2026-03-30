@@ -87,11 +87,23 @@ const CONFIG = {
             { x: 20, z: 35, w: 2, d: 12 }
         ],
 
-        // 파괴된 탱크 위치
+        // 파괴된 탱크 위치 (맵 중앙에서부터 맵 밖까지 분산)
         WRECKS: [
-            { x: -12, z: -12 }, { x: 12, z: 12 },
-            { x: -20, z: 18 }, { x: 20, z: -18 },
-            { x: 8, z: -30 }, { x: -30, z: -8 }
+            // 맵 중앙 근처
+            { x: -8, z: -10 }, { x: 10, z: 8 },
+            { x: -15, z: 12 }, { x: 12, z: -15 },
+            // 맵 가장자리
+            { x: -25, z: -20 }, { x: 25, z: 20 },
+            { x: -30, z: 15 }, { x: 30, z: -25 },
+            // 맵 밖 (전투 흔적)
+            { x: -40, z: -35 }, { x: 40, z: 35 },
+            { x: -45, z: 25 }, { x: 45, z: -40 },
+            { x: -35, z: -45 }, { x: 35, z: 45 },
+            { x: -50, z: 0 }, { x: 50, z: 0 },
+            { x: 0, z: -50 }, { x: 0, z: 50 },
+            // 더 멀리
+            { x: -60, z: -30 }, { x: 60, z: 30 },
+            { x: -55, z: 40 }, { x: 55, z: -55 }
         ],
 
         // 오브젝트 배치
@@ -107,7 +119,13 @@ const CONFIG = {
             { type: 'crate', x: 25, z: -25 }, { type: 'crate', x: -18, z: 25 },
             // 드럼통
             { type: 'barrel', x: 22, z: -28 }, { type: 'barrel', x: -25, z: 22 },
-            { type: 'barrel', x: 28, z: 18 }, { type: 'barrel', x: -22, z: -28 }
+            { type: 'barrel', x: 28, z: 18 }, { type: 'barrel', x: -22, z: -28 },
+            // 모래주머니 방호 뚝
+            { type: 'sandbags', x: -20, z: 20 }, { type: 'sandbags', x: 20, z: -20 },
+            { type: 'sandbags', x: -35, z: 0 }, { type: 'sandbags', x: 35, z: 0 },
+            { type: 'sandbags', x: 0, z: -35 }, { type: 'sandbags', x: 0, z: 35 },
+            { type: 'sandbags', x: -45, z: -25 }, { type: 'sandbags', x: 45, z: 25 },
+            { type: 'sandbags', x: -25, z: 45 }, { type: 'sandbags', x: 25, z: -45 }
         ]
     },
 
@@ -149,14 +167,14 @@ const CONFIG = {
     // 공습 설정
     // ------------------------------------------------------------------------
     AIRSTRIKE: {
-        INTERVAL_MIN: 30,           // 최소 간격 (초)
-        INTERVAL_MAX: 60,           // 최대 간격 (초)
+        INTERVAL_MIN: 60,           // 최소 간격 (초)
+        INTERVAL_MAX: 120,           // 최대 간격 (초)
         PLANE_SPEED: 25,            // 전투기 속도
         PLANE_HEIGHT: 10,            // 전투기 높이
         BOMB_COUNT: 10,              // 폭탄 수
         BOMB_INTERVAL: 0.15,         // 폭탄 투하 간격 (초)
         BOMB_DAMAGE: 45,             // 폭탄 데미지
-        BOMB_RADIUS: 6,              // 폭탄 반경
+        BOMB_RADIUS: 10,              // 폭탄 반경
         TARGETING_RADIUS: 25,       // 목표 탐지 반경
         FALL_SPEED: 18               // 폭탄下落 속도
     },

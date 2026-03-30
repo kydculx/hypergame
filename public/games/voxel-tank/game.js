@@ -2,10 +2,20 @@ import * as THREE from 'three';
 import { CONFIG, seededRandom, lerpAngle, normalizeAngle, getTerrainHeight, encodeHex, decodeHex, packTankData, unpackTankData, getTerrainNormal } from './config.js';
 import { createVoxelBox, createVoxelCylinder, createVoxelCone, createItemLabel, TrackMarkManager, BulletManager } from './utils.js';
 
-/* 1. 설정 (밸런스, 스타일) - config.js에서 import */
-/* 3. Utilities (Helper functions) - utils.js에서 import */
+/**
+ * Voxel Tank - 3D 탱크 전투 게임 (한국어 주석 추가版)
+ * 섹션: 설정 → 상태/변수 → 유틸리티 → 파워업 → 입력 → 로직 → 렌더링 → SDK
+ */
 
 /* 2. 상태 및 변수 (런타임) */
+
+/**
+ * 플레이어 신원 정보 가져오기
+ * URL 파라미터에서 이름, UID, 세션 키를 추출하여 고유 ID 생성
+ * - n: 플레이어 이름
+ * - uid: 고유 사용자 ID
+ * - sk: 세션 키 (같은 사용자가 여러 탭에서 플레이할 때 구별용)
+ */
 function getPlayerIdentity() {
     try {
         const u = window.location.search;
@@ -18,7 +28,7 @@ function getPlayerIdentity() {
 
         if (!idBase) idBase = Math.random().toString(36).substring(2, 9);
 
-        // Append session key to ensure uniqueness for same user in multiple tabs
+        //同一ユーザーによる複数タブでの一意性を確保
         let id = idBase;
         if (sk) {
             id = `${idBase}_${sk.substring(0, 4)}`;
@@ -40,42 +50,43 @@ function getPlayerIdentity() {
     }
 }
 const identity = getPlayerIdentity();
-let myId = identity.id;
-let myName = identity.name;
-let scene, camera, renderer, clock;
-let myTank;
-const tanks = new Map(); // ID -> Tank instance
-const walls = []; // Array of wall meshes
-const trees = []; // Array of tree groups for animation
-const wrecks = []; // Array of destroyed tanks for smoke vfx
-const bots = []; // Array of Bot instances
-const powerups = []; // NEW: Array of active HealthPotion instances
-const wallBoxes = []; // NEW: Cache for world-space bounding boxes
-const airstrikePlanes = []; // NEW: Array of active FighterPlane instances
-const airstrikeBombs = []; // NEW: active AirstrikeBomb instances
-let repairStation; // NEW: 단일 수리 정비소 인스턴스
+let myId = identity.id; // 내 플레이어 ID
+let myName = identity.name; // 내 플레이어 이름
+let scene, camera, renderer, clock; // Three.js 핵심 객체
+let myTank; // 내 탱크 인스턴스
+const tanks = new Map(); // ID -> 타 플레이어 탱크 인스턴스
+const walls = []; // 벽/장애물 메쉬 배열
+const trees = []; // 나무 애니메이션용 그룹 배열
+const wrecks = []; // 파괴된 탱크 유적 (연기 VFX용)
+const bots = []; // 봇 탱크 인스턴스 배열
+const powerups = []; // 활성화된 체력 포션 배열
+const wallBoxes = []; // 월드 공간 바운딩 박스 캐시
+const airstrikePlanes = []; // 활성화된 전투기 배열
+const airstrikeBombs = []; // 활성화된 폭격탄 배열
+let repairStation; // 단일 수리 정비소 인스턴스
 let trackMarkManager; // 발자국 관리자
 let bulletManager; // 총알 관리자
 let airstrikeWarningActive = false;
-let nextAirstrikeTime = 0; // NEW: Timer for next airstrike event
-let supabaseClient;
-let channel;
-let amIMaster = false;
-let lastFireTime = 0;
-let lastSyncTime = 0;
-let lastHeartbeatTime = 0;
-let lastSentPos = new THREE.Vector3();
-let lastSentRot = 0;
-let lastSentTurretRot = 0;
-let lastPowerupSpawnTime = 0;
-let animationId = null;
-let cameraShakeTime = 0;
-let wreckSmokeTimer = 0;
-let directionalLight; // Global for shadow follow
+let nextAirstrikeTime = 0; // 다음 공습 이벤트 타이머
+let supabaseClient; // 실시간 멀티플레이어 클라이언트
+let channel; // Supabase 채널
+let amIMaster = false; // 마스터 클라이언트 여부
+let lastFireTime = 0; // 마지막 발사 시간
+let lastSyncTime = 0; // 마지막 동기화 시간
+let lastHeartbeatTime = 0; // 마지막 하트비트 시간
+let lastSentPos = new THREE.Vector3(); // 마지막으로 전송한 위치
+let lastSentRot = 0; // 마지막으로 전송한 회전각
+let lastSentTurretRot = 0; // 마지막으로 전송한 포탑 회전각
+let lastPowerupSpawnTime = 0; // 마지막 파워업 스폰 시간
+let animationId = null; // 애니메이션 프레임 ID
+let minimapCanvas, minimapCtx; // 미니맵 캔버스
+let cameraShakeTime = 0; // 카메라 흔들림 시간
+let wreckSmokeTimer = 0; // 유적 연기 타이머
+let directionalLight; // 그림자-follow용 글로벌 조명
 // 모바일 감지: 초당 60번 정규식 실행을 막기 위해 전역에서 1회만 실행
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-/* Particle System for VFX */
+/* 파티클 시스템 (VFX 효과) - 총알 발사, 폭발, 연기 등 시각 효과 관리 */
 class ParticleSystem {
     constructor() {
         this.particles = [];
@@ -83,12 +94,13 @@ class ParticleSystem {
         this.group = new THREE.Group();
         scene.add(this.group);
 
+        // 재사용 가능한 지오메트리 (메모리 최적화)
         this.sharedGeo = new THREE.BoxGeometry(1, 1, 1);
         this.muzzleGeo = new THREE.BoxGeometry(1, 1, 1);
         this.flashGeo = new THREE.BoxGeometry(1, 1, 1);
         this.trailGeo = new THREE.SphereGeometry(1, 4, 4);
         this.materials = new Map();
-        // Pre-create common ones
+        // 공통 재질 캐싱 (색상별 재질 관리)
         this.getMat = (color, opacity = 1) => {
             const key = `${color}_${opacity}`;
             if (!this.materials.has(key)) {
@@ -98,6 +110,15 @@ class ParticleSystem {
         };
     }
 
+    /**
+     * 기본 파티클 스폰
+     * @param {THREE.Vector3} pos - 스폰 위치
+     * @param {number} color - 파티클 색상
+     * @param {number} count - 파티클 개수
+     * @param {number} speed - 속도
+     * @param {number} size - 크기
+     * @param {number} life - 수명 (ms)
+     */
     spawn(pos, color, count = 10, speed = 2, size = 0.1, life = 1000) {
         if (this.particles.length >= this.MAX_PARTICLES) return;
         const mat = this.getMat(color);
@@ -123,7 +144,7 @@ class ParticleSystem {
         }
     }
 
-    // Specialized welding sparks (용접 스파크 - 3색 조합 & 고중력)
+    // 용접 스파크 효과 (3색 조합 + 고중력)
     spawnWeldingSparks(pos) {
         if (this.particles.length >= this.MAX_PARTICLES) return;
         const count = 4 + Math.floor(Math.random() * 6);
@@ -158,6 +179,7 @@ class ParticleSystem {
         }
     }
 
+    // 총구 섬광 효과 (발사 시)
     spawnMuzzleFlash(pos, dir, color = 0xffaa00) {
         const mat = this.getMat(color);
         for (let i = 0; i < 20; i++) {
@@ -471,11 +493,11 @@ class ParticleSystem {
 
 let vfx;
 
-/* Audio System (Web Audio API) */
+/* 오디오 시스템 (Web Audio API) - 효과음 및 배경음 관리 */
 const AudioSFX = {
     ctx: null,
     master: null,
-    buffers: {}, // Cache for loaded sounds
+    buffers: {}, // 캐시된 사운드 버퍼
 
     init() {
         if (this.ctx) return this.ctx;
@@ -1268,9 +1290,9 @@ class FighterPlane {
 }
 
 class RepairStation {
-    constructor() {
+    constructor(x = 0, z = 0) {
         this.group = new THREE.Group();
-        this.position = new THREE.Vector3(0, 0, 0);
+        this.position = new THREE.Vector3(x, 0, z);
         this.group.position.copy(this.position);
 
         const baseSize = CONFIG.REPAIR_STATION.RADIUS * 4.5;
@@ -1523,6 +1545,7 @@ class RepairStation {
         bPole.position.y = 0.6;
         this.beacon.add(bPole);
 
+        // 본래대로 빨간불 하나
         this.beaconLight = createVoxelCylinder(0.2, 0.15, 0.3, 0xff0000);
         this.beaconLight.position.y = 1.15;
         if (this.beaconLight.material) {
@@ -1562,11 +1585,14 @@ class RepairStation {
         // 1. 비콘 라이트 애니메이션
         if (this.beaconLight) {
             if (isRepairing) {
-                this.beacon.rotation.y += dt * 8;
-                this.beaconLight.material.emissive.setHex(0xff0000);
-                this.beaconLight.material.emissiveIntensity = 1.0 + Math.sin(this.animTime * 15) * 0.5;
+                // 수리 중: 연두색으로 깜빡임
+                const blinkPhase = Math.sin(this.animTime * 8);
+                this.beaconLight.material.emissive.setHex(0x00ff00);
+                this.beaconLight.material.emissiveIntensity = blinkPhase > 0 ? 1.2 : 0.3;
             } else {
-                this.beaconLight.material.emissiveIntensity = 0.2;
+                // 작동하지 않을 때: 어두운 빨강
+                this.beaconLight.material.emissive.setHex(0x440000);
+                this.beaconLight.material.emissiveIntensity = 0.8;
             }
         }
 
@@ -1638,33 +1664,40 @@ class RepairStation {
     }
 }
 
+/* 탱크 클래스 - 플레이어 및 봇의 탱크 시각表現와 로직 관리 */
 class Tank {
+    /**
+     * 탱크 생성자
+     * @param {string} id - 탱크 고유 ID
+     * @param {string} name - 플레이어 이름
+     * @param {boolean} isLocal - 내 탱크 여부
+     */
     constructor(id, name, isLocal = false) {
         this.id = id;
         this.name = name || id;
         this.isLocal = isLocal;
-        this.kills = 0;
+        this.kills = 0; // 킬 수
         this.lastSeen = Date.now();
         this.isDead = false;
         this.group = new THREE.Group();
 
-        // Upgrade Levels (0 to 9)
+        // 업그레이드 레벨 (0~9)
         this.levelCannon = 0;
         this.levelSpeed = 0;
         this.levelArmor = 0;
 
-        // Base Stats
+        // 기본 스탯
         this.hp = CONFIG.TANK.MAX_HP;
         this.maxHp = CONFIG.TANK.MAX_HP;
 
         const mainColor = isLocal ? CONFIG.COLORS.SELF : CONFIG.COLORS.OTHER;
         const detailColor = 0x333333;
 
-        // 1. Hull Group (Lower & Upper) - LEOPARD STYLE (Low & Long)
+        // 1.赫尔Group (Lower & Upper) - LEOPARD STYLE (Low & Long)
         this.hullGroup = new THREE.Group();
         this.group.add(this.hullGroup);
 
-        // Main Body (낮고 길게)
+        // 메인 바디 (낉고 길게)
         this.body = createVoxelBox(1.35, 0.32, 2.3, mainColor, 0.4, 0.6);
         this.body.position.y = 0.3;
         this.hullGroup.add(this.body);
@@ -2419,13 +2452,20 @@ class Tank {
     }
 }
 
+/* 봇 클래스 - AI-controlled 탱크 (Tank 클래스 상속) */
 class Bot extends Tank {
+    /**
+     * 봇 생성자
+     * @param {string} id - 봇 고유 ID
+     * @param {string} name - 봇 이름
+     * @param {number} syncedColor - 동기화된 색상
+     */
     constructor(id, name, syncedColor = null) {
         super(id, name, false);
         this.isBot = true;
         this.lastFireTime = 0;
         this.target = null;
-        this.state = 'WANDER';
+        this.state = 'WANDER'; // 상태: WANDER(배회) 또는 ATTACK(공격)
         this.stateTimer = 0;
         this.strafeTimer = 0;
         this.aimJitter = (Math.random() - 0.5) * 0.1;
@@ -2679,8 +2719,8 @@ class Bot extends Tank {
     }
 }
 
-/* 5. 입력 처리 (포인터, 키보드) */
-const keys = {};
+/* 5. 입력 처리 (포인터, 키보드, 모바일 조이스틱) */
+const keys = {}; // 키보드 상태 저장
 const keyDownHandler = e => {
     keys[e.code] = true;
     keys[e.key.toLowerCase()] = true;
@@ -2692,7 +2732,7 @@ const keyUpHandler = e => {
 window.addEventListener('keydown', keyDownHandler);
 window.addEventListener('keyup', keyUpHandler);
 
-// Mouse Button Handling
+// 마우스 버튼 상태 관리
 const mouseButtons = { left: false, right: false };
 const mouseDownHandler = e => {
     if (e.button === 0) mouseButtons.left = true;
@@ -2705,9 +2745,9 @@ const mouseUpHandler = e => {
 window.addEventListener('mousedown', mouseDownHandler);
 window.addEventListener('mouseup', mouseUpHandler);
 
-// Mobile Joysticks
-const joystickLeft = { x: 0, y: 0 };
-const joystickRight = { x: 0, y: 0 };
+// 모바일 조이스틱 입력 (-1~1 범위)
+const joystickLeft = { x: 0, y: 0 }; // 이동용
+const joystickRight = { x: 0, y: 0 }; // 조준용
 
 // Initialize Input tracking if not provided by core
 const mouseMoveHandler = e => {
@@ -2758,15 +2798,15 @@ function setupJoysticks() {
 
                 const dx = touch.clientX - startPos.x;
                 const dy = touch.clientY - startPos.y;
-                const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
+                const dist = Math.min(40, Math.sqrt(dx * dx + dy * dy));
                 const angle = Math.atan2(dy, dx);
 
                 const moveX = Math.cos(angle) * dist;
                 const moveY = Math.sin(angle) * dist;
                 knob.style.transform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
 
-                target.x = moveX / 60;
-                target.y = moveY / 60;
+                target.x = moveX / 40;
+                target.y = moveY / 40;
 
                 if (e.cancelable) e.preventDefault();
             };
@@ -2777,8 +2817,7 @@ function setupJoysticks() {
                 if (e.touches) touchId = touch.identifier;
 
                 active = true;
-                const rect = el.getBoundingClientRect();
-                startPos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                startPos = { x: touch.clientX, y: touch.clientY };
                 handleMove(e);
                 if (e.cancelable) e.preventDefault();
             };
@@ -2803,12 +2842,12 @@ function setupJoysticks() {
                 target.y = 0;
             };
 
-            el.addEventListener('touchstart', handleStart, { passive: false });
+            window.addEventListener('touchstart', handleStart, { passive: false });
             window.addEventListener('touchmove', handleMove, { passive: false });
             window.addEventListener('touchend', handleEnd);
             window.addEventListener('touchcancel', handleEnd);
 
-            el.addEventListener('mousedown', handleStart);
+            window.addEventListener('mousedown', handleStart);
             window.addEventListener('mousemove', handleMove);
             window.addEventListener('mouseup', handleEnd);
         };
@@ -2830,8 +2869,12 @@ function spawnBots(count) {
     }
 }
 
-/* 6. 게임 로직 (업데이트, 충돌) */
+/* 6. 게임 로직 (업데이트, 충돌, 동기화) */
 let lastScoreUpdate = 0;
+
+/**
+ * 스코어보드 업데이트 - 킬 수 표시 (DOM 업데이트 제한: 200ms)
+ */
 function updateScoreboard() {
     const now = Date.now();
     if (now - lastScoreUpdate < 200) return; // Performance: Throttle DOM updates
@@ -2862,16 +2905,77 @@ function updateScoreboard() {
     `;
 }
 
+/**
+ * 발사 함수 - 내 탱크의 총알 발사
+ */
 function fire() {
     if (!myTank || myTank.hp <= 0) return;
     myTank.shoot();
 }
 
+function renderMinimap() {
+    if (!minimapCanvas || !minimapCtx) return;
+    const size = 100;
+    const mapScale = size / (CONFIG.WORLD.SIZE * 2);
+    const mapCenter = size / 2;
+
+    minimapCtx.clearRect(0, 0, size, size);
+        minimapCtx.fillStyle = 'rgba(40, 40, 40, 0.2)';
+    minimapCtx.fillRect(0, 0, size, size);
+
+    if (repairStation) {
+        const rsX = mapCenter + repairStation.group.position.x * mapScale;
+        const rsZ = mapCenter + repairStation.group.position.z * mapScale;
+        minimapCtx.fillStyle = '#00ff00';
+        minimapCtx.beginPath();
+        minimapCtx.arc(rsX, rsZ, 3, 0, Math.PI * 2);
+        minimapCtx.fill();
+    }
+
+    tanks.forEach(tank => {
+        if (tank.hp <= 0) return;
+        const tx = mapCenter + tank.group.position.x * mapScale;
+        const tz = mapCenter + tank.group.position.z * mapScale;
+        minimapCtx.fillStyle = '#ff4444';
+        minimapCtx.beginPath();
+        minimapCtx.arc(tx, tz, 2, 0, Math.PI * 2);
+        minimapCtx.fill();
+    });
+
+    bots.forEach(bot => {
+        if (bot.hp <= 0) return;
+        const bx = mapCenter + bot.group.position.x * mapScale;
+        const bz = mapCenter + bot.group.position.z * mapScale;
+        minimapCtx.fillStyle = '#ff6600';
+        minimapCtx.beginPath();
+        minimapCtx.arc(bx, bz, 2, 0, Math.PI * 2);
+        minimapCtx.fill();
+    });
+
+    if (myTank && myTank.hp > 0) {
+        const px = mapCenter + myTank.group.position.x * mapScale;
+        const pz = mapCenter + myTank.group.position.z * mapScale;
+        minimapCtx.fillStyle = '#4488ff';
+        minimapCtx.beginPath();
+        minimapCtx.arc(px, pz, 3, 0, Math.PI * 2);
+        minimapCtx.fill();
+        minimapCtx.strokeStyle = '#ffffff';
+        minimapCtx.lineWidth = 1;
+        minimapCtx.stroke();
+    }
+}
+
+/**
+ * 메인 게임 루프 업데이트 - 매 프레임 호출
+ * @param {number} dt - 델타 타임 (초)
+ */
 function update(dt) {
     const now = Date.now();
 
     // 수리 정비소(Repair Station) 상태 업데이트
     if (repairStation) repairStation.update(dt);
+
+    renderMinimap();
 
     // 발자국 업데이트 (독립적으로 관리)
     if (trackMarkManager) trackMarkManager.update();
@@ -3020,7 +3124,7 @@ function update(dt) {
         const nextWorldAngle = lerpAngle(currentWorldAngle, myTank.targetWorldAngle, CONFIG.LERP_SPEED.TURRET * dt);
         myTank.turretGroup.rotation.y = nextWorldAngle - myTank.group.rotation.y;
 
-        if (keys['Space'] || mouseButtons.left) fire();
+        if (mouseButtons.left) fire();
 
 
         // Collisions
@@ -3115,7 +3219,6 @@ function update(dt) {
         nextAirstrikeTime = now + (CONFIG.AIRSTRIKE.INTERVAL_MIN + Math.random() * (CONFIG.AIRSTRIKE.INTERVAL_MAX - CONFIG.AIRSTRIKE.INTERVAL_MIN)) * 1000;
     }
 
-    // 공습 경고 연출 (진입 3초 전)
     const warningTime = 3000;
     const warningElement = document.getElementById('air-raid-warning');
     if (now > nextAirstrikeTime - warningTime && now < nextAirstrikeTime) {
@@ -3255,15 +3358,19 @@ function grantKillReward(killer) {
     if (vfx) vfx.spawn(killer.group.position, 0xffff00, 20, 4, 0.2, 1000);
 }
 
+/**
+ * 충돌 처리 - 내 탱크와 벽/타 탱크의 충돌 감지 및 해결
+ */
 function checkCollisions() {
-    const dt = clock.getDelta(); // This is wrong, should pass dt from update, but let's just use simple resolve
+    const dt = clock.getDelta();
     const originalPos = myTank.group.position.clone();
 
+    // 맵 경계 체크
     const tileBound = (CONFIG.WORLD.SIZE / 2) - 1;
     myTank.group.position.x = Math.max(-tileBound, Math.min(tileBound, myTank.group.position.x));
     myTank.group.position.z = Math.max(-tileBound, Math.min(tileBound, myTank.group.position.z));
 
-    // Wall check
+    // 벽(장애물) 충돌 체크
     const wallTankRadius = 0.65;
     for (const wall of walls) {
         const wallW = wall.geometry.parameters.width;
@@ -3277,6 +3384,7 @@ function checkCollisions() {
         if (myTank.group.position.x > wallMinX && myTank.group.position.x < wallMaxX &&
             myTank.group.position.z > wallMinZ && myTank.group.position.z < wallMaxZ) {
 
+            // 가장 가까운 면으로_push
             const dists = [
                 Math.abs(myTank.group.position.x - wallMinX),
                 Math.abs(myTank.group.position.x - wallMaxX),
@@ -3444,6 +3552,9 @@ function updateBullets() {
     }
 }
 
+/**
+ * 멀티플레이어 동기화 - 내 상태를 다른 플레이어에게 브로드캐스트
+ */
 function syncMultiplayer() {
     if (!channel) return;
 
@@ -3451,7 +3562,7 @@ function syncMultiplayer() {
     if (now - lastSyncTime < CONFIG.NETWORK.SYNC_INTERVAL) return;
     lastSyncTime = now;
 
-    // 1. Broadcast My Status (Only if playing)
+    // 1. 내 상태 브로드캐스트 (플레이 중일 때만)
     if (WCGames.state === 'PLAYING' && myId && myTank) {
         const distMoved = myTank.group.position.distanceTo(lastSentPos);
         const rotDiff = Math.abs(normalizeAngle(myTank.group.rotation.y - lastSentRot));
@@ -3542,7 +3653,7 @@ function updatePresenceState() {
     }
 }
 
-/* 7. 렌더링 */
+/* 7. 렌더링 - 메인 애니메이션 루프 */
 function animate() {
     animationId = requestAnimationFrame(animate);
     const dt = clock.getDelta();
@@ -3551,7 +3662,14 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-/* 7. 충돌 및 스폰 유틸 */
+/* 7. 충돌 및 스폰 유틸 - 위치 안전성 체크 및 랜덤 스폰 포인트 생성 */
+
+/**
+ * 위치 안전성 체크 - 탱크가 해당 위치에 스폰/이동 가능한지 확인
+ * @param {number} x - X 좌표
+ * @param {number} z - Z 좌표
+ * @returns {boolean} 안전한지 여부
+ */
 function isPositionSafe(x, z) {
     const tankRadius = 1.8;
     const halfSize = (CONFIG.WORLD.SIZE / 2) - 5;
@@ -3675,13 +3793,19 @@ function spawnFloatingText(pos, text, color = '#4caf50') {
     updateText();
 }
 
-/* 8. SDK 초기화 및 콜백 */
+/* 8. SDK 초기화 및 콜백 - 게임 시작/초기화/재시작 처리 */
 const Game = {
+    /**
+     * 게임 시작
+     */
     start() {
         WCGames.start();
         setupJoysticks();
     },
 
+    /**
+     * 게임 초기화 - 씬, 카메라, 렌더러, 맵, 탱크 등 생성
+     */
     init() {
         // Clear old state and scene
         if (typeof myTank !== 'undefined' && myTank) {
@@ -3743,6 +3867,12 @@ const Game = {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.BasicShadowMap;
         container.appendChild(renderer.domElement);
+
+        // 미니맵 캔버스 초기화
+        minimapCanvas = document.getElementById('minimap');
+        if (minimapCanvas) {
+            minimapCtx = minimapCanvas.getContext('2d');
+        }
 
         if (clock) clock.stop();
         clock = new THREE.Clock();
@@ -4038,7 +4168,84 @@ const Game = {
             walls.push(col);
         }
 
-        // Helper: Create Destroyed Tank (Wreck)
+        // 모래주머니 방호 뚝 (Sandbag Bunker) - 포대자루처럼 가운데서 부풀어 오름
+        function createSandbags(x, z, rot = 0) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rot;
+            scene.add(group);
+
+            // 더 어두운 자연스러운 색상
+            const sandDark = 0x4A3728; // 어두운 갈색
+            const sandBrown = 0x5C4033; // 갈색
+            const sandMuddy = 0x3D2817; // 진한 mud색
+            const sandDusty = 0x6B5344; //먼지 색
+
+            // 포대자루 형태: 가운데가 더 두껍고 양쪽이 좁음
+            // createVoxelCylinder(topRadius, bottomRadius, height) 사용
+            
+            // 1단 (6개)
+            for (let i = 0; i < 6; i++) {
+                const color = [sandBrown, sandDark, sandMuddy, sandBrown, sandDark, sandMuddy][i];
+                // 가운데가 더 부풀어 오르도록: top < bottom, middle에突出
+                const bag = createVoxelCylinder(0.28, 0.32, 0.85, color, 0.1, 0.9);
+                bag.rotation.z = Math.PI / 2;
+                bag.rotation.y = (Math.random() - 0.5) * 0.15;
+                bag.position.set(-2.0 + i * 0.8, 0.3, (Math.random() - 0.5) * 0.1);
+                group.add(bag);
+            }
+
+            // 2단
+            for (let i = 0; i < 5; i++) {
+                const color = [sandMuddy, sandBrown, sandDark, sandMuddy, sandBrown][i];
+                const bag = createVoxelCylinder(0.26, 0.30, 0.85, color, 0.1, 0.9);
+                bag.rotation.z = Math.PI / 2;
+                bag.rotation.y = (Math.random() - 0.5) * 0.2;
+                bag.position.set(-1.6 + i * 0.8, 0.7, (Math.random() - 0.5) * 0.12);
+                group.add(bag);
+            }
+
+            // 3단
+            for (let i = 0; i < 4; i++) {
+                const color = [sandDark, sandMuddy, sandBrown, sandDark][i];
+                const bag = createVoxelCylinder(0.25, 0.28, 0.8, color, 0.1, 0.9);
+                bag.rotation.z = Math.PI / 2;
+                bag.rotation.y = (Math.random() - 0.5) * 0.18;
+                bag.position.set(-1.2 + i * 0.8, 1.1, (Math.random() - 0.5) * 0.1);
+                group.add(bag);
+            }
+
+            // 4단
+            for (let i = 0; i < 3; i++) {
+                const color = [sandBrown, sandDark, sandMuddy][i];
+                const bag = createVoxelCylinder(0.22, 0.26, 0.75, color, 0.1, 0.9);
+                bag.rotation.z = Math.PI / 2;
+                bag.rotation.y = (Math.random() - 0.5) * 0.15;
+                bag.position.set(-0.8 + i * 0.8, 1.45, (Math.random() - 0.5) * 0.08);
+                group.add(bag);
+            }
+
+            // 5단
+            for (let i = 0; i < 2; i++) {
+                const color = [sandMuddy, sandBrown][i];
+                const bag = createVoxelCylinder(0.2, 0.24, 0.7, color, 0.1, 0.9);
+                bag.rotation.z = Math.PI / 2;
+                bag.rotation.y = (Math.random() - 0.5) * 0.1;
+                bag.position.set(-0.4 + i * 0.8, 1.75, (Math.random() - 0.5) * 0.06);
+                group.add(bag);
+            }
+
+            // 충돌 박스
+            const col = createVoxelBox(5.0, 2.2, 1.2, 0x000000);
+            col.position.set(x, 1.1, z);
+            col.rotation.y = rot;
+            col.visible = false;
+            col.userData = { type: 'sandbags' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 파괴된 탱크 잔해 생성 (원형 유지 + 다양한 변형)
         function createWreck(x, z) {
             const group = new THREE.Group();
             group.position.set(x, 0, z);
@@ -4046,44 +4253,1282 @@ const Game = {
             scene.add(group);
             wrecks.push(group);
 
-            // Burnt/Rusty Materials
-            const burntColor = 0x1a1a1a;
-            const rustColor = 0x5d4037;
+            // 랜덤 변형 파라미터
+            const tiltX = (seededRandom(x * 11 + z * 13) - 0.5) * 0.7;
+            const tiltZ = (seededRandom(x * 17 + z * 19) - 0.5) * 0.7;
+            const colorVar = seededRandom(x * 23 + z * 29);
+            
+            // 색상: 올리브~녹슨 갈색 다양화
+            const baseHue = colorVar < 0.5 ? 0.25 : 0.08; // green vs brown
+            const color = colorVar < 0.5 ? 
+                0x2a3a2a : // 올리브
+                (colorVar < 0.75 ? 0x3d4a3a : 0x4a3525); // 녹슨 올리브 : 녹슨 갈색
+            const burntColor = colorVar < 0.3 ? 0x1a1a1a : color;
 
-            // 1. Hull (slightly tilted)
-            const hull = createVoxelBox(1.2, 0.5, 1.8, burntColor, 0, 1);
-            hull.position.y = 0.45;
-            hull.rotation.z = 0.05;
-            group.add(hull);
+            // 1.赫尔 (본체)
+            const hullGroup = new THREE.Group();
+            hullGroup.rotation.set(tiltX, 0, tiltZ);
+            
+            // 메인 바디
+            const hullMain = createVoxelBox(1.35, 0.32, 2.3, burntColor, 0.3, 0.7);
+            hullMain.position.y = 0.3;
+            hullGroup.add(hullMain);
 
-            // 2. Turret (damaged/misaligned)
-            const turret = createVoxelBox(0.9, 0.45, 0.95, burntColor, 0, 1);
-            turret.position.set(0.1, 0.85, 0);
-            turret.rotation.set(0.1, 0.5, 0.05);
-            group.add(turret);
+            // 사이드 스커트
+            const skirtL = createVoxelBox(0.08, 0.28, 2.25, burntColor, 0.3, 0.7);
+            skirtL.position.set(-0.65, 0.35, 0);
+            hullGroup.add(skirtL);
+            const skirtR = createVoxelBox(0.08, 0.28, 2.25, burntColor, 0.3, 0.7);
+            skirtR.position.set(0.65, 0.35, 0);
+            hullGroup.add(skirtR);
 
-            // 3. Barrel (broken/tilted)
-            const barrel = createVoxelCylinder(0.08, 0.08, 1.2, rustColor, 0, 1);
-            barrel.position.set(0.5, 0.9, -0.6);
-            barrel.rotation.set(1.2, 0, -0.2);
-            group.add(barrel);
+            // 전방 펜더 가드
+            const guardL = createVoxelBox(0.4, 0.05, 0.4, 0x333333);
+            guardL.position.set(-0.48, 0.45, -0.85);
+            hullGroup.add(guardL);
+            const guardR = createVoxelBox(0.4, 0.05, 0.4, 0x333333);
+            guardR.position.set(0.48, 0.45, -0.85);
+            hullGroup.add(guardR);
 
-            // 4. Detail: Tracks (slightly off)
-            const trackL = createVoxelBox(0.38, 0.42, 1.95, 0x111111);
-            trackL.position.set(-0.45, 0.22, 0);
-            group.add(trackL);
-            const trackR = createVoxelBox(0.38, 0.42, 1.95, 0x111111);
-            trackR.position.set(0.48, 0.2, 0.05);
-            trackR.rotation.y = 0.05;
-            group.add(trackR);
+            // 후방 연료통
+            const fuelL = createVoxelCylinder(0.18, 0.18, 0.3, 0x2d3436, 0.5, 0.5);
+            fuelL.position.set(-0.4, 0.4, 1.15);
+            fuelL.rotation.x = Math.PI / 2;
+            hullGroup.add(fuelL);
+            const fuelR = createVoxelCylinder(0.18, 0.18, 0.3, 0x2d3436, 0.5, 0.5);
+            fuelR.position.set(0.4, 0.4, 1.15);
+            fuelR.rotation.x = Math.PI / 2;
+            hullGroup.add(fuelR);
 
-            // Add to walls for collision
-            const col = createVoxelBox(1.5, 1.5, 2.0, 0x000000);
-            col.position.set(x, 0.75, z);
+            // 트랙
+            const trackL = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a, 0.1, 0.9);
+            trackL.position.set(-0.48, 0.15, 0);
+            hullGroup.add(trackL);
+            const trackR = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a, 0.1, 0.9);
+            trackR.position.set(0.48, 0.15, 0);
+            hullGroup.add(trackR);
+
+            // 로드휠
+            for (let i = 0; i < 7; i++) {
+                const wheel = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                wheel.position.set(-0.48, 0.15, -1.05 + i * 0.35);
+                wheel.rotation.z = Math.PI / 2;
+                hullGroup.add(wheel);
+                const wheelR = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                wheelR.position.set(0.48, 0.15, -1.05 + i * 0.35);
+                wheelR.rotation.z = Math.PI / 2;
+                hullGroup.add(wheelR);
+            }
+
+            group.add(hullGroup);
+
+            // 2. 포탑
+            const turretGroup = new THREE.Group();
+            turretGroup.position.set(0, 0.75, 0.1);
+            turretGroup.rotation.set(
+                tiltX * 1.2 + seededRandom(x * 31 + z * 37) * 0.15,
+                seededRandom(x * 41 + z * 43) * 0.3,
+                tiltZ * 1.2 + seededRandom(x * 47 + z * 53) * 0.1
+            );
+
+            // 포탑 메인
+            const turretMain = createVoxelBox(1.0, 0.35, 1.2, burntColor, 0.3, 0.7);
+            turretGroup.add(turretMain);
+
+            // 포탑 측면
+            for (let side of [-1, 1]) {
+                const cheek = createVoxelBox(0.12, 0.4, 1.0, burntColor, 0.4, 0.6);
+                cheek.position.set(0.42 * side, 0.1, -0.2);
+                cheek.rotation.y = side > 0 ? 0.35 : -0.35;
+                turretGroup.add(cheek);
+            }
+
+            // 커맨더 해치
+            const hatch = createVoxelBox(0.4, 0.1, 0.4, 0x333333);
+            hatch.position.set(0.18, 0.4, 0.05);
+            turretGroup.add(hatch);
+
+            // 포신
+            const barrel = createVoxelCylinder(0.08, 0.1, 1.5, 0x333333, 0.6, 0.4);
+            barrel.position.set(0, 0.2, -0.7);
+            barrel.rotation.x = -Math.PI / 2;
+            turretGroup.add(barrel);
+
+            // 머즐 브레이크
+            const brake = createVoxelCylinder(0.12, 0.12, 0.15, 0x111111);
+            brake.position.set(0, 0.2, -1.4);
+            brake.rotation.x = -Math.PI / 2;
+            turretGroup.add(brake);
+
+            // 대공기관총
+            const mg = createVoxelBox(0.1, 0.12, 0.25, 0x111111);
+            mg.position.set(-0.2, 0.45, 0.1);
+            turretGroup.add(mg);
+
+            group.add(turretGroup);
+
+            // 3. 충돌 박스
+            const col = createVoxelBox(1.5, 1.5, 2.5, 0x000000);
+            col.position.set(x, 0.7, z);
             col.rotation.y = group.rotation.y;
             col.visible = false;
             col.userData = { type: 'wreck' };
-            scene.add(col); // CRITICAL: Must be in scene to update world matrices
+            scene.add(col);
+            walls.push(col);
+        }
+
+        //坦克 Hull建造 (公用函数 - 残骸でも原型維持)
+        function buildTankHull(group, color, rustLevel = 0) {
+            const rust = rustLevel * 0.3;
+            // 메인 바디
+            const body = createVoxelBox(1.35, 0.32, 2.3, color, 0.4 - rust * 0.3, 0.6 + rust * 0.4);
+            body.position.y = 0.3;
+            group.add(body);
+
+            // 사이드 스커트
+            const skirtL = createVoxelBox(0.08, 0.28, 2.25, color, 0.4 - rust * 0.3, 0.6 + rust * 0.4);
+            skirtL.position.set(-0.65, 0.35, 0);
+            group.add(skirtL);
+            const skirtR = createVoxelBox(0.08, 0.28, 2.25, color, 0.4 - rust * 0.3, 0.6 + rust * 0.4);
+            skirtR.position.set(0.65, 0.35, 0);
+            group.add(skirtR);
+
+            // 트랙
+            const trackL = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a, 0.1, 0.9);
+            trackL.position.set(-0.48, 0.15, 0);
+            group.add(trackL);
+            const trackR = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a, 0.1, 0.9);
+            trackR.position.set(0.48, 0.15, 0);
+            group.add(trackR);
+
+            // 로드휠
+            for (let i = 0; i < 7; i++) {
+                const wheel = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                wheel.position.set(-0.48, 0.15, -1.05 + i * 0.35);
+                wheel.rotation.z = Math.PI / 2;
+                group.add(wheel);
+                const wheelR = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                wheelR.position.set(0.48, 0.15, -1.05 + i * 0.35);
+                wheelR.rotation.z = Math.PI / 2;
+                group.add(wheelR);
+            }
+        }
+
+        //坦克 Turret建造 (公用函数)
+        function buildTankTurret(group, color, rustLevel = 0) {
+            const rust = rustLevel * 0.3;
+            // 포탑 베이스
+            const turretMain = createVoxelBox(1.0, 0.35, 1.2, color, 0.4 - rust * 0.3, 0.6 + rust * 0.4);
+            turretMain.position.set(0, 0.1, 0.15);
+            group.add(turretMain);
+
+            // 포탑 측면
+            for (let side of [-1, 1]) {
+                const cheek = createVoxelBox(0.12, 0.4, 1.0, color, 0.5 - rust * 0.3, 0.5 + rust * 0.5);
+                cheek.position.set(0.42 * side, 0.1, -0.2);
+                cheek.rotation.y = side > 0 ? 0.35 : -0.35;
+                group.add(cheek);
+            }
+
+            // 해치
+            const hatch = createVoxelBox(0.4, 0.1, 0.4, 0x333333);
+            hatch.position.set(0.18, 0.4, 0.05);
+            group.add(hatch);
+
+            // 포신
+            const tube = createVoxelCylinder(0.08, 0.1, 1.5, 0x333333, 0.6, 0.4);
+            tube.position.set(0, 0.2, -0.7);
+            tube.rotation.x = -Math.PI / 2;
+            group.add(tube);
+
+            // 머즐 브레이크
+            const brake = createVoxelCylinder(0.12, 0.12, 0.15, 0x111111);
+            brake.position.set(0, 0.2, -1.4);
+            brake.rotation.x = -Math.PI / 2;
+            group.add(brake);
+
+            // 대공기관총
+            const mg = createVoxelBox(0.1, 0.12, 0.25, 0x111111);
+            mg.position.set(-0.2, 0.45, 0.1);
+            group.add(mg);
+        }
+
+        // 1. slight_damage: 경미한 손상 -原型ほぼ維持
+        function createSlightDamageWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const color = 0x2a3a2a; // 올리브 드래브
+            const rustColor = 0x5c4033;
+
+            //赫尔
+            buildTankHull(group, color, 0.2);
+
+            //포탑 (약간 비틀림)
+            const turretGroup = new THREE.Group();
+            turretGroup.position.set(0, 0.75, 0.1);
+            turretGroup.rotation.set(0.05 * (rand - 0.5), 0.1 * rand, 0.03);
+            
+            const turretMain = createVoxelBox(1.0, 0.35, 1.2, color, 0.4, 0.6);
+            turretGroup.add(turretMain);
+            
+            const barrel = createVoxelCylinder(0.08, 0.1, 1.5, 0x333333, 0.6, 0.4);
+            barrel.position.set(0, 0.2, -0.7);
+            barrel.rotation.x = -Math.PI / 2;
+            turretGroup.add(barrel);
+            
+            group.add(turretGroup);
+
+            // 충돌 박스
+            const col = createVoxelBox(1.5, 1.5, 2.5, 0x000000);
+            col.position.set(x, 0.7, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 2. heavy_damage: 심한 손상 -形态崩レ
+        function createHeavyDamageWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const color = 0x3a4a3a;
+            const damagedColor = 0x2a2a2a;
+
+            //赫尔 (비틀림)
+            const hullGroup = new THREE.Group();
+            const hull = createVoxelBox(1.3, 0.28, 2.2, color, 0.3, 0.7);
+            hull.position.y = 0.25;
+            hullGroup.add(hull);
+
+            const skirtL = createVoxelBox(0.1, 0.25, 2.1, color, 0.3, 0.7);
+            skirtL.position.set(-0.65, 0.3, 0);
+            hullGroup.add(skirtL);
+            const skirtR = createVoxelBox(0.1, 0.25, 2.1, color, 0.3, 0.7);
+            skirtR.position.set(0.65, 0.3, 0);
+            hullGroup.add(skirtR);
+
+            // 트랙 (일부欠落)
+            const trackL = createVoxelBox(0.38, 0.28, 1.8, 0x1a1a1a);
+            trackL.position.set(-0.45, 0.12, 0.2);
+            hullGroup.add(trackL);
+            const trackR = createVoxelBox(0.38, 0.28, 1.6, 0x1a1a1a);
+            trackR.position.set(0.45, 0.12, -0.3);
+            hullGroup.add(trackR);
+
+            // 로드휠 (일부만)
+            for (let i = 0; i < 5; i++) {
+                if (i !== 2 && i !== 4) {
+                    const wheel = createVoxelCylinder(0.13, 0.13, 0.38, 0x333333);
+                    wheel.position.set(-0.45, 0.12, -0.9 + i * 0.4);
+                    wheel.rotation.z = Math.PI / 2;
+                    hullGroup.add(wheel);
+                }
+            }
+
+            hullGroup.rotation.set(0.08, 0.3 * rand, 0.12);
+            group.add(hullGroup);
+
+            //포탑 (심하게 비틀림)
+            const turretGroup = new THREE.Group();
+            turretGroup.position.set(-0.2, 0.55, 0.2);
+            turretGroup.rotation.set(0.2, 0.6 * rand, 0.15);
+            
+            const turret = createVoxelBox(0.9, 0.32, 1.1, damagedColor, 0.2, 0.8);
+            turretGroup.add(turret);
+            
+            // 짧아진 포신
+            const barrel = createVoxelCylinder(0.07, 0.09, 0.9, damagedColor, 0.3, 0.7);
+            barrel.position.set(0, 0.15, -0.5);
+            barrel.rotation.x = -Math.PI / 2 + 0.2;
+            turretGroup.add(barrel);
+            
+            group.add(turretGroup);
+
+            // 충돌 박스
+            const col = createVoxelBox(1.6, 1.2, 2.3, 0x000000);
+            col.position.set(x, 0.5, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 3. tilted: 기울어진 탱크
+        function createTiltedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const color = 0x354a35;
+            const rustColor = 0x4a3525;
+
+            // 전체를 기울임
+            const tiltAngle = 0.25 + rand * 0.15;
+            const tiltDir = rand > 0.5 ? 1 : -1;
+
+            //赫尔
+            const hullGroup = new THREE.Group();
+            hullGroup.rotation.z = tiltAngle * tiltDir;
+            
+            const hull = createVoxelBox(1.35, 0.32, 2.3, color, 0.35, 0.65);
+            hull.position.y = 0.3;
+            hullGroup.add(hull);
+
+            const skirtL = createVoxelBox(0.08, 0.28, 2.25, color);
+            skirtL.position.set(-0.65, 0.35, 0);
+            hullGroup.add(skirtL);
+            const skirtR = createVoxelBox(0.08, 0.28, 2.25, color);
+            skirtR.position.set(0.65, 0.35, 0);
+            hullGroup.add(skirtR);
+
+            const trackL = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a);
+            trackL.position.set(-0.48, 0.15, 0);
+            hullGroup.add(trackL);
+            const trackR = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a);
+            trackR.position.set(0.48, 0.15, 0);
+            hullGroup.add(trackR);
+
+            for (let i = 0; i < 7; i++) {
+                const wheel = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                wheel.position.set(-0.48, 0.15, -1.05 + i * 0.35);
+                wheel.rotation.z = Math.PI / 2;
+                hullGroup.add(wheel);
+                const wheelR = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                wheelR.position.set(0.48, 0.15, -1.05 + i * 0.35);
+                wheelR.rotation.z = Math.PI / 2;
+                hullGroup.add(wheelR);
+            }
+
+            group.add(hullGroup);
+
+            //포탑 (더 많이 기울어짐)
+            const turretGroup = new THREE.Group();
+            turretGroup.position.set(0, 0.75 + tiltAngle * 0.3, 0.1);
+            turretGroup.rotation.set(tiltAngle * 0.5 * tiltDir, 0.15 * rand, 0.1);
+            
+            const turretMain = createVoxelBox(1.0, 0.35, 1.2, color);
+            turretGroup.add(turretMain);
+            
+            const barrel = createVoxelCylinder(0.08, 0.1, 1.5, 0x333333);
+            barrel.position.set(0, 0.2, -0.7);
+            barrel.rotation.x = -Math.PI / 2;
+            turretGroup.add(barrel);
+            
+            group.add(turretGroup);
+
+            // 충돌 박스
+            const col = createVoxelBox(1.8, 1.5, 2.6, 0x000000);
+            col.position.set(x, 0.6, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 4. burnt: 타서 그을린 탱크
+        function createBurntWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const burntColor = 0x1a1a1a;
+            const charColor = 0x0d0d0d;
+            const rustColor = 0x2d1a10;
+
+            //赫尔
+            const hull = createVoxelBox(1.3, 0.28, 2.2, burntColor, 0, 1);
+            hull.position.set(0.1, 0.25, 0);
+            hull.rotation.set(0.1, 0.25 * rand, 0.08);
+            group.add(hull);
+
+            // 사이드 스커트
+            const skirtL = createVoxelBox(0.09, 0.24, 2.1, charColor, 0, 1);
+            skirtL.position.set(-0.64, 0.28, 0.1);
+            group.add(skirtL);
+            const skirtR = createVoxelBox(0.09, 0.24, 2.1, charColor, 0, 1);
+            skirtR.position.set(0.64, 0.28, -0.1);
+            group.add(skirtR);
+
+            // 트랙 (일부 녹음)
+            const trackL = createVoxelBox(0.38, 0.26, 2.1, 0x111111);
+            trackL.position.set(-0.46, 0.11, 0.05);
+            group.add(trackL);
+            const trackR = createVoxelBox(0.38, 0.26, 1.6, 0x111111);
+            trackR.position.set(0.46, 0.11, 0.25);
+            group.add(trackR);
+
+            // 포탑 (뒤처짐)
+            const turret = createVoxelBox(0.85, 0.3, 1.0, charColor, 0, 1);
+            turret.position.set(-0.25, 0.5, 0.3);
+            turret.rotation.set(0.2, 0.5 * rand, 0.15);
+            group.add(turret);
+
+            // 포신 (부서짐)
+            const barrel = createVoxelCylinder(0.06, 0.08, 0.7, rustColor, 0, 1);
+            barrel.position.set(-0.1, 0.15, -0.6);
+            barrel.rotation.set(1.2, 0.3, 0.6);
+            group.add(barrel);
+
+            // 바퀴 (흩어짐)
+            for (let i = 0; i < 4; i++) {
+                const wheel = createVoxelCylinder(0.12, 0.12, 0.35, 0x222222);
+                wheel.position.set(
+                    -0.5 + Math.random() * 0.2,
+                    0.08 + Math.random() * 0.1,
+                    -0.5 + i * 0.4 + Math.random() * 0.3
+                );
+                wheel.rotation.set(Math.random() * 0.5, Math.random(), Math.random() * 0.5);
+                group.add(wheel);
+            }
+
+            // 연료 누출
+            const stain = createVoxelBox(2.0, 0.02, 2.5, 0x1a0f0a);
+            stain.position.set(0, 0.01, 0);
+            group.add(stain);
+
+            const col = createVoxelBox(1.8, 1.0, 2.4, 0x000000);
+            col.position.set(x, 0.4, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 5. exploded: 폭발로 산산이
+        function createExplodedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const metalColor = 0x2a2a2a;
+            const darkColor = 0x1f1f1f;
+
+            //赫尔 파편
+            const hull1 = createVoxelBox(0.7, 0.25, 1.0, metalColor, 0, 1);
+            hull1.position.set(-0.3, 0.2, 0.4);
+            hull1.rotation.set(0.3, 0.5, 0.2);
+            group.add(hull1);
+
+            const hull2 = createVoxelBox(0.5, 0.2, 0.8, darkColor, 0, 1);
+            hull2.position.set(0.4, 0.12, -0.3);
+            hull2.rotation.set(-0.2, 1.2, 0.4);
+            group.add(hull2);
+
+            const hull3 = createVoxelBox(0.4, 0.18, 0.6, metalColor, 0, 1);
+            hull3.position.set(0.15, 0.08, 0.8);
+            hull3.rotation.set(0.5, 2.1, -0.3);
+            group.add(hull3);
+
+            // 포탑 파편
+            const turret1 = createVoxelBox(0.5, 0.28, 0.6, darkColor, 0, 1);
+            turret1.position.set(0.2, 0.35, 0.15);
+            turret1.rotation.set(0.6, 0.3, 0.3);
+            group.add(turret1);
+
+            const turret2 = createVoxelBox(0.35, 0.22, 0.4, metalColor, 0, 1);
+            turret2.position.set(-0.4, 0.2, -0.2);
+            turret2.rotation.set(0.9, 1.2, 0.5);
+            group.add(turret2);
+
+            // 포신 파편
+            const barrel1 = createVoxelCylinder(0.06, 0.07, 0.5, metalColor, 0, 1);
+            barrel1.position.set(0.5, 0.1, 0.5);
+            barrel1.rotation.set(1.5, 0.5, 1.0);
+            group.add(barrel1);
+
+            const barrel2 = createVoxelCylinder(0.05, 0.06, 0.4, darkColor, 0, 1);
+            barrel2.position.set(-0.3, 0.08, 0.7);
+            barrel2.rotation.set(1.8, 1.8, 0.8);
+            group.add(barrel2);
+
+            // 금속 파편
+            for (let i = 0; i < 10; i++) {
+                const debris = createVoxelBox(
+                    0.08 + Math.random() * 0.15,
+                    0.04 + Math.random() * 0.08,
+                    0.08 + Math.random() * 0.12,
+                    i % 2 === 0 ? metalColor : darkColor
+                );
+                debris.position.set(
+                    -0.7 + Math.random() * 1.4,
+                    0.03 + Math.random() * 0.12,
+                    -0.7 + Math.random() * 1.4
+                );
+                debris.rotation.set(Math.random() * 2, Math.random() * 3, Math.random() * 2);
+                group.add(debris);
+            }
+
+            // 트랙 파편
+            const trackPiece = createVoxelBox(0.35, 0.2, 0.8, 0x111111);
+            trackPiece.position.set(0.6, 0.1, -0.4);
+            trackPiece.rotation.set(0.3, 0.8, 0.5);
+            group.add(trackPiece);
+
+            // 크레이터
+            const crater = createVoxelBox(2.5, 0.08, 2.5, 0x0a0a0a);
+            crater.position.set(0, 0.04, 0);
+            group.add(crater);
+
+            const col = createVoxelBox(2.0, 0.7, 2.0, 0x000000);
+            col.position.set(x, 0.25, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 6. abandoned: 방치된 탱크
+        function createAbandonedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const olive = 0x3d4a3a;
+            const rust = 0x5c4033;
+            const darkRust = 0x3d2817;
+
+            //赫尔 (녹슨 版本)
+            const hull = createVoxelBox(1.35, 0.32, 2.3, olive, 0.3, 0.7);
+            hull.position.y = 0.3;
+            group.add(hull);
+
+            const skirtL = createVoxelBox(0.08, 0.28, 2.25, rust, 0.1, 0.9);
+            skirtL.position.set(-0.65, 0.35, 0);
+            group.add(skirtL);
+            const skirtR = createVoxelBox(0.08, 0.28, 2.25, rust, 0.1, 0.9);
+            skirtR.position.set(0.65, 0.35, 0);
+            group.add(skirtR);
+
+            // 트랙
+            const trackL = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a, 0.1, 0.9);
+            trackL.position.set(-0.48, 0.15, 0);
+            group.add(trackL);
+            const trackR = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a, 0.1, 0.9);
+            trackR.position.set(0.48, 0.15, 0);
+            group.add(trackR);
+
+            // 로드휠 (일부欠落)
+            for (let i = 0; i < 7; i++) {
+                if (i !== 2 && i !== 5) {
+                    const wheel = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                    wheel.position.set(-0.48, 0.15, -1.05 + i * 0.35);
+                    wheel.rotation.z = Math.PI / 2;
+                    group.add(wheel);
+                    const wheelR = createVoxelCylinder(0.15, 0.15, 0.4, 0x333333);
+                    wheelR.position.set(0.48, 0.15, -1.05 + i * 0.35);
+                    wheelR.rotation.z = Math.PI / 2;
+                    group.add(wheelR);
+                }
+            }
+
+            // 포탑 (녹슨)
+            const turret = createVoxelBox(1.0, 0.35, 1.2, rust, 0.1, 0.9);
+            turret.position.set(0, 0.75, 0.1);
+            group.add(turret);
+
+            const barrel = createVoxelCylinder(0.08, 0.1, 1.5, olive, 0.5, 0.5);
+            barrel.position.set(0, 0.95, -0.55);
+            barrel.rotation.x = -0.15;
+            group.add(barrel);
+
+            // 커맨더 해치
+            const hatch = createVoxelBox(0.35, 0.08, 0.35, darkRust);
+            hatch.position.set(0.15, 0.95, 0.05);
+            group.add(hatch);
+
+            // 추가 물건
+            const crate = createVoxelBox(0.5, 0.4, 0.4, 0x354a35, 0.2, 0.8);
+            crate.position.set(-0.7, 0.55, 0.5);
+            crate.rotation.set(0.1, 0.4, 0.15);
+            group.add(crate);
+
+            const tarp = createVoxelBox(0.8, 0.05, 1.2, 0x2a2520);
+            tarp.position.set(0.5, 0.34, 0.4);
+            group.add(tarp);
+
+            const col = createVoxelBox(1.5, 1.4, 2.5, 0x000000);
+            col.position.set(x, 0.6, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 7. buried: 묻힌 탱크
+        function createBuriedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const buriedColor = 0x1a1815;
+            const dirtColor = 0x252015;
+            const rust = 0x3d2817;
+
+            // 많이 기울어진赫尔
+            const hull = createVoxelBox(1.25, 0.28, 2.0, buriedColor, 0, 1);
+            hull.position.set(0.2, 0.12, 0.15);
+            hull.rotation.set(0.25, 0.4 * rand, 0.2);
+            group.add(hull);
+
+            // 묻힌 트랙
+            const trackL = createVoxelBox(0.35, 0.22, 1.4, 0x111111);
+            trackL.position.set(-0.42, 0.06, 0.4);
+            group.add(trackL);
+
+            // 노출된 포탑
+            const turret = createVoxelBox(0.8, 0.3, 0.9, buriedColor, 0, 1);
+            turret.position.set(-0.15, 0.3, -0.1);
+            turret.rotation.set(0.35, 0.5 * rand, 0.25);
+            group.add(turret);
+
+            // 포신
+            const barrel = createVoxelCylinder(0.07, 0.08, 1.0, rust, 0, 1);
+            barrel.position.set(0.1, 0.12, -0.5);
+            barrel.rotation.set(0.9, 0.2, 0.4);
+            group.add(barrel);
+
+            // 흙
+            const dirt1 = createVoxelBox(1.6, 0.2, 2.0, dirtColor);
+            dirt1.position.set(0, 0.04, 0);
+            group.add(dirt1);
+            const dirt2 = createVoxelBox(1.0, 0.12, 0.8, dirtColor);
+            dirt2.position.set(0.5, 0.2, 0.6);
+            group.add(dirt2);
+
+            const col = createVoxelBox(1.8, 0.7, 2.0, 0x000000);
+            col.position.set(x, 0.25, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 8. overturned: 전복된 탱크
+        function createOverturnedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const flippedColor = 0x2a2a2a;
+            const underColor = 0x252015;
+
+            // 완전히 뒤집힌赫尔
+            const hullGroup = new THREE.Group();
+            hullGroup.rotation.x = Math.PI;
+            
+            const hull = createVoxelBox(1.35, 0.32, 2.3, flippedColor, 0, 1);
+            hull.position.y = 0.3;
+            hullGroup.add(hull);
+
+            const skirtL = createVoxelBox(0.08, 0.28, 2.25, flippedColor);
+            skirtL.position.set(-0.65, 0.35, 0);
+            hullGroup.add(skirtL);
+            const skirtR = createVoxelBox(0.08, 0.28, 2.25, flippedColor);
+            skirtR.position.set(0.65, 0.35, 0);
+            hullGroup.add(skirtR);
+
+            const trackL = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a);
+            trackL.position.set(-0.48, 0.15, 0);
+            hullGroup.add(trackL);
+            const trackR = createVoxelBox(0.4, 0.3, 2.3, 0x1a1a1a);
+            trackR.position.set(0.48, 0.15, 0);
+            hullGroup.add(trackR);
+
+            // 바퀴 (위에)
+            for (let i = 0; i < 7; i++) {
+                const wheel = createVoxelCylinder(0.14, 0.14, 0.38, 0x3d2817);
+                wheel.position.set(-0.48, 0.25, -1.05 + i * 0.35);
+                wheel.rotation.z = Math.PI / 2;
+                hullGroup.add(wheel);
+                const wheelR = createVoxelCylinder(0.14, 0.14, 0.38, 0x3d2817);
+                wheelR.position.set(0.48, 0.25, -1.05 + i * 0.35);
+                wheelR.rotation.z = Math.PI / 2;
+                hullGroup.add(wheelR);
+            }
+
+            group.add(hullGroup);
+
+            // 포탑 (아래로)
+            const turretGroup = new THREE.Group();
+            turretGroup.position.set(0, 0.35, 0.15);
+            turretGroup.rotation.x = Math.PI + 0.2;
+            
+            const turret = createVoxelBox(1.0, 0.35, 1.2, underColor, 0, 1);
+            turretGroup.add(turret);
+            
+            const barrel = createVoxelCylinder(0.08, 0.1, 1.5, underColor, 0, 1);
+            barrel.position.set(0, 0.2, -0.7);
+            barrel.rotation.x = -Math.PI / 2;
+            turretGroup.add(barrel);
+            
+            group.add(turretGroup);
+
+            const col = createVoxelBox(1.6, 1.3, 2.4, 0x000000);
+            col.position.set(x, 0.55, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 9. turret_destroyed: 포탑만 파괴됨
+        function createTurretDestroyedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const color = 0x354a35;
+            const damagedColor = 0x2a2a2a;
+
+            //赫尔 (온전)
+            buildTankHull(group, color, 0.1);
+
+            // 포탑 (파괴되어 무너짐)
+            const turret = createVoxelBox(0.7, 0.25, 0.8, damagedColor, 0, 1);
+            turret.position.set(-0.3, 0.45, 0.2);
+            turret.rotation.set(0.3, 0.7 * rand, 0.2);
+            group.add(turret);
+
+            // 짧은 포신
+            const barrel = createVoxelCylinder(0.07, 0.08, 0.4, damagedColor, 0, 1);
+            barrel.position.set(-0.2, 0.2, -0.3);
+            barrel.rotation.set(1.0, 0.5, 0.8);
+            group.add(barrel);
+
+            // 파편
+            for (let i = 0; i < 4; i++) {
+                const piece = createVoxelBox(0.12, 0.08, 0.15, damagedColor);
+                piece.position.set(
+                    -0.5 + Math.random() * 0.3,
+                    0.04 + Math.random() * 0.08,
+                    -0.2 + Math.random() * 0.6
+                );
+                piece.rotation.set(Math.random(), Math.random(), Math.random());
+                group.add(piece);
+            }
+
+            const col = createVoxelBox(1.5, 1.2, 2.4, 0x000000);
+            col.position.set(x, 0.5, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 1. burnt_wreck: 타서 그을린 잔해 (화재 후)
+        function createBurntWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const burntColor = 0x1a1a1a;
+            const charColor = 0x0d0d0d;
+            const rustColor = 0x3d2817;
+            const emberColor = 0x4a1c1c;
+
+            // 1. 메인 헐 (심하게 기울어짐)
+            const hull = createVoxelBox(1.2, 0.45, 1.8, burntColor, 0, 1);
+            hull.position.set(0.1, 0.35, 0);
+            hull.rotation.set(0.12 * (rand - 0.5), 0.3 * rand, 0.08);
+            group.add(hull);
+
+            // 2. 파손된 포탑 (뒤쳐짐)
+            const turret = createVoxelBox(0.85, 0.4, 0.9, charColor, 0, 1);
+            turret.position.set(-0.3, 0.6, 0.2);
+            turret.rotation.set(0.25, 0.8, 0.15);
+            group.add(turret);
+
+            // 3. 부서진 포신 (在地上)
+            const barrel1 = createVoxelCylinder(0.07, 0.07, 0.8, rustColor, 0, 1);
+            barrel1.position.set(0.2, 0.15, -0.8);
+            barrel1.rotation.set(1.5, 0.3, 0.8);
+            group.add(barrel1);
+
+            // 4. 탱크 벨크 (흩어진)
+            for (let i = 0; i < 3; i++) {
+                const wheel = createVoxelCylinder(0.12, 0.12, 0.35, 0x111111);
+                wheel.position.set(
+                    -0.5 + rand * 0.3 + i * 0.25,
+                    0.12 + Math.random() * 0.1,
+                    -0.5 + Math.random() * 1.2
+                );
+                wheel.rotation.z = Math.PI / 2;
+                group.add(wheel);
+            }
+
+            // 5. 연료 누출 흔적
+            const stain = createVoxelBox(2.0, 0.02, 2.5, 0x1a0f0a);
+            stain.position.set(0, 0.01, 0);
+            group.add(stain);
+
+            // 6. 탄약盒子 파편
+            for (let i = 0; i < 2; i++) {
+                const box = createVoxelBox(0.15, 0.1, 0.2, rustColor);
+                box.position.set(
+                    -0.8 + Math.random() * 0.4,
+                    0.05,
+                    0.3 + Math.random() * 0.5
+                );
+                box.rotation.set(Math.random() * 0.5, Math.random() * 2, Math.random() * 0.5);
+                group.add(box);
+            }
+
+            // 충돌 박스
+            const col = createVoxelBox(1.8, 1.2, 2.2, 0x000000);
+            col.position.set(x, 0.5, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 2. exploded_wreck: 폭발로 산산이 흩어진 잔해
+        function createExplodedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const metalColor = 0x2a2a2a;
+            const debrisColor = 0x1f1f1f;
+            const hotColor = 0x3a2020;
+
+            // 1. 메인 헐 파편 (흩어진 상태)
+            const hullChunk1 = createVoxelBox(0.6, 0.3, 0.8, metalColor, 0, 1);
+            hullChunk1.position.set(-0.4, 0.2, 0.3);
+            hullChunk1.rotation.set(0.3, 0.5, 0.2);
+            group.add(hullChunk1);
+
+            const hullChunk2 = createVoxelBox(0.5, 0.25, 0.6, debrisColor, 0, 1);
+            hullChunk2.position.set(0.5, 0.15, -0.2);
+            hullChunk2.rotation.set(-0.2, 1.2, 0.4);
+            group.add(hullChunk2);
+
+            const hullChunk3 = createVoxelBox(0.4, 0.2, 0.5, metalColor, 0, 1);
+            hullChunk3.position.set(0.1, 0.1, 0.7);
+            hullChunk3.rotation.set(0.5, 2.1, -0.3);
+            group.add(hullChunk3);
+
+            // 2. 포탑 (뒤쳐지고 갈라짐)
+            const turret1 = createVoxelBox(0.4, 0.35, 0.45, hotColor, 0, 1);
+            turret1.position.set(0.2, 0.4, 0.1);
+            turret1.rotation.set(0.8, 0.3, 0.1);
+            group.add(turret1);
+
+            const turret2 = createVoxelBox(0.35, 0.3, 0.4, debrisColor, 0, 1);
+            turret2.position.set(-0.5, 0.25, -0.3);
+            turret2.rotation.set(1.1, 1.5, 0.6);
+            group.add(turret2);
+
+            // 3. 포신 (산산이)
+            const barrelPiece = createVoxelCylinder(0.06, 0.06, 0.5, metalColor, 0, 1);
+            barrelPiece.position.set(0.7, 0.08, 0.5);
+            barrelPiece.rotation.set(1.8, 0.5, 1.2);
+            group.add(barrelPiece);
+
+            // 4. 다수의 금속 파편
+            for (let i = 0; i < 8; i++) {
+                const debris = createVoxelBox(
+                    0.1 + Math.random() * 0.2,
+                    0.05 + Math.random() * 0.1,
+                    0.1 + Math.random() * 0.15,
+                    i % 2 === 0 ? metalColor : debrisColor
+                );
+                debris.position.set(
+                    -0.8 + Math.random() * 1.6,
+                    0.03 + Math.random() * 0.15,
+                    -0.8 + Math.random() * 1.6
+                );
+                debris.rotation.set(Math.random() * 2, Math.random() * 3, Math.random() * 2);
+                group.add(debris);
+            }
+
+            // 5. 크레이터 흔적
+            const crater = createVoxelBox(2.5, 0.08, 2.5, 0x0a0a0a);
+            crater.position.set(0, 0.04, 0);
+            group.add(crater);
+
+            // 충돌 박스
+            const col = createVoxelBox(2.0, 0.8, 2.0, 0x000000);
+            col.position.set(x, 0.3, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 3. abandoned_wreck: 방치되어 녹슨 폐기물
+        function createAbandonedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const oliveDrab = 0x3d4a3a;
+            const rust = 0x5c4033;
+            const darkRust = 0x3d2817;
+            const camoGreen = 0x354a35;
+
+            // 1. 비교적 온전한 헐
+            const hull = createVoxelBox(1.25, 0.48, 1.85, oliveDrab, 0.3, 0.7);
+            hull.position.y = 0.4;
+            hull.rotation.z = 0.03 * (rand - 0.5);
+            group.add(hull);
+
+            // 2. 녹슨 포탑
+            const turret = createVoxelBox(0.95, 0.42, 1.1, rust, 0.1, 0.9);
+            turret.position.set(0, 0.75, 0.1);
+            group.add(turret);
+
+            // 3. 포탑 후드
+            const commanderHatch = createVoxelBox(0.35, 0.08, 0.35, darkRust);
+            commanderHatch.position.set(0.15, 0.98, 0.05);
+            group.add(commanderHatch);
+
+            // 4. 포신 (약간 기울어짐)
+            const barrel = createVoxelCylinder(0.085, 0.1, 1.4, oliveDrab, 0.5, 0.5);
+            barrel.position.set(0, 0.85, -0.55);
+            barrel.rotation.x = -0.15;
+            group.add(barrel);
+
+            // 5. 무른 Tracks
+            const trackL = createVoxelBox(0.4, 0.35, 1.9, 0x1a1a1a, 0.1, 0.9);
+            trackL.position.set(-0.48, 0.18, 0);
+            group.add(trackL);
+            const trackR = createVoxelBox(0.4, 0.35, 1.9, 0x1a1a1a, 0.1, 0.9);
+            trackR.position.set(0.48, 0.18, 0);
+            group.add(trackR);
+
+            // 6. 로드휠 (일부欠落)
+            for (let i = 0; i < 5; i++) {
+                if (Math.random() > 0.3) {
+                    const wheel = createVoxelCylinder(0.14, 0.14, 0.38, 0x2a2a2a);
+                    wheel.position.set(-0.48, 0.15, -0.7 + i * 0.35);
+                    wheel.rotation.z = Math.PI / 2;
+                    group.add(wheel);
+                }
+            }
+
+            // 7. 덮개/箱子Accumulation
+            const crate = createVoxelBox(0.5, 0.4, 0.4, camoGreen, 0.2, 0.8);
+            crate.position.set(-0.7, 0.55, 0.5);
+            crate.rotation.set(0.1, 0.4, 0.15);
+            group.add(crate);
+
+            // 8. 덮인 물건
+            const tarp = createVoxelBox(0.8, 0.05, 1.2, 0x2a2520);
+            tarp.position.set(0.5, 0.42, 0.4);
+            group.add(tarp);
+
+            // 충돌 박스
+            const col = createVoxelBox(1.5, 1.3, 2.0, 0x000000);
+            col.position.set(x, 0.55, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 4. buried_wreck: 땅에 반쯤 묻힌 잔해
+        function createBuriedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const buriedColor = 0x1a1815;
+            const dirtColor = 0x252015;
+            const rust = 0x3d2817;
+
+            // 1. 묻힌 메인 헐 (많이 기울어짐)
+            const hull = createVoxelBox(1.15, 0.4, 1.7, buriedColor, 0, 1);
+            hull.position.set(0.15, 0.15, 0.1);
+            hull.rotation.set(0.25, 0.4, 0.18);
+            group.add(hull);
+
+            // 2. 노출된 포탑
+            const turret = createVoxelBox(0.75, 0.35, 0.85, buriedColor, 0, 1);
+            turret.position.set(-0.2, 0.35, -0.1);
+            turret.rotation.set(0.35, 0.6, 0.2);
+            group.add(turret);
+
+            // 3. 묻힌 포신
+            const barrel = createVoxelCylinder(0.07, 0.08, 1.0, rust, 0, 1);
+            barrel.position.set(0.1, 0.12, -0.4);
+            barrel.rotation.set(0.8, 0.2, 0.3);
+            group.add(barrel);
+
+            // 4. 드러난 트랙
+            const trackL = createVoxelBox(0.35, 0.25, 1.2, 0x111111);
+            trackL.position.set(-0.45, 0.08, 0.3);
+            group.add(trackL);
+
+            // 5. 흙 더미
+            const dirt1 = createVoxelBox(1.4, 0.25, 1.8, dirtColor);
+            dirt1.position.set(0, 0.05, 0);
+            group.add(dirt1);
+            const dirt2 = createVoxelBox(0.8, 0.15, 0.6, dirtColor);
+            dirt2.position.set(0.5, 0.25, 0.5);
+            group.add(dirt2);
+
+            // 6. 노출된 부품
+            const wheel = createVoxelCylinder(0.1, 0.1, 0.3, 0x222222);
+            wheel.position.set(0.5, 0.12, -0.3);
+            wheel.rotation.z = Math.PI / 2;
+            group.add(wheel);
+
+            // 충돌 박스
+            const col = createVoxelBox(1.6, 0.8, 1.8, 0x000000);
+            col.position.set(x, 0.3, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 5. overturned_wreck: 전복된 (바퀴 위) 상태
+        function createOverturnedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const flippedColor = 0x1f1f1f;
+            const underColor = 0x2a2520;
+            const rustColor = 0x4a3525;
+
+            // 1. 전복된 메인 헐 (위로 뒤집힘)
+            const hull = createVoxelBox(1.2, 0.45, 1.8, flippedColor, 0, 1);
+            hull.position.set(0, 0.7, 0);
+            hull.rotation.x = Math.PI; // 완전히 뒤집힘
+            hull.rotation.z = 0.1 * (rand - 0.5);
+            group.add(hull);
+
+            // 2. 아래로 향한 포탑
+            const turret = createVoxelBox(0.85, 0.4, 0.95, underColor, 0, 1);
+            turret.position.set(0, 0.45, 0.15);
+            turret.rotation.x = Math.PI + 0.15;
+            group.add(turret);
+
+            // 3. 위로 튀어나온 포신
+            const barrel = createVoxelCylinder(0.075, 0.09, 1.3, flippedColor, 0, 1);
+            barrel.position.set(0, 0.85, -0.5);
+            barrel.rotation.set(-0.3, 0, 0);
+            group.add(barrel);
+
+            // 4. 바퀴 (위에 노출)
+            for (let i = 0; i < 6; i++) {
+                const wheel = createVoxelCylinder(0.13, 0.13, 0.35, rustColor);
+                wheel.position.set(
+                    -0.48,
+                    0.25,
+                    -0.8 + i * 0.32
+                );
+                wheel.rotation.z = Math.PI / 2;
+                group.add(wheel);
+            }
+
+            // 5. 노출된底面 (더럽고 녹슨)
+            const bottom = createVoxelBox(1.0, 0.15, 1.5, underColor);
+            bottom.position.set(0, 0.08, 0);
+            group.add(bottom);
+
+            // 6. 주변 흙 파편
+            for (let i = 0; i < 4; i++) {
+                const dirt = createVoxelBox(0.2, 0.08, 0.25, 0x252015);
+                dirt.position.set(
+                    -0.7 + Math.random() * 0.4,
+                    0.04,
+                    -0.6 + Math.random() * 1.2
+                );
+                group.add(dirt);
+            }
+
+            // 충돌 박스
+            const col = createVoxelBox(1.5, 1.2, 2.0, 0x000000);
+            col.position.set(x, 0.5, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 6. turret_only_wreck: 포탑만 남은 상태
+        function createTurretOnlyWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const turretColor = 0x1a1a1a;
+            const metalColor = 0x2d2d2d;
+            const rustColor = 0x4a3525;
+
+            // 1. 분리된 포탑 (헐에서 분리)
+            const turret = createVoxelBox(0.9, 0.43, 1.0, turretColor, 0, 1);
+            turret.position.set(0.2, 0.45, 0.15);
+            turret.rotation.set(0.2, 0.7 * rand, 0.15);
+            group.add(turret);
+
+            // 2. 커맨더 해치
+            const hatch = createVoxelBox(0.32, 0.07, 0.32, metalColor);
+            hatch.position.set(0.25, 0.7, 0.25);
+            group.add(hatch);
+
+            // 3. 짧게 남은 포신
+            const barrel = createVoxelCylinder(0.08, 0.09, 0.5, rustColor, 0, 1);
+            barrel.position.set(0.15, 0.5, -0.4);
+            barrel.rotation.x = -0.4 + 0.2 * rand;
+            group.add(barrel);
+
+            // 4. 대공기관총Mount
+            const mgMount = createVoxelBox(0.08, 0.15, 0.08, metalColor);
+            mgMount.position.set(-0.25, 0.65, 0.3);
+            group.add(mgMount);
+
+            // 5. 포탑 부품 파편
+            for (let i = 0; i < 3; i++) {
+                const piece = createVoxelBox(
+                    0.15 + Math.random() * 0.2,
+                    0.08 + Math.random() * 0.1,
+                    0.15 + Math.random() * 0.15,
+                    metalColor
+                );
+                piece.position.set(
+                    -0.5 + Math.random() * 0.3,
+                    0.04 + Math.random() * 0.1,
+                    -0.3 + Math.random() * 0.8
+                );
+                piece.rotation.set(Math.random(), Math.random(), Math.random());
+                group.add(piece);
+            }
+
+            // 6. 남겨진 헐 흔적 (많이 파손)
+            const hullRemnant = createVoxelBox(0.6, 0.2, 0.8, 0x151515);
+            hullRemnant.position.set(-0.5, 0.1, -0.3);
+            hullRemnant.rotation.y = 0.8;
+            group.add(hullRemnant);
+
+            // 충돌 박스
+            const col = createVoxelBox(1.2, 1.0, 1.4, 0x000000);
+            col.position.set(x, 0.4, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
+            walls.push(col);
+        }
+
+        // 7. scraped_wreck: 스크래핑된 고철 더미
+        function createScrapedWreck(x, z, rotBase, rand) {
+            const group = new THREE.Group();
+            group.position.set(x, 0, z);
+            group.rotation.y = rotBase;
+            scene.add(group);
+            wrecks.push(group);
+
+            const scrapColor = 0x3a3a3a;
+            const darkMetal = 0x252525;
+            const paintRemnant = 0x2a3530;
+
+            // 1. 납작한 고철 시트
+            const scrap1 = createVoxelBox(1.4, 0.15, 1.6, scrapColor, 0, 1);
+            scrap1.position.set(0.1, 0.08, 0.1);
+            scrap1.rotation.set(0.08, 0.3, 0.12);
+            group.add(scrap1);
+
+            // 2. 뒤집힌 시트
+            const scrap2 = createVoxelBox(0.8, 0.12, 1.0, darkMetal, 0, 1);
+            scrap2.position.set(-0.4, 0.25, -0.3);
+            scrap2.rotation.set(1.2, 0.8, 0.5);
+            group.add(scrap2);
+
+            // 3. 녹슨 부품 무더기
+            for (let i = 0; i < 5; i++) {
+                const part = createVoxelBox(
+                    0.15 + Math.random() * 0.25,
+                    0.08 + Math.random() * 0.12,
+                    0.2 + Math.random() * 0.3,
+                    i % 2 === 0 ? 0x3d2817 : darkMetal
+                );
+                part.position.set(
+                    -0.6 + Math.random() * 1.2,
+                    0.04 + Math.random() * 0.15,
+                    -0.6 + Math.random() * 1.2
+                );
+                part.rotation.set(Math.random() * 2, Math.random() * 3, Math.random() * 2);
+                group.add(part);
+            }
+
+            // 4. 트랙 벨크
+            const trackPiece = createVoxelBox(0.35, 0.18, 1.2, 0x1a1a1a);
+            trackPiece.position.set(0.5, 0.1, 0.2);
+            trackPiece.rotation.set(0.1, -0.6, 0.15);
+            group.add(trackPiece);
+
+            // 5. 납작한휠
+            for (let i = 0; i < 3; i++) {
+                const wheel = createVoxelCylinder(0.1, 0.08, 0.25, 0x2a2a2a);
+                wheel.position.set(-0.3 + i * 0.35, 0.05, 0.5);
+                wheel.rotation.z = Math.PI / 2;
+                group.add(wheel);
+            }
+
+            // 6. 흙apan
+            const dirt = createVoxelBox(1.8, 0.05, 2.0, 0x201a15);
+            dirt.position.set(0, 0.025, 0);
+            group.add(dirt);
+
+            // 충돌 박스
+            const col = createVoxelBox(1.6, 0.5, 1.8, 0x000000);
+            col.position.set(x, 0.2, z);
+            col.rotation.y = rotBase;
+            col.visible = false;
+            col.userData = { type: 'wreck' };
+            scene.add(col);
             walls.push(col);
         }
 
@@ -4323,6 +5768,7 @@ const Game = {
             else if (prop.type === 'hedgehog') createHedgehog(prop.x, prop.z);
             else if (prop.type === 'crate') createProp('crate', prop.x, prop.z);
             else if (prop.type === 'barrel') createProp('barrel', prop.x, prop.z);
+            else if (prop.type === 'sandbags') createSandbags(prop.x, prop.z);
             else if (prop.type === 'shack') createShack(prop.x, prop.z, prop.rot || 0);
             else if (prop.type === 'watchtower') createWatchtower(prop.x, prop.z);
         });
@@ -4351,8 +5797,8 @@ const Game = {
             wallBoxes.push(box);
         });
 
-        // 맵 중앙 수리 정비소(Repair Station) 생성
-        repairStation = new RepairStation();
+        // 수리 정비소(Repair Station) 생성
+        repairStation = new RepairStation(0, 0);
 
         // My Tank
         const spawn = getRandomSpawnPoint();
@@ -4404,9 +5850,13 @@ const Game = {
     }
 };
 
+/**
+ * 채널 리스너 설정 - 멀티플레이어 이벤트 처리 (이동, 발사, 피격, 사망 등)
+ */
 function setupChannelListeners() {
     if (!channel) return;
 
+    // Presence 이벤트 - 플레이어 입퇴장 감지
     channel.on('presence', { event: 'sync' }, () => {
         updateMasterStatus();
     });
@@ -4423,6 +5873,7 @@ function setupChannelListeners() {
         updateMasterStatus();
     });
 
+    // 이동 이벤트 수신
     channel.on('broadcast', { event: 'move' }, ({ payload }) => {
         const id = payload.i || payload.id;
         if (id === myId) return;
@@ -4475,6 +5926,7 @@ function setupChannelListeners() {
         }
     });
 
+    // 발사 이벤트 수신
     channel.on('broadcast', { event: 'fire' }, ({ payload }) => {
         const id = payload.i || payload.ownerId;
         if (id === myId) return;
@@ -4497,6 +5949,7 @@ function setupChannelListeners() {
         if (tank) tank.playShootEffect();
     });
 
+    // 피격 이벤트 수신
     channel.on('broadcast', { event: 'hit' }, ({ payload }) => {
         const sId = payload.s || payload.shooterId;
         if (sId === myId) return;
@@ -4509,6 +5962,7 @@ function setupChannelListeners() {
         }
     });
 
+    // 사망 이벤트 수신
     channel.on('broadcast', { event: 'death' }, ({ payload }) => {
         // 단축 키(i) 또는 레거시 키 대응
         const vId = payload.i || payload.victimId || payload.id;
@@ -4591,6 +6045,9 @@ WCGames.init({
         syncMultiplayer();
     }
 });
+/**
+ * 수동 공습 요청 - K 키로 호출 (현재 위치上方에 전투기 출격)
+ */
 function triggerManualAirstrike() {
     const angle = Math.random() * Math.PI * 2;
     const spawnDist = CONFIG.WORLD.SIZE * 1.5;
