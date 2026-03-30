@@ -1,204 +1,11 @@
 import * as THREE from 'three';
+import { CONFIG, seededRandom, lerpAngle, normalizeAngle, getTerrainHeight, encodeHex, decodeHex, packTankData, unpackTankData, getTerrainNormal } from './config.js';
+import { createVoxelBox, createVoxelCylinder, createVoxelCone, createItemLabel, TrackMarkManager, BulletManager } from './utils.js';
 
-/* 1. Constant Configuration (Balance, Styles) */
-const CONFIG = {
-    TANK: {
-        FORWARD_SPEED: 5,
-        BACKWARD_SPEED: 3,
-        ROTATE_SPEED: 4,
-        TURRET_ROTATE_SPEED: 4,
-        FIRE_COOLDOWN: 1000, // ms
-        MAX_HP: 100,
-        TRACK_DISTANCE: 40 // 15 -> 40: 더 멀리 있는 봇의 발자국도 보이게 수정
-    },
-    BULLET: {
-        SPEED: 30,
-        LIFE_TIME: 1500, // ms
-        DAMAGE: 10
-    },
-    WORLD: {
-        SIZE: 150,
-        GRID_SIZE: 1
-    },
-    LERP_SPEED: {
-        TURRET: 4.0 // Smoothness factor
-    },
-    COLORS: {
-        SELF: 0x4d79ff, // Blue
-        OTHER: 0xff4d4d, // Red
-        FLOOR: 0x3a3530,
-        BULLET: 0xffff00,
-        WALL: 0x252018,
-        BOT: 0x9933ff // Purple for bots
-    },
-    MAP: {
-        LAYOUT: [
-            { x: -30, z: -30, w: 10, d: 2 }, { x: -34, z: -26, w: 2, d: 10 },
-            { x: 30, z: -30, w: 10, d: 2 }, { x: 34, z: -26, w: 2, d: 10 },
-            { x: -30, z: 30, w: 10, d: 2 }, { x: -34, z: 26, w: 2, d: 10 },
-            { x: 30, z: 30, w: 10, d: 2 }, { x: 34, z: 26, w: 2, d: 10 },
-            { x: 0, z: 28, w: 20, d: 2 }, { x: 0, z: -28, w: 20, d: 2 },
-            { x: 28, z: 0, w: 2, d: 20 }, { x: -28, z: 0, w: 2, d: 20 },
-            { x: -40, z: 0, w: 4, d: 4 }, { x: 40, z: 0, w: 4, d: 4 },
-            { x: 0, z: -40, w: 4, d: 4 }, { x: 0, z: 40, w: 4, d: 4 },
-            { x: -22, z: 0, w: 8, d: 2 }, { x: 22, z: 0, w: 8, d: 2 },
-            { x: 0, z: -22, w: 2, d: 8 }, { x: 0, z: 22, w: 2, d: 8 }
-        ],
-        DAMAGED_FENCE: [
-            { x: -35, z: 20, w: 12, d: 2 },
-            { x: 35, z: -20, w: 12, d: 2 },
-            { x: -20, z: -35, w: 2, d: 12 },
-            { x: 20, z: 35, w: 2, d: 12 }
-        ],
-        WRECKS: [
-            { x: -12, z: -12 }, { x: 12, z: 12 },
-            { x: -20, z: 18 }, { x: 20, z: -18 },
-            { x: 8, z: -30 }, { x: -30, z: -8 }
-        ],
-        PROPS: [
-            { type: 'shack', x: -35, z: -30 }, { type: 'shack', x: 35, z: 30 },
-            { type: 'shack', x: -30, z: 35 }, { type: 'shack', x: 30, z: -35 },
-            { type: 'watchtower', x: -45, z: 30 }, { type: 'watchtower', x: 45, z: -30 },
-            { type: 'watchtower', x: 30, z: 45 }, { type: 'watchtower', x: -30, z: -45 },
+/* 1. 설정 (밸런스, 스타일) - config.js에서 import */
+/* 3. Utilities (Helper functions) - utils.js에서 import */
 
-            { type: 'crate', x: -28, z: -18 }, { type: 'crate', x: 18, z: 28 },
-            { type: 'crate', x: 25, z: -25 }, { type: 'crate', x: -18, z: 25 },
-            { type: 'barrel', x: 22, z: -28 }, { type: 'barrel', x: -25, z: 22 },
-            { type: 'barrel', x: 28, z: 18 }, { type: 'barrel', x: -22, z: -28 }
-        ]
-    },
-    BOT: {
-        COUNT: 15,
-        FORWARD_SPEED: 5,
-        BACKWARD_SPEED: 3,
-        ROTATE_SPEED: 4,
-        FIRE_COOLDOWN: 1800,
-        DETECTION_RANGE: 30,
-        ATTACK_RANGE: 20,
-        NAME_PREFIX: "Guest",
-        COLORS: [0x9933ff, 0xff9900, 0x00ffcc, 0xff0066, 0x33cc33, 0xffdd00]
-    },
-    POWERUP: {
-        HEAL_AMOUNT: 30,
-        SPAWN_INTERVAL: 60,
-        MAX_COUNT: 10
-    },
-    UPGRADE: {
-        TYPES: ['CANNON', 'SPEED', 'ARMOR'],
-        CANNON: { DAMAGE_INC: 2, SCALE_INC: 0.15 },
-        SPEED: { MOVE_INC: 0.4, ROT_INC: 0.15 },
-        ARMOR: { HP_INC: 30 }
-    },
-    AIRSTRIKE: {
-        INTERVAL_MIN: 30,
-        INTERVAL_MAX: 60,
-        PLANE_SPEED: 25,
-        PLANE_HEIGHT: 10,
-        BOMB_COUNT: 10,
-        BOMB_INTERVAL: 0.15,
-        BOMB_DAMAGE: 45,
-        BOMB_RADIUS: 6,
-        TARGETING_RADIUS: 25,
-        FALL_SPEED: 18
-    },
-    REPAIR_STATION: {
-        RADIUS: 1.5, // 수리 반경
-        HEAL_RATE: 8.0, // 초당 회복량
-        COLOR_PAD: 0x2d3436, // 기본 패드 색상
-        COLOR_GLOW: 0x00b894 // 회복 중인 상태의 발광 색상
-    },
-    CAMERA: {
-        HEIGHT: 20,
-        OFFSET_Z: 7,
-        PC_FOV: 80,
-        MOBILE_FOV: 60
-    },
-    NETWORK: {
-        SYNC_INTERVAL: 25 // 멀티플레이어 동기화 간격 (ms). 40ms = 25fps
-    }
-};
-
-/* 1.5 Deterministic Random for World Sync */
-function seededRandom(seed) {
-    const x = Math.sin(seed++) * 10000;
-    return x - Math.floor(x);
-}
-
-function lerpAngle(a, b, t) {
-    let d = b - a;
-    while (d < -Math.PI) d += Math.PI * 2;
-    while (d > Math.PI) d -= Math.PI * 2;
-    return a + d * t;
-}
-
-function normalizeAngle(angle) {
-    while (angle <= -Math.PI) angle += Math.PI * 2;
-    while (angle > Math.PI) angle -= Math.PI * 2;
-    return angle;
-}
-
-/* 1.6 Terrain Height Function (Disabled) */
-function getTerrainHeight(x, z) {
-    return 0;
-}
-
-/* 1.7 Serialization Helpers (Packet Optimization) */
-function encodeHex(val, offset, scale, length) {
-    const intVal = Math.floor((val + offset) * scale);
-    const maxVal = Math.pow(16, length) - 1;
-    // 클램핑: 음수 방지 및 최대 길이 초과 방지
-    const clampedVal = Math.max(0, Math.min(maxVal, intVal));
-    return clampedVal.toString(16).padStart(length, '0');
-}
-
-function decodeHex(hex, offset, scale) {
-    const intVal = parseInt(hex, 16);
-    return (intVal / scale) - offset;
-}
-
-function packTankData(tank) {
-    // X, Z: 4 chars (Offset 200, Scale 100 -> -200~455 범위)
-    const x = encodeHex(tank.group.position.x, 200, 100, 4);
-    const z = encodeHex(tank.group.position.z, 200, 100, 4);
-
-    // 각도 정기화 및 넉넉한 오프셋(10) 적용
-    const r = encodeHex(normalizeAngle(tank.group.rotation.y), 10, 100, 4);
-    const tr = encodeHex(normalizeAngle(tank.turretGroup.rotation.y), 10, 100, 4);
-
-    // HP, Kills: 4 chars (0-65535 지원)
-    const h = encodeHex(tank.hp, 0, 1, 4);
-    const k = encodeHex(tank.kills, 0, 1, 4);
-
-    // Levels: 1 char each (0-F)
-    const l1 = encodeHex(tank.levelCannon, 0, 1, 1);
-    const l2 = encodeHex(tank.levelSpeed, 0, 1, 1);
-    const l3 = encodeHex(tank.levelArmor, 0, 1, 1);
-
-    return x + z + r + tr + h + k + l1 + l2 + l3;
-}
-
-function unpackTankData(hex, tank) {
-    // V2.2 규격: 27자 고정
-    if (!hex || hex.length < 27) return null;
-
-    const x = decodeHex(hex.substring(0, 4), 200, 100);
-    const z = decodeHex(hex.substring(4, 8), 200, 100);
-    const r = decodeHex(hex.substring(8, 12), 10, 100);
-    const tr = decodeHex(hex.substring(12, 16), 10, 100);
-    const h = decodeHex(hex.substring(16, 20), 0, 1);
-    const k = decodeHex(hex.substring(20, 24), 0, 1);
-    const l1 = decodeHex(hex.substring(24, 25), 0, 1);
-    const l2 = decodeHex(hex.substring(25, 26), 0, 1);
-    const l3 = decodeHex(hex.substring(26, 27), 0, 1);
-
-    return { x, z, r, tr, h, k, l1, l2, l3 };
-}
-
-function getTerrainNormal(x, z) {
-    return new THREE.Vector3(0, 1, 0);
-}
-
-/* 2. State & Variables (Runtime variables) */
+/* 2. 상태 및 변수 (런타임) */
 function getPlayerIdentity() {
     try {
         const u = window.location.search;
@@ -238,7 +45,6 @@ let myName = identity.name;
 let scene, camera, renderer, clock;
 let myTank;
 const tanks = new Map(); // ID -> Tank instance
-const bullets = [];
 const walls = []; // Array of wall meshes
 const trees = []; // Array of tree groups for animation
 const wrecks = []; // Array of destroyed tanks for smoke vfx
@@ -248,6 +54,8 @@ const wallBoxes = []; // NEW: Cache for world-space bounding boxes
 const airstrikePlanes = []; // NEW: Array of active FighterPlane instances
 const airstrikeBombs = []; // NEW: active AirstrikeBomb instances
 let repairStation; // NEW: 단일 수리 정비소 인스턴스
+let trackMarkManager; // 발자국 관리자
+let bulletManager; // 총알 관리자
 let airstrikeWarningActive = false;
 let nextAirstrikeTime = 0; // NEW: Timer for next airstrike event
 let supabaseClient;
@@ -266,56 +74,6 @@ let wreckSmokeTimer = 0;
 let directionalLight; // Global for shadow follow
 // 모바일 감지: 초당 60번 정규식 실행을 막기 위해 전역에서 1회만 실행
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-/* 3. Utilities (Helper functions) */
-function createVoxelBox(w, h, d, color, metalness = 0, roughness = 0.9) {
-    const geometry = new THREE.BoxGeometry(w, h, d);
-    const material = new THREE.MeshStandardMaterial({
-        color,
-        metalness: metalness,
-        roughness: roughness
-    });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true; // Enabled for tank, crates, etc.
-    mesh.receiveShadow = true;
-    return mesh;
-}
-
-function createVoxelCylinder(radiusTop, radiusBottom, height, color, metalness = 0.2, roughness = 0.8) {
-    const geometry = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 12);
-    const material = new THREE.MeshStandardMaterial({ color, metalness, roughness });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    return mesh;
-}
-
-function createVoxelCone(radius, height, color) {
-    const geometry = new THREE.ConeGeometry(radius, height, 12);
-    const material = new THREE.MeshStandardMaterial({ color, roughness: 1 });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    return mesh;
-}
-
-/* Helper to create floating emoji labels for items */
-function createItemLabel(emoji) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    ctx.font = '80px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(emoji, 64, 64);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(1, 1, 1);
-    return sprite;
-}
 
 /* Particle System for VFX */
 class ParticleSystem {
@@ -954,7 +712,7 @@ class TankEngineAudio {
     }
 }
 
-/* 4. PowerUp & Item Classes */
+/* 4. 파워업 및 아이템 클래스 */
 class HealthPotion {
     constructor(id, position) {
         this.id = id;
@@ -2174,9 +1932,6 @@ class Tank {
         this.lastFireTime = 0;
         this.trackTimer = 0;
         this.lastTrackPos = null;
-        this.trackMarks = [];
-        this.trackLifetimes = [];
-        this.maxTrackMarks = 100;
 
         // LOD
         this._lodDistance = 60;
@@ -2369,15 +2124,11 @@ class Tank {
         this.barrelGroup.getWorldPosition(this._tempPivotPos);
         const dir = this._tempPos.clone().sub(this._tempPivotPos).normalize();
 
-        let bulletScale = 1.0 + (Math.min(3, this.levelCannon) * CONFIG.UPGRADE.CANNON.SCALE_INC);
-        let bulletDamage = CONFIG.TANK.DAMAGE + (this.levelCannon * CONFIG.UPGRADE.CANNON.DAMAGE_INC);
+        const bulletScale = 1.0 + (Math.min(3, this.levelCannon) * CONFIG.UPGRADE.CANNON.SCALE_INC);
+        const bulletDamage = CONFIG.TANK.DAMAGE + (this.levelCannon * CONFIG.UPGRADE.CANNON.DAMAGE_INC);
 
         const spawnBullet = (startPos, direction) => {
-            const bullet = new Bullet(startPos, direction, this.id);
-            bullet.damage = bulletDamage;
-            bullet.group.scale.setScalar(bulletScale);
-            bullets.push(bullet);
-            return bullet;
+            bulletManager.add(startPos, direction, this.id, bulletDamage, bulletScale);
         };
 
         if (this.levelCannon < 4) {
@@ -2434,57 +2185,15 @@ class Tank {
             if (!lodState) return;
         }
 
-        // 모든 탱크(유저/봇)가 동일하게 트랙마크 생성
-        if (isMoving && scene) {
+        // 트랙마크 생성 (독립적인 매니저에 위임)
+        if (isMoving && trackMarkManager) {
             this.trackTimer += dt;
             if (this.trackTimer > 0.15) {
                 this.trackTimer = 0;
                 const pos = this.group.position;
                 if (!this.lastTrackPos || pos.distanceTo(this.lastTrackPos) > 0.3) {
-                    // 최대 개수 초과 시 생성 중단
-                    if (this.trackMarks.length >= this.maxTrackMarks) {
-                        // 가장 오래된 것을 즉시 제거 (앞에서 2개)
-                        for (let r = 0; r < 2 && this.trackMarks.length > 0; r++) {
-                            const old = this.trackMarks.shift();
-                            this.trackLifetimes.shift();
-                            scene.remove(old);
-                            old.geometry.dispose();
-                            old.material.dispose();
-                        }
-                    }
-
                     this.lastTrackPos = pos.clone();
-                    const angle = this.group.rotation.y;
-                    const trackGap = 0.5;
-                    for (let side = -1; side <= 1; side += 2) {
-                        const offset = trackGap * side;
-                        const tx = pos.x + Math.cos(angle) * offset;
-                        const tz = pos.z - Math.sin(angle) * offset;
-                        // 높이를 0.01로 올려 바닥 위로 확실히 보이게 하고 색상을 진하게 변경
-                        const track = createVoxelBox(0.2, 0.003, 0.4, 0x222222);
-                        track.position.set(tx, 0.01, tz);
-                        track.rotation.y = angle;
-                        scene.add(track);
-                        this.trackMarks.push(track);
-                        this.trackLifetimes.push(Date.now());
-                    }
-                }
-            }
-        }
-
-        if (this.trackMarks.length > 0) {
-            const now = Date.now();
-            const maxLife = 8000; // 모든 탱크 동일하게 8초 유지
-            for (let i = this.trackMarks.length - 1; i >= 0; i--) {
-                const age = now - this.trackLifetimes[i];
-                const lifeRatio = 1 - (age / maxLife);
-                if (lifeRatio <= 0) {
-                    const t = this.trackMarks[i];
-                    scene.remove(t);
-                    t.geometry.dispose();
-                    t.material.dispose();
-                    this.trackMarks.splice(i, 1);
-                    this.trackLifetimes.splice(i, 1);
+                    trackMarkManager.add(pos.x, pos.z, this.group.rotation.y);
                 }
             }
         }
@@ -2970,7 +2679,7 @@ class Bot extends Tank {
     }
 }
 
-/* 5. Input Handling (Pointer, Keyboard) */
+/* 5. 입력 처리 (포인터, 키보드) */
 const keys = {};
 const keyDownHandler = e => {
     keys[e.code] = true;
@@ -3121,7 +2830,7 @@ function spawnBots(count) {
     }
 }
 
-/* 6. Game Logic (Update, Collision) */
+/* 6. 게임 로직 (업데이트, 충돌) */
 let lastScoreUpdate = 0;
 function updateScoreboard() {
     const now = Date.now();
@@ -3163,6 +2872,9 @@ function update(dt) {
 
     // 수리 정비소(Repair Station) 상태 업데이트
     if (repairStation) repairStation.update(dt);
+
+    // 발자국 업데이트 (독립적으로 관리)
+    if (trackMarkManager) trackMarkManager.update();
 
     // 1. 플레이어 탱크 업데이트 (플레이 중이며 살아있을 때만)
     if (WCGames.state === 'PLAYING' && myTank && myTank.hp > 0) {
@@ -3623,12 +3335,20 @@ function checkCollisions() {
 
 
 function updateBullets() {
+    if (!bulletManager) return;
+    
     const dt = 0.016;
+    const bullets = bulletManager.getBulletArray();
+    
     for (let i = bullets.length - 1; i >= 0; i--) {
         const bullet = bullets[i];
-        if (!bullet.update(dt)) {
-            bullet.destroy();
-            bullets.splice(i, 1);
+        
+        // 총알 위치 업데이트
+        bullet.group.position.add(bullet.direction.clone().multiplyScalar(CONFIG.BULLET.SPEED * dt));
+        
+        // 수명 확인
+        if (Date.now() - bullet.startTime > CONFIG.BULLET.LIFE_TIME) {
+            bulletManager.remove(i);
             continue;
         }
 
@@ -3640,13 +3360,13 @@ function updateBullets() {
             const wallD = wall.geometry.parameters.depth;
             const wallH = wall.geometry.parameters.height || 1;
 
-            if (Math.abs(bullet.mesh.position.x - wall.position.x) < wallW / 2 + 0.2 &&
-                Math.abs(bullet.mesh.position.z - wall.position.z) < wallD / 2 + 0.2 &&
-                Math.abs(bullet.mesh.position.y - wall.position.y) < wallH / 2 + 0.5) {
+            if (Math.abs(bullet.group.position.x - wall.position.x) < wallW / 2 + 0.2 &&
+                Math.abs(bullet.group.position.z - wall.position.z) < wallD / 2 + 0.2 &&
+                Math.abs(bullet.group.position.y - wall.position.y) < wallH / 2 + 0.5) {
 
                 if (vfx) {
-                    const normal = bullet.mesh.position.clone().sub(wall.position).normalize();
-                    vfx.spawnImpact(bullet.mesh.position, normal, 0xaaaaaa);
+                    const normal = bullet.group.position.clone().sub(wall.position).normalize();
+                    vfx.spawnImpact(bullet.group.position, normal, 0xaaaaaa);
 
                     // If hit tree, start shaking
                     if (wall.userData && wall.userData.type === 'tree' && wall.userData.parentTree) {
@@ -3677,8 +3397,7 @@ function updateBullets() {
             }
         }
         if (hit) {
-            bullet.destroy();
-            bullets.splice(i, 1);
+            bulletManager.remove(i);
             continue;
         }
 
@@ -3686,17 +3405,17 @@ function updateBullets() {
         const allPlayers = [myTank, ...Array.from(tanks.values())];
         for (const tank of allPlayers) {
             if (!tank || bullet.ownerId === tank.id) continue;
-            if (bullet.mesh.position.distanceTo(tank.group.position) < 1.2) {
+            if (bullet.group.position.distanceTo(tank.group.position) < 1.2) {
                 // If I shot a player OR my local bot shot a player, broadcast the hit
                 const isMyBotShooter = bots.some(b => b.id === bullet.ownerId);
                 if (bullet.ownerId === myId || isMyBotShooter) {
                     AudioSFX.playImpact();
-                    if (vfx) vfx.spawnImpact(bullet.mesh.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
-                    if (tank === myTank) tank.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
+                    if (vfx) vfx.spawnImpact(bullet.group.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
+                    if (tank === myTank) tank.handleHit(bullet.damage || CONFIG.BULLET.DAMAGE, bullet.ownerId);
                     channel.send({
                         type: 'broadcast',
                         event: 'hit',
-                        payload: { t: tank.id, d: CONFIG.BULLET.DAMAGE, s: bullet.ownerId }
+                        payload: { t: tank.id, d: bullet.damage || CONFIG.BULLET.DAMAGE, s: bullet.ownerId }
                     });
                 }
                 hit = true;
@@ -3704,24 +3423,22 @@ function updateBullets() {
             }
         }
         if (hit) {
-            bullet.destroy();
-            bullets.splice(i, 1);
+            bulletManager.remove(i);
             continue;
         }
 
         // Bot collisions (Local only)
         for (const bot of bots) {
-            if (bullet.ownerId !== bot.id && bullet.mesh.position.distanceTo(bot.group.position) < 1.2) {
+            if (bullet.ownerId !== bot.id && bullet.group.position.distanceTo(bot.group.position) < 1.2) {
                 AudioSFX.playImpact();
-                if (vfx) vfx.spawnImpact(bullet.mesh.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
-                bot.handleHit(CONFIG.BULLET.DAMAGE, bullet.ownerId);
+                if (vfx) vfx.spawnImpact(bullet.group.position, new THREE.Vector3(0, 1, 0), 0xffaa00);
+                bot.handleHit(bullet.damage || CONFIG.BULLET.DAMAGE, bullet.ownerId);
                 hit = true;
                 break;
             }
         }
         if (hit) {
-            bullet.destroy();
-            bullets.splice(i, 1);
+            bulletManager.remove(i);
             continue;
         }
     }
@@ -3825,7 +3542,7 @@ function updatePresenceState() {
     }
 }
 
-/* 7. Rendering */
+/* 7. 렌더링 */
 function animate() {
     animationId = requestAnimationFrame(animate);
     const dt = clock.getDelta();
@@ -3834,7 +3551,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-/* 7. Collision & Spawn Utils */
+/* 7. 충돌 및 스폰 유틸 */
 function isPositionSafe(x, z) {
     const tankRadius = 1.8;
     const halfSize = (CONFIG.WORLD.SIZE / 2) - 5;
@@ -3958,7 +3675,7 @@ function spawnFloatingText(pos, text, color = '#4caf50') {
     updateText();
 }
 
-/* 8. SDK Initialization & Callbacks */
+/* 8. SDK 초기화 및 콜백 */
 const Game = {
     start() {
         WCGames.start();
@@ -3975,9 +3692,11 @@ const Game = {
             tanks.forEach(t => t.destroy());
             tanks.clear();
         }
-        if (typeof bullets !== 'undefined') {
-            bullets.forEach(b => b.destroy());
-            bullets.length = 0;
+        if (bulletManager) {
+            const bullets = bulletManager.getBulletArray();
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bulletManager.remove(i);
+            }
         }
         if (typeof walls !== 'undefined') {
             walls.length = 0;
@@ -3991,6 +3710,8 @@ const Game = {
         }
 
         scene = new THREE.Scene();
+        trackMarkManager = new TrackMarkManager(scene);
+        bulletManager = new BulletManager(scene);
 
         vfx = new ParticleSystem();
         cameraShakeTime = 0;
@@ -4767,14 +4488,10 @@ function setupChannelListeners() {
             bDir = new THREE.Vector3(payload.dir.x, payload.dir.y, payload.dir.z);
         }
 
-        const bullet = new Bullet(bPos, bDir, id);
         const level = payload.l !== undefined ? payload.l : payload.level;
-
-        if (level) {
-            let bulletScale = 1.0 + (Math.min(3, level) * CONFIG.UPGRADE.CANNON.SCALE_INC);
-            bullet.group.scale.setScalar(bulletScale);
-        }
-        bullets.push(bullet);
+        const bulletScale = level ? 1.0 + (Math.min(3, level) * CONFIG.UPGRADE.CANNON.SCALE_INC) : 1.0;
+        
+        bulletManager.add(bPos, bDir, id, CONFIG.TANK.DAMAGE, bulletScale);
 
         const tank = tanks.get(id);
         if (tank) tank.playShootEffect();
@@ -4852,9 +4569,11 @@ WCGames.init({
         window.addEventListener('mousedown', mouseDownHandler);
         window.addEventListener('mouseup', mouseUpHandler);
         window.addEventListener('mousemove', mouseMoveHandler);
-        if (bullets) {
-            bullets.forEach(b => b.destroy());
-            bullets.length = 0;
+        if (bulletManager) {
+            const bullets = bulletManager.getBulletArray();
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bulletManager.remove(i);
+            }
         }
         if (!amIMaster && bots) {
             bots.forEach(b => b.destroy());
