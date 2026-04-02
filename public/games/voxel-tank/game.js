@@ -394,9 +394,9 @@ class ParticleSystem {
         }
     }
 
-    // Specialized impact effect (착탄 효과)
+    // 착탄 효과 (충돌 지점에서 발생)
     spawnImpact(pos, normal, color = 0xffaa00) {
-        // 1. Flash (짧고 강한 섬광)
+        // 1. 섬광 (짧고 강한 이펙트)
         const flashSize = 0.5;
         const flashGeo = new THREE.SphereGeometry(flashSize, 8, 8);
         const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
@@ -426,9 +426,9 @@ class ParticleSystem {
         }
     }
 
-    // Specialized explosion (대폭발 효과)
+    // 대폭발 효과 (대형 폭발 시 발생)
     spawnExplosion(pos) {
-        // 1. Fireball (거대한 화염)
+        // 1. 화염구 (거대한 화염 효과)
         for (let i = 0; i < 25; i++) {
             const size = 0.5 + Math.random() * 0.8;
             const color = [0xffaa00, 0xff4400, 0xffff00][Math.floor(Math.random() * 3)];
@@ -440,7 +440,7 @@ class ParticleSystem {
             this.particles.push({ mesh: p, vel: vel, life: 600 + Math.random() * 400, maxLife: 1000, gravity: 2, friction: 0.92 });
             this.group.add(p);
         }
-        // 2. Smoke Pillar (웅장한 연기)
+        // 2. 연기 기둥 (웅장한 연기 효과)
         for (let i = 0; i < 15; i++) {
             const size = 0.8 + Math.random() * 1.5;
             const geometry = new THREE.BoxGeometry(size, size, size);
@@ -451,7 +451,7 @@ class ParticleSystem {
             this.particles.push({ mesh: p, vel: vel, life: 3000 + Math.random() * 1500, maxLife: 4500, gravity: -1.2, friction: 0.97 });
             this.group.add(p);
         }
-        // 3. Heavy Debris (무거운 파편)
+        // 3. 중량 파편 (무거운 파편 조각들)
         for (let i = 0; i < 15; i++) {
             const size = 0.2 + Math.random() * 0.3;
             const p = createVoxelBox(size, size, size, 0x111111);
@@ -1117,12 +1117,12 @@ class FighterPlane {
         // --- 스텔스 전투기 (F-22 랩터 스타일) ---
         const colors = CONFIG.COLORS.FIGHTER;
 
-        // 1. 메인 동체 (Main Fuselage)
+        // 1. 메인 동체 (전투기 몸체)
         const fuselage = createVoxelBox(0.7, 0.5, 4.0, colors.BODY);
         fuselage.position.set(0, 0, 0);
         this.group.add(fuselage);
 
-        // 2. 기수 (Sharp Nose)
+        // 2. 기수 (날카로운 전면부)
         const noseMain = createVoxelBox(0.5, 0.35, 0.8, colors.BODY);
         noseMain.position.set(0, -0.05, -2.4);
         this.group.add(noseMain);
@@ -1137,7 +1137,7 @@ class FighterPlane {
             this.group.add(bayDoor);
         }
 
-        // 4. 조종석 캐노피 (Cockpit Canopy)
+        // 4. 조종석 캐노피 (조종석 덮개)
         const canopyBase = createVoxelBox(0.4, 0.15, 0.8, colors.METAL);
         canopyBase.position.set(0, 0.32, -1.2);
         this.group.add(canopyBase);
@@ -1145,7 +1145,7 @@ class FighterPlane {
         canopyGlass.position.set(0, 0.42, -1.2);
         this.group.add(canopyGlass);
 
-        // 5. 메인 날개 (Main Delta Wings)
+        // 5. 메인 날개 (주력 델타익)
         for (let side of [-1, 1]) {
             const wingBase = createVoxelBox(2.2, 0.06, 1.8, colors.WING);
             wingBase.position.set(side * 1.4, -0.1, 0.3);
@@ -1162,7 +1162,7 @@ class FighterPlane {
             this.group.add(wingRear);
         }
 
-        // 6. V자형 수직 미익 (Twin Vertical Tails)
+        // 6. V자형 수직 미익 (수직 꼬리 날개)
         for (let side of [-1, 1]) {
             const vTailMain = createVoxelBox(0.06, 0.9, 0.7, colors.TAIL);
             vTailMain.position.set(side * 0.5, 0.5, 1.5);
@@ -1175,12 +1175,12 @@ class FighterPlane {
             this.group.add(vTailRudder);
         }
 
-        // 7. 수평 미익 (Horizontal Stabilizers)
+        // 7. 수평 미익 (수평 안정판)
         const hStab = createVoxelBox(1.6, 0.05, 0.6, colors.WING);
         hStab.position.set(0, 0, 1.8);
         this.group.add(hStab);
 
-        // 8. 트윈 엔진 노즐 (Twin Engine Nozzles)
+        // 8. 트윈 엔진 노즐 (엔진 배기구)
         for (let side of [-1, 1]) {
             const nozzleOuter = createVoxelCylinder(0.22, 0.25, 0.5, colors.METAL, 0.8, 0.2);
             nozzleOuter.position.set(side * 0.28, -0.08, 2.2);
@@ -1202,7 +1202,7 @@ class FighterPlane {
             this.group.add(nozzleRing);
         }
 
-        // 9. 공기 흡입구 (Side Air Intakes)
+        // 9. 공기 흡입구 (사이드 흡기구)
         for (let side of [-1, 1]) {
             const intake = createVoxelBox(0.2, 0.2, 1.2, colors.ACCENT);
             intake.position.set(side * 0.5, -0.2, 0.5);
@@ -1214,12 +1214,12 @@ class FighterPlane {
             this.group.add(intakeRamp);
         }
 
-        // 10. 미사일 베이 (Missile Bays)
+        // 10. 미사일 베이 (무장 창고)
         const missileBay = createVoxelBox(0.3, 0.15, 0.8, colors.ACCENT);
         missileBay.position.set(0, -0.22, -0.8);
         this.group.add(missileBay);
 
-        // 11. 데이터 링크 / 안테나 (Data Link Antenna)
+        // 11. 데이터 링크 / 안테나 (통신 장비)
         const antenna = createVoxelBox(0.02, 0.3, 0.02, colors.METAL);
         antenna.position.set(0, 0.55, 0.5);
         this.group.add(antenna);
@@ -1424,7 +1424,7 @@ class RepairStation {
     }
 
     addProps(baseSize, pHeight) {
-        const radius = baseSize / 1.7; // radius 정의 추가 (ReferenceError 해결)
+        const radius = baseSize / 1.7; // 6각형 반지름 설정
         const colors = CONFIG.COLORS.REPAIR_STATION;
 
         // 6각형 모서리 전구등 (5~6개)
@@ -3107,10 +3107,6 @@ function renderMinimap() {
  * 메인 게임 루프 업데이트 - 매 프레임 호출
  * @param {number} dt - 델타 타임 (초)
  */
-/**
- * 메인 게임 루프 업데이트 - 매 프레임 호출
- * @param {number} dt - 델타 타임 (초)
- */
 function update(dt) {
     const now = Date.now();
 
@@ -3216,7 +3212,7 @@ function update(dt) {
                 if (myTank.engineAudio) myTank.engineAudio.update(1.0);
                 myTank.updateAnims(dt, true);
             } else {
-                const isRotating = (keys['a'] || keys['KeyA'] || keys['ArrowLeft'] || keys['d'] || keys['KeyD'] || keys['ArrowRight']);
+                const isRotating = !!(keys['a'] || keys['KeyA'] || keys['ArrowLeft'] || keys['d'] || keys['KeyD'] || keys['ArrowRight']);
                 if (myTank.engineAudio) myTank.engineAudio.update(isRotating ? 0.3 : 0.0);
                 myTank.updateAnims(dt, false);
             }
@@ -4453,22 +4449,7 @@ const Game = {
         raycastFloor.name = 'raycast-floor';
         scene.add(raycastFloor);
 
-        // 맵 소품 및 잔해 생성 로직이 전역 함수로 추출됨
-
-
-
-
-
-
-        // 맵 소품 및 잔해 생성 로직이 전역 함수로 추출됨
-
-
-
-
-
-
-
-        // CONFIG에서 고정 소품 생성
+        // 맵 소품 및 잔해 생성 로직
         CONFIG.MAP.PROPS.forEach(prop => {
             if (prop.type === 'tree') createBurnedTree(prop.x, prop.z);
             else if (prop.type === 'hedgehog') createHedgehog(prop.x, prop.z);
@@ -4544,12 +4525,16 @@ WCGames.init({
     onResume: () => { },
     onGameOver: () => { },
     onRestart: () => {
+        // 입력 리스너 초기화 및 재등록
         cleanupInputListeners();
+        
         window.addEventListener('keydown', keyDownHandler);
         window.addEventListener('keyup', keyUpHandler);
         window.addEventListener('mousedown', mouseDownHandler);
         window.addEventListener('mouseup', mouseUpHandler);
         window.addEventListener('mousemove', mouseMoveHandler);
+
+        // 게임 객체 및 상태 초기화
         if (bulletManager) {
             updateHUD();
             const bullets = bulletManager.getBulletArray();
