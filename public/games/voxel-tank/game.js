@@ -2818,6 +2818,9 @@ window.addEventListener('mouseup', mouseUpHandler);
 const joystickLeft = { x: 0, y: 0 }; // 좌측: 이동/회전 용
 const joystickRight = { x: 0, y: 0 }; // 우측: 포탑 조준/사격 용
 
+// 모바일 부스터 입력 상태 (멀티터치 지원)
+window.isMobileBoosting = false;
+
 // 마우스 위치 트래킹 (WCGames 코어 입력 데이터 연동)
 const mouseMoveHandler = e => {
     if (window.WCGames.input && window.WCGames.input.mouse) {
@@ -2945,6 +2948,34 @@ function setupJoysticks() {
 
     setup('joystick-left', joystickLeft);
     // joystick-right는 현재 자동 조준 시스템 사용으로 인해 비활성화 상태
+
+    // --- 부스터 버튼 멀티터치 설정 ---
+    const boosterBtn = document.getElementById('booster-btn');
+    if (boosterBtn) {
+        const handleBoosterStart = (e) => {
+            window.isMobileBoosting = true;
+            boosterBtn.classList.add('active');
+            if (e.cancelable) e.preventDefault();
+        };
+
+        const handleBoosterEnd = (e) => {
+            // 멀티터치 상황이므로 현재 터치가 부스터 버튼 영역을 벗어났는지 여부를 더 정밀하게 체크할 수도 있지만,
+            // 버튼 자체에 리스너를 걸었으므로 touchend가 발생하면 해당 버튼 입력 종료로 간주
+            window.isMobileBoosting = false;
+            boosterBtn.classList.remove('active');
+            if (e.cancelable) e.preventDefault();
+        };
+
+        // 터치 이벤트 (멀티터치 지원)
+        boosterBtn.addEventListener('touchstart', handleBoosterStart, { passive: false });
+        boosterBtn.addEventListener('touchend', handleBoosterEnd, { passive: false });
+        boosterBtn.addEventListener('touchcancel', handleBoosterEnd, { passive: false });
+
+        // 데스크톱 테스트용 마우스 이벤트
+        boosterBtn.addEventListener('mousedown', handleBoosterStart);
+        boosterBtn.addEventListener('mouseup', handleBoosterEnd);
+        boosterBtn.addEventListener('mouseleave', handleBoosterEnd); // 버튼 영역 밖으로 마우스가 나갔을 때 처리
+    }
 }
 
 /**
