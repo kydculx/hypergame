@@ -4,7 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>탱크 온라인</title>
+    <title>Voxel Tank - Battle Arena</title>
+    <!-- 현대적인 타이포그래피: Inter 폰트 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/shared/wcgames-style.css">
     <style>
         body {
@@ -25,7 +29,7 @@
             display: block;
         }
 
-        /* UI Overlays */
+        /* UI 오버레이 */
         #hud {
             position: absolute;
             top: 20px;
@@ -95,7 +99,7 @@
             pointer-events: none;
         }
 
-        /* Booster Bar */
+        /* 부스터 바 */
         .booster-bar-container {
             width: 200px;
             height: 10px;
@@ -126,13 +130,15 @@
             -webkit-backdrop-filter: blur(8px);
             border: 3px solid rgba(255, 255, 255, 0.25);
             border-radius: 50%;
-            display: none; /* Desktop hidden */
+            display: none;
+            /* 데스크톱에서는 숨김 */
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: 900;
             font-size: 14px;
-            z-index: 1000; /* Higher z-index to stay on top */
+            z-index: 1000;
+            /* 항상 위에 표시하기 위한 높은 z-index */
             user-select: none;
             -webkit-tap-highlight-color: transparent;
             box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
@@ -141,13 +147,15 @@
 
         #booster-btn:active,
         #booster-btn.active {
-            transform: scale(0.85); /* More pronounced scale */
+            transform: scale(0.85);
+            /* 더 뚜렷한 크기 조절 */
             background: rgba(0, 210, 255, 0.5);
             border-color: #00d2ff;
             box-shadow: 0 0 20px rgba(0, 210, 255, 0.6);
         }
 
-        @media (max-width: 1024px), (pointer: coarse) {
+        @media (max-width: 1024px),
+        (pointer: coarse) {
             #booster-btn {
                 display: flex;
             }
@@ -156,7 +164,8 @@
         #upgrade-hud {
             margin-top: 6px;
             display: flex;
-            gap: 4px; /* Even tighter gap */
+            gap: 4px;
+            /* 더 좁은 간격 */
             pointer-events: none;
             z-index: 5;
         }
@@ -168,13 +177,15 @@
             background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            padding: 2px 6px; /* Ultra minimal padding */
+            padding: 2px 6px;
+            /* 최소화된 패딩 */
             border-radius: 4px;
             border: 1px solid rgba(255, 255, 255, 0.05);
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-            min-width: 72px; /* Very narrow */
-            justify-content: center; 
+            min-width: 72px;
+            /* 매우 좁게 설정 */
+            justify-content: center;
         }
 
         .upgrade-item.level-up {
@@ -184,7 +195,8 @@
         }
 
         .upgrade-label {
-            font-size: 9px; /* Smaller font */
+            font-size: 9px;
+            /* 작은 폰트 */
             font-weight: 900;
             letter-spacing: -0.2px;
             text-transform: uppercase;
@@ -214,15 +226,24 @@
         }
 
         .level-text {
-            display: none; /* Hide per user request */
+            display: none;
+            /* 요구 사항에 따라 숨김 */
         }
 
-        /* Upgrade Specific Colors */
-        #up-cannon { color: #ff4d4d; }
-        #up-speed  { color: #ffcc00; }
-        #up-armor  { color: #4d79ff; }
+        /* 업그레이드별 색상 */
+        #up-cannon {
+            color: #ff4d4d;
+        }
 
-        /* Mobile Controls */
+        #up-speed {
+            color: #ffcc00;
+        }
+
+        #up-armor {
+            color: #4d79ff;
+        }
+
+        /* 모바일 컨트롤 */
         #joystick-left,
         #joystick-right {
             display: none;
@@ -236,7 +257,7 @@
             right: 80px;
         }
 
-        /* Hide mobile controls on desktop (precise pointers) */
+        /* 데스크톱(정밀 포인터)에서는 모바일 컨트롤 숨김 */
         @media (pointer: fine) {
 
             #joystick-left,
@@ -257,7 +278,7 @@
             pointer-events: none;
         }
 
-        /* Crosshair */
+        /* 조준점(크로스헤어) */
         #crosshair {
             position: absolute;
             top: 50%;
@@ -269,7 +290,7 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
             display: none;
-            /* Only show in specific modes if needed */
+            /* 필요한 특정 모드에서만 표시 */
         }
 
         #minimap {
@@ -284,35 +305,132 @@
             z-index: 10;
             display: block;
         }
+
+        /* HUD HP 바 (스크린 스페이스) */
+        #hp-bars-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 4;
+            /* 메인 HUD 아래, 캔버스 위 */
+            overflow: hidden;
+        }
+
+        .hp-hud {
+            position: absolute;
+            width: 50px;
+            /* 약간 더 넓게 */
+            height: 8px;
+            /* 약간 더 두껍게 */
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            transform: translate(-50%, -50%);
+            display: none;
+            /* JS를 통해 표시됨 */
+            padding: 1.5px;
+            box-sizing: border-box;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            z-index: 5;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .hp-hud-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            border-radius: 2px;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+            box-shadow: 0 0 4px rgba(46, 204, 113, 0.5);
+        }
+
+        .booster-hud {
+            width: 100%;
+            height: 4px;
+            /* HP보다 얇게 설정 */
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 2px;
+            margin-top: 2px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .booster-hud-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            border-radius: 1px;
+            transition: width 0.1s ease-out;
+            box-shadow: 0 0 4px rgba(0, 210, 255, 0.5);
+        }
+
+        .hp-hud-name {
+            position: absolute;
+            top: -16px;
+            /* 바 위에 표시 */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+            white-space: nowrap;
+            letter-spacing: 0.2px;
+            font-family: 'Inter', sans-serif;
+            pointer-events: none;
+            opacity: 0.9;
+        }
     </style>
 </head>
 
 <body class="wcg-ready">
+    <div id="hp-bars-container"></div>
     <div id="hud">
-        <div class="hp-bar-container">
-            <div id="hp-fill"></div>
-            <div id="status-text">100</div>
-        </div>
-        <div class="booster-bar-container">
-            <div id="booster-fill"></div>
-        </div>
         <div id="upgrade-hud">
             <div class="upgrade-item" id="up-cannon">
                 <span class="upgrade-label" data-i18n="cannon">CANNON</span>
                 <div class="upgrade-gauge">
-                    <div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
                 </div>
             </div>
             <div class="upgrade-item" id="up-speed">
                 <span class="upgrade-label" data-i18n="speed">SPEED</span>
                 <div class="upgrade-gauge">
-                    <div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
                 </div>
             </div>
             <div class="upgrade-item" id="up-armor">
                 <span class="upgrade-label" data-i18n="armor">ARMOR</span>
                 <div class="upgrade-gauge">
-                    <div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div><div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
+                    <div class="gauge-dot"></div>
                 </div>
             </div>
         </div>
@@ -320,12 +438,12 @@
     <div id="scoreboard"></div>
     <canvas id="minimap" width="100" height="100"></canvas>
 
-    <!-- Mobile Joysticks -->
+    <!-- 모바일 조이스틱 -->
     <div id="joystick-left">
         <div class="joystick-knob"></div>
     </div>
 
-    <!-- Mobile Booster Button -->
+    <!-- 모바일 부스터 버튼 -->
     <button id="booster-btn">BOOST</button>
 
     <div id="start-screen" class="wcg-overlay">
@@ -346,7 +464,7 @@
 
     <div id="game-container"></div>
 
-    <!-- Import Map for ES Modules -->
+    <!-- ES 모듈을 위한 Import Map -->
     <script type="importmap">
         {
             "imports": {
@@ -355,16 +473,15 @@
         }
     </script>
 
-    <!-- External Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 
-    <!-- SDK & Config -->
+
+    <!-- SDK 및 설정 -->
     <script src="/shared/wcgames-config.js"></script>
     <script src="/shared/wcgames-core.js"></script>
     <script src="/shared/i18n.js"></script>
 
-    <!-- Game Logic -->
+    <!-- 게임 로직 -->
     <script type="module" src="game.js"></script>
 </body>
 

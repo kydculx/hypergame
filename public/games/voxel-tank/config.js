@@ -2,7 +2,7 @@
  * Voxel Tank 게임 설정 파일
  * 밸런스, 스타일, 맵 레이아웃 등의 설정을 관리합니다.
  */
-import * as THREE from 'three';
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
 // ============================================================================
 // 게임 설정
@@ -27,9 +27,9 @@ const CONFIG = {
     // 총알 설정
     // ------------------------------------------------------------------------
     BULLET: {
-        SPEED: 30,                   // 총알 속도
-        LIFE_TIME: 1500,             // 총알 수명 (ms)
-        DAMAGE: 10                   // 기본 데미지
+        SPEED: 30,
+        LIFE_TIME: 1500,
+        DAMAGE: 10
     },
 
     // ------------------------------------------------------------------------
@@ -53,10 +53,60 @@ const CONFIG = {
     COLORS: {
         SELF: 0x4d79ff,            // 아군 색상 (파랑)
         OTHER: 0xff4d4d,            // 적 색상 (빨강)
+        BOT: 0x9933ff,              // 봇 색상 (보라)
         FLOOR: 0x3a3530,           // 지면 색상
         BULLET: 0xffff00,           // 총알 색상
         WALL: 0x252018,             // 벽 색상
-        BOT: 0x9933ff               // 봇 색상 (보라)
+
+        // 탱크 세부 부품 색상
+        TANK_DETAILS: {
+            BASE: 0x333333,        // 기본 상세 부품 (건메탈)
+            TREAD: 0x111111,       // 무한궤도
+            WHEEL: 0x222222,       // 바퀴
+            BARREL: 0x222222,      // 포신
+            MUZZLE: 0x111111       // 포구
+        },
+        // 신규: 특수 개체 색상
+        AIRSTRIKE: {
+            BODY: 0x2d3436,
+            STRIP: 0xfdcb6e,
+            FIN: 0xb2bec3
+        },
+        FIGHTER: {
+            BODY: 0x1a1a1a,
+            ACCENT: 0x2d2d2d,
+            COCKPIT: 0x00d4aa,
+            ENGINE: 0xff6600,
+            WING: 0x252525,
+            TAIL: 0x333333,
+            METAL: 0x3a3a3a
+        },
+        REPAIR_STATION: {
+            BASE: 0x252220,
+            METAL_DARK: 0x1a1815,
+            METAL_ACCENT: 0x252220,
+            HAZARD: 0x3a2520,
+            WARNING: 0x2a2520,
+            BOLT: 0x252220,
+            LIGHT: 0x00ffff
+        },
+        // 신규: 시각 효과(VFX) 색상
+        VFX: {
+            EXHAUST: 0x99aabb,      // 배기 가스 (기본)
+            EXHAUST_DARK: 0x555555, // 배기 가스 (어두움)
+            SMOKE: 0x1a1a1a,        // 데미지 연기 (기본)
+            SMOKE_DARK: 0x333333,   // 데미지 연기 (짙음)
+            MUZZLE_FLASH: 0xffcc00, // 포구 화염
+            FIRE: 0xff6600,         // 폭발/엔진 화염
+            SPARK: 0xffaa00,        // 스파크
+            HEAL: 0x00ff88,         // 수리 효과
+            CASING: 0x8d6e63        // 탄피 방출 효과 (구리색)
+        },
+        // 신규: 장갑 및 업그레이드 시각 요소
+        ARMOR: {
+            PLATE: 0x7b87a0,        // 장갑판 (스틸 건메탈)
+            METAL_BAR: 0x333333     // 슬랫 아머/케이지 바
+        }
     },
 
     // ------------------------------------------------------------------------
@@ -135,7 +185,7 @@ const CONFIG = {
     // 봇 설정
     // ------------------------------------------------------------------------
     BOT: {
-        COUNT: 15,                  // 봇 수
+        COUNT: 5,                   // 봇 수 (0으로 설정하여 비활성화)
         // [MIN, MAX] 범위 설정 (개별 지능 부여용 - 상한선 20% 하향됨)
         FORWARD_SPEED_RANGE: [3.5, 5.2],     // 전진 속도 (최대 6.5 -> 5.2)
         BACKWARD_SPEED_RANGE: [2.0, 3.2],    // 후진 속도 (최대 4.0 -> 3.2)
@@ -156,7 +206,7 @@ const CONFIG = {
     // ------------------------------------------------------------------------
     POWERUP: {
         HEAL_AMOUNT: 30,            // 회복량
-        SPAWN_INTERVAL: 60,         // 스폰 간격 (초)
+        SPAWN_INTERVAL: 30,         // 스폰 간격 (초)
         MAX_COUNT: 10                // 최대 수
     },
 
@@ -164,10 +214,23 @@ const CONFIG = {
     // 업그레이드 설정
     // ------------------------------------------------------------------------
     UPGRADE: {
-        TYPES: ['CANNON', 'SPEED', 'ARMOR'], // 업그레이드 유형
-        CANNON: { DAMAGE_INC: 2, SCALE_INC: 0.15 },    // 포 upgraded 데미지 증가
-        SPEED: { MOVE_INC: 0.4, ROT_INC: 0.15 },        // 속도 증가
-        ARMOR: { HP_INC: 30 }                            // 방어력 증가
+        TYPES: ['CANNON', 'SPEED', 'ARMOR'],
+        CANNON: {
+            DAMAGE_INC: 2,
+            SCALE_INC: 0.08,    // 총알 크기 증가폭 (레벨당) [추가]
+            SCALE_XY_INC: 0.05, // 포신 두께 증가폭 (레벨당)
+            SCALE_Z_INC: 0.12,  // 포신 길이 증가폭 (레벨당)
+            MUZZLE_VFX_SCALE: 0.15
+        },
+        SPEED: {
+            MOVE_INC: 0.4,
+            ROT_INC: 0.15,
+            TREAD_SPEED_INC: 0.2 // 무한궤도 애니메이션 속도 증가폭
+        },
+        ARMOR: {
+            HP_INC: 30,
+            VISUAL_LEVELS: [1, 3, 4, 7, 9] // 장갑판이 추가되는 주요 레벨 임계값
+        }
     },
 
     // ------------------------------------------------------------------------
@@ -180,8 +243,8 @@ const CONFIG = {
         PLANE_HEIGHT: 10,            // 전투기 높이
         BOMB_COUNT: 15,              // 폭탄 수
         BOMB_INTERVAL: 0.15,         // 폭탄 투하 간격 (초)
-        BOMB_DAMAGE: 45,             // 폭탄 데미지
         BOMB_RADIUS: 8,              // 폭탄 반경
+        BOMB_DAMAGE: 30,             // 폭탄 데미지
         WARNING_DURATION: 0,         // 공습 전 경보 시간 (초)
         SIREN_DURATION: 5,           // 사이렌 유지 시간 (초)
         SIREN_FADE_OUT: 5,            // 사이렌 페이드아웃 시간 (초)
@@ -197,17 +260,63 @@ const CONFIG = {
         RADIUS: 1.5,               // 수리 반경
         HEAL_RATE: 8.0,             // 초당 회복량
         COLOR_PAD: 0x2d3436,        // 패드 색상
-        COLOR_GLOW: 0x00b894         // 회복 중 발광 색상
+        COLOR_GLOW: 0x00b894,        // 회복 중 발광 색상
+        SPARK_CHANCE: 0.6,          // 스파크 발생 확률
+        SMOKE_CHANCE: 0.3           // 연기 발생 확률
     },
 
     // ------------------------------------------------------------------------
-    // 부스터 설정 (사용자 요청에 따라 변수로 분리)
+    // 부스터 설정
     // ------------------------------------------------------------------------
     BOOSTER: {
         MAX_GAUGE: 100,             // 최대 게이지
         CONSUME_RATE: 35,           // 초당 소모량
         REFILL_RATE: 12,            // 초당 충전량
         SPEED_MULTIPLIER: 1.8       // 부스터 활성 시 이동 속도 배율
+    },
+
+    // ------------------------------------------------------------------------
+    // 시각 효과 (VFX) 설정
+    // ------------------------------------------------------------------------
+    VFX: {
+        MAX_PARTICLES: 500,          // 최대 파티클 수
+        GRAVITY: 9.8                 // 기본 중력값
+    },
+
+    // ------------------------------------------------------------------------
+    // 오디오 설정
+    // ------------------------------------------------------------------------
+    AUDIO: {
+        MASTER_VOLUME: 0.5,          // 마스터 볼륨
+        ENGINE: {
+            PITCH_RANGE: [0.5, 2.0], // 엔진 피치 범위 [최저, 최고]
+            VOLUME_RANGE: [0.3, 1.0] // 엔진 볼륨 범위 [아이들, 풀스피드]
+        }
+    },
+
+    // ------------------------------------------------------------------------
+    // UI 설정
+    // ------------------------------------------------------------------------
+    UI: {
+        HP_BAR: {
+            // 3D 공간 상의 좌표 오프셋 (단위: 3D Unit)
+            // 사용자 요청에 따라 Z를 탱크의 머리 위(높이) 방향으로 정의합니다.
+            OFFSET_3D: {
+                X: 0,    // 카메라 기준 좌우 (Billboarding)
+                Y: 2.4,  // 카메라 기준 상하 (높이 적용)
+                Z: 0     // 카메라 기준 앞뒤 (깊이)
+            },
+            OFFSET_Y_PX: 0,         // 화면 투영 후 최종 미세조정 (px)
+            COLORS: {
+                CRITICAL: '#ff4d4d', // 30% 미만
+                WARNING: '#f1c40f',  // 60% 미만
+                HEALTHY: '#2ecc71'   // 정상
+            }
+        },
+        BOOSTER: {
+            LOW: '#ff4d4d',
+            NORMAL: 'linear-gradient(90deg, #00d2ff, #3a7bd5)'
+        }
     },
 
     // ------------------------------------------------------------------------
@@ -220,13 +329,6 @@ const CONFIG = {
         OFFSET_Z: 7,                // Z축 오프셋
         PC_FOV: 80,                 // PC 시야각
         MOBILE_FOV: 60              // 모바일 시야각
-    },
-
-    // ------------------------------------------------------------------------
-    // 네트워크 설정
-    // ------------------------------------------------------------------------
-    NETWORK: {
-        SYNC_INTERVAL: 25           // 동기화 간격 (ms)
     }
 };
 
@@ -281,82 +383,6 @@ function getTerrainHeight(x, z) {
 }
 
 /**
- * 16진수 인코딩 (패킷 최적화용)
- * @param {number} val - 인코딩할 값
- * @param {number} offset - 오프셋
- * @param {number} scale - 스케일
- * @param {number} length - 자릿수
- * @returns {string} 16진수 문자열
- */
-function encodeHex(val, offset, scale, length) {
-    const intVal = Math.floor((val + offset) * scale);
-    const maxVal = Math.pow(16, length) - 1;
-    const clampedVal = Math.max(0, Math.min(maxVal, intVal));
-    return clampedVal.toString(16).padStart(length, '0');
-}
-
-/**
- * 16진수 디코딩 (패킷 최적화용)
- * @param {string} hex - 16진수 문자열
- * @param {number} offset - 오프셋
- * @param {number} scale - 스케일
- * @returns {number} 디코딩된 값
- */
-function decodeHex(hex, offset, scale) {
-    const intVal = parseInt(hex, 16);
-    return (intVal / scale) - offset;
-}
-
-/**
- * 탱크 데이터를 패킹 (네트워크 전송용)
- * @param {Object} tank - 탱크 객체
- * @returns {string} 패킹된 16진수 문자열
- */
-function packTankData(tank) {
-    // X, Z: 4자리 (오프셋 200, 스케일 100 -> -200~455 범위)
-    const x = encodeHex(tank.group.position.x, 200, 100, 4);
-    const z = encodeHex(tank.group.position.z, 200, 100, 4);
-
-    // 각도 정규화
-    const r = encodeHex(normalizeAngle(tank.group.rotation.y), 10, 100, 4);
-    const tr = encodeHex(normalizeAngle(tank.turretGroup.rotation.y), 10, 100, 4);
-
-    // HP, 킬 수: 4자리 (0-65535)
-    const h = encodeHex(tank.hp, 0, 1, 4);
-    const k = encodeHex(tank.kills, 0, 1, 4);
-
-    // 레벨: 1자리씩 (0-F)
-    const l1 = encodeHex(tank.levelCannon, 0, 1, 1);
-    const l2 = encodeHex(tank.levelSpeed, 0, 1, 1);
-    const l3 = encodeHex(tank.levelArmor, 0, 1, 1);
-
-    return x + z + r + tr + h + k + l1 + l2 + l3;
-}
-
-/**
- * 탱크 데이터 언패킹 (네트워크 수신용)
- * @param {string} hex - 패킹된 문자열
- * @param {Object} tank - 탱크 객체
- * @returns {Object|null} 언패킹된 데이터 또는 null
- */
-function unpackTankData(hex, tank) {
-    // V2.2 규격: 27자 고정
-    if (!hex || hex.length < 27) return null;
-
-    const x = decodeHex(hex.substring(0, 4), 200, 100);
-    const z = decodeHex(hex.substring(4, 8), 200, 100);
-    const r = decodeHex(hex.substring(8, 12), 10, 100);
-    const tr = decodeHex(hex.substring(12, 16), 10, 100);
-    const h = decodeHex(hex.substring(16, 20), 0, 1);
-    const k = decodeHex(hex.substring(20, 24), 0, 1);
-    const l1 = decodeHex(hex.substring(24, 25), 0, 1);
-    const l2 = decodeHex(hex.substring(25, 26), 0, 1);
-    const l3 = decodeHex(hex.substring(26, 27), 0, 1);
-
-    return { x, z, r, tr, h, k, l1, l2, l3 };
-}
-
-/**
  * 지형 법선 반환 (현재는 위쪽)
  * @param {number} x - X 좌표
  * @param {number} z - Z 좌표
@@ -369,4 +395,4 @@ function getTerrainNormal(x, z) {
 // ============================================================================
 // ES 모듈 내보내기
 // ============================================================================
-export { CONFIG, seededRandom, lerpAngle, normalizeAngle, getTerrainHeight, encodeHex, decodeHex, packTankData, unpackTankData, getTerrainNormal };
+export { CONFIG, seededRandom, lerpAngle, normalizeAngle, getTerrainHeight, getTerrainNormal };

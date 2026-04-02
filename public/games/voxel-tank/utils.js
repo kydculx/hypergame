@@ -2,7 +2,7 @@
  * Voxel Tank 유틸리티 함수
  * 재사용 가능한 헬퍼 함수들을 관리합니다.
  */
-import * as THREE from 'three';
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { CONFIG } from './config.js';
 
 /**
@@ -106,7 +106,7 @@ export class TrackMarkManager {
             const offset = trackGap * side;
             const tx = x + Math.cos(angle) * offset;
             const tz = z - Math.sin(angle) * offset;
-            
+
             const track = new THREE.Mesh(this.trackGeo, this.trackMat);
             track.position.set(tx, 0.01, tz);
             track.rotation.y = angle;
@@ -148,17 +148,16 @@ export class BulletManager {
     constructor(scene) {
         this.scene = scene;
         this.bullets = [];
-        
-        // 공유 지오메트리 및 재질 (메모리 효율)
+
         this.bodyGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.35, 12);
         this.bodyMat = new THREE.MeshBasicMaterial({ color: 0xd4a017 });
-        
+
         this.tipGeo = new THREE.ConeGeometry(0.08, 0.18, 12);
         this.tipMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
-        
+
         this.baseGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.04, 12);
         this.baseMat = new THREE.MeshBasicMaterial({ color: 0x8d6e63 });
-        
+
         this.casingGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.08, 12);
         this.casingMat = new THREE.MeshBasicMaterial({ color: 0x654321 });
     }
@@ -171,34 +170,34 @@ export class BulletManager {
      * @param {number} damage - 데미지
      * @param {number} scale - 크기
      */
-    add(position, direction, ownerId, damage = CONFIG.TANK.DAMAGE, scale = 1.0) {
+    add(position, direction, ownerId, damage = CONFIG.BULLET.DAMAGE, scale = 1.0) {
         const group = new THREE.Group();
-        
+
         const body = new THREE.Mesh(this.bodyGeo, this.bodyMat);
         body.rotation.x = Math.PI / 2;
         group.add(body);
-        
+
         const tip = new THREE.Mesh(this.tipGeo, this.tipMat);
         tip.position.z = -0.26;
         tip.rotation.x = Math.PI / 2;
         group.add(tip);
-        
+
         const base = new THREE.Mesh(this.baseGeo, this.baseMat);
         base.position.z = 0.18;
         base.rotation.x = Math.PI / 2;
         group.add(base);
-        
+
         const casing = new THREE.Mesh(this.casingGeo, this.casingMat);
         casing.position.z = 0.22;
         casing.rotation.x = Math.PI / 2;
         group.add(casing);
-        
+
         group.position.copy(position);
         group.lookAt(position.clone().add(direction));
         group.scale.setScalar(scale);
-        
+
         this.scene.add(group);
-        
+
         this.bullets.push({
             group,
             direction: direction.clone(),
@@ -212,10 +211,7 @@ export class BulletManager {
     remove(index) {
         const bullet = this.bullets[index];
         this.scene.remove(bullet.group);
-        bullet.group.traverse(child => {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
-        });
+        // 중요: 공유 지오메트리/재질은 여기서 폐기(dispose)하면 안 됩니다.
         this.bullets.splice(index, 1);
     }
 
@@ -236,10 +232,10 @@ export class BulletManager {
         const now = Date.now();
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             const bullet = this.bullets[i];
-            
+
             // 위치 업데이트
             bullet.group.position.add(bullet.direction.clone().multiplyScalar(CONFIG.BULLET.SPEED * dt));
-            
+
             // 수명 확인
             if (now - bullet.startTime > CONFIG.BULLET.LIFE_TIME) {
                 this.remove(i);

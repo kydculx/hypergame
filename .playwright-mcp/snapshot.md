@@ -1,0 +1,392 @@
+- generic [ref=e4]:
+  - banner [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13] [cursor=pointer]:
+        - img "WCGames" [ref=e15]
+        - generic [ref=e16]: WCGames
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e22]: 접속 중
+          - generic [ref=e23]: "2"
+        - button "KO" [ref=e25]:
+          - img [ref=e26]
+          - generic [ref=e29]: KO
+        - button "로그인" [ref=e32]:
+          - img [ref=e34]
+          - generic [ref=e38] [cursor=pointer]: 로그인
+  - generic [ref=e39]:
+    - generic [ref=e42]: 매주 새로운 게임 추가
+    - heading "언제 어디서든, 가볍게 무료로 즐기는 게임" [level=1] [ref=e43]:
+      - text: 언제 어디서든,
+      - text: 가볍게 무료로 즐기는 게임
+    - paragraph [ref=e44]: 복잡한 설치 없이 브라우저에서 즉시 시작하는 다채로운 무료 웹 게임의 세상을 만나보세요.
+    - generic [ref=e45]:
+      - link "커뮤니티" [ref=e46] [cursor=pointer]:
+        - /url: "#/community"
+        - img [ref=e47]
+        - text: 커뮤니티
+      - link "리더보드" [ref=e49] [cursor=pointer]:
+        - /url: "#/leaderboard"
+        - img [ref=e50]
+        - text: 리더보드
+      - link "자유 채팅" [ref=e56] [cursor=pointer]:
+        - /url: "#/chat"
+        - img [ref=e57]
+        - text: 자유 채팅
+  - generic [ref=e60]:
+    - generic [ref=e62]:
+      - img [ref=e64]
+      - generic [ref=e66]:
+        - generic [ref=e67]: 최정상 등급
+        - generic [ref=e68]: 명예의 전당
+    - generic [ref=e175]:
+      - generic [ref=e177]:
+        - generic [ref=e178]: "2048"
+        - generic [ref=e179]:
+          - img [ref=e181]
+          - generic [ref=e187]: okrpghlreofhehlrhdltdj
+          - generic [ref=e188]: 58,636
+      - generic [ref=e190]:
+        - generic [ref=e191]: 스택
+        - generic [ref=e192]:
+          - img [ref=e194]
+          - generic [ref=e200]: 옵티
+          - generic [ref=e201]: "220"
+      - generic [ref=e203]:
+        - generic [ref=e204]: 지그재그
+        - generic [ref=e205]:
+          - img [ref=e207]
+          - generic [ref=e213]: vhzptvhzpt112
+          - generic [ref=e214]: 9,327
+      - generic [ref=e216]:
+        - generic [ref=e217]: 점프
+        - generic [ref=e218]:
+          - img [ref=e220]
+          - generic [ref=e226]: iyein4018
+          - generic [ref=e227]: "107"
+      - generic [ref=e229]:
+        - generic [ref=e230]: 벽돌깨기
+        - generic [ref=e231]:
+          - img [ref=e233]
+          - generic [ref=e239]: oyj5882
+          - generic [ref=e240]: 3,375
+      - generic [ref=e242]:
+        - generic [ref=e243]: 헬릭스 점프
+        - generic [ref=e244]:
+          - img [ref=e246]
+          - generic [ref=e252]: 0323jenna
+          - generic [ref=e253]: 44,824
+      - generic [ref=e255]:
+        - generic [ref=e256]: 스피드 러시
+        - generic [ref=e257]:
+          - img [ref=e259]
+          - generic [ref=e265]: ily34.123421
+          - generic [ref=e266]: 118,981
+      - generic [ref=e268]:
+        - generic [ref=e269]: 장난감 도미노
+        - generic [ref=e270]:
+          - img [ref=e272]
+          - generic [ref=e278]: 옵티
+          - generic [ref=e279]: 4,001
+      - generic [ref=e281]:
+        - generic [ref=e282]: 지뢰찾기
+        - generic [ref=e283]:
+          - img [ref=e285]
+          - generic [ref=e291]: bongho1215
+          - generic [ref=e292]: 25s
+      - generic [ref=e294]:
+        - generic [ref=e295]: 총알 피하기
+        - generic [ref=e296]:
+          - img [ref=e298]
+          - generic [ref=e304]: ily34.123421
+          - generic [ref=e305]: 55.12s
+      - generic [ref=e307]:
+        - generic [ref=e308]: 스웜 클래시
+        - generic [ref=e309]:
+          - img [ref=e311]
+          - generic [ref=e317]: gyohyeon25
+          - generic [ref=e318]: 2,629
+      - generic [ref=e320]:
+        - generic [ref=e321]: 솔리테어
+        - generic [ref=e322]:
+          - img [ref=e324]
+          - generic [ref=e330]: kydculx
+          - generic [ref=e331]: "90"
+      - generic [ref=e333]:
+        - generic [ref=e334]: 탱크 온라인
+        - generic [ref=e335]:
+          - img [ref=e337]
+          - generic [ref=e343]: admin
+          - generic [ref=e344]: "126"
+      - generic [ref=e346]:
+        - generic [ref=e347]: "2048"
+        - generic [ref=e348]:
+          - img [ref=e350]
+          - generic [ref=e356]: okrpghlreofhehlrhdltdj
+          - generic [ref=e357]: 58,636
+      - generic [ref=e359]:
+        - generic [ref=e360]: 스택
+        - generic [ref=e361]:
+          - img [ref=e363]
+          - generic [ref=e369]: 옵티
+          - generic [ref=e370]: "220"
+      - generic [ref=e372]:
+        - generic [ref=e373]: 지그재그
+        - generic [ref=e374]:
+          - img [ref=e376]
+          - generic [ref=e382]: vhzptvhzpt112
+          - generic [ref=e383]: 9,327
+      - generic [ref=e385]:
+        - generic [ref=e386]: 점프
+        - generic [ref=e387]:
+          - img [ref=e389]
+          - generic [ref=e395]: iyein4018
+          - generic [ref=e396]: "107"
+      - generic [ref=e398]:
+        - generic [ref=e399]: 벽돌깨기
+        - generic [ref=e400]:
+          - img [ref=e402]
+          - generic [ref=e408]: oyj5882
+          - generic [ref=e409]: 3,375
+      - generic [ref=e411]:
+        - generic [ref=e412]: 헬릭스 점프
+        - generic [ref=e413]:
+          - img [ref=e415]
+          - generic [ref=e421]: 0323jenna
+          - generic [ref=e422]: 44,824
+      - generic [ref=e424]:
+        - generic [ref=e425]: 스피드 러시
+        - generic [ref=e426]:
+          - img [ref=e428]
+          - generic [ref=e434]: ily34.123421
+          - generic [ref=e435]: 118,981
+      - generic [ref=e437]:
+        - generic [ref=e438]: 장난감 도미노
+        - generic [ref=e439]:
+          - img [ref=e441]
+          - generic [ref=e447]: 옵티
+          - generic [ref=e448]: 4,001
+      - generic [ref=e450]:
+        - generic [ref=e451]: 지뢰찾기
+        - generic [ref=e452]:
+          - img [ref=e454]
+          - generic [ref=e460]: bongho1215
+          - generic [ref=e461]: 25s
+      - generic [ref=e463]:
+        - generic [ref=e464]: 총알 피하기
+        - generic [ref=e465]:
+          - img [ref=e467]
+          - generic [ref=e473]: ily34.123421
+          - generic [ref=e474]: 55.12s
+      - generic [ref=e476]:
+        - generic [ref=e477]: 스웜 클래시
+        - generic [ref=e478]:
+          - img [ref=e480]
+          - generic [ref=e486]: gyohyeon25
+          - generic [ref=e487]: 2,629
+      - generic [ref=e489]:
+        - generic [ref=e490]: 솔리테어
+        - generic [ref=e491]:
+          - img [ref=e493]
+          - generic [ref=e499]: kydculx
+          - generic [ref=e500]: "90"
+      - generic [ref=e502]:
+        - generic [ref=e503]: 탱크 온라인
+        - generic [ref=e504]:
+          - img [ref=e506]
+          - generic [ref=e512]: admin
+          - generic [ref=e513]: "126"
+      - generic [ref=e515]:
+        - generic [ref=e516]: "2048"
+        - generic [ref=e517]:
+          - img [ref=e519]
+          - generic [ref=e525]: okrpghlreofhehlrhdltdj
+          - generic [ref=e526]: 58,636
+      - generic [ref=e528]:
+        - generic [ref=e529]: 스택
+        - generic [ref=e530]:
+          - img [ref=e532]
+          - generic [ref=e538]: 옵티
+          - generic [ref=e539]: "220"
+      - generic [ref=e541]:
+        - generic [ref=e542]: 지그재그
+        - generic [ref=e543]:
+          - img [ref=e545]
+          - generic [ref=e551]: vhzptvhzpt112
+          - generic [ref=e552]: 9,327
+      - generic [ref=e554]:
+        - generic [ref=e555]: 점프
+        - generic [ref=e556]:
+          - img [ref=e558]
+          - generic [ref=e564]: iyein4018
+          - generic [ref=e565]: "107"
+      - generic [ref=e567]:
+        - generic [ref=e568]: 벽돌깨기
+        - generic [ref=e569]:
+          - img [ref=e571]
+          - generic [ref=e577]: oyj5882
+          - generic [ref=e578]: 3,375
+      - generic [ref=e580]:
+        - generic [ref=e581]: 헬릭스 점프
+        - generic [ref=e582]:
+          - img [ref=e584]
+          - generic [ref=e590]: 0323jenna
+          - generic [ref=e591]: 44,824
+      - generic [ref=e593]:
+        - generic [ref=e594]: 스피드 러시
+        - generic [ref=e595]:
+          - img [ref=e597]
+          - generic [ref=e603]: ily34.123421
+          - generic [ref=e604]: 118,981
+      - generic [ref=e606]:
+        - generic [ref=e607]: 장난감 도미노
+        - generic [ref=e608]:
+          - img [ref=e610]
+          - generic [ref=e616]: 옵티
+          - generic [ref=e617]: 4,001
+      - generic [ref=e619]:
+        - generic [ref=e620]: 지뢰찾기
+        - generic [ref=e621]:
+          - img [ref=e623]
+          - generic [ref=e629]: bongho1215
+          - generic [ref=e630]: 25s
+      - generic [ref=e632]:
+        - generic [ref=e633]: 총알 피하기
+        - generic [ref=e634]:
+          - img [ref=e636]
+          - generic [ref=e642]: ily34.123421
+          - generic [ref=e643]: 55.12s
+      - generic [ref=e645]:
+        - generic [ref=e646]: 스웜 클래시
+        - generic [ref=e647]:
+          - img [ref=e649]
+          - generic [ref=e655]: gyohyeon25
+          - generic [ref=e656]: 2,629
+      - generic [ref=e658]:
+        - generic [ref=e659]: 솔리테어
+        - generic [ref=e660]:
+          - img [ref=e662]
+          - generic [ref=e668]: kydculx
+          - generic [ref=e669]: "90"
+      - generic [ref=e671]:
+        - generic [ref=e672]: 탱크 온라인
+        - generic [ref=e673]:
+          - img [ref=e675]
+          - generic [ref=e681]: admin
+          - generic [ref=e682]: "126"
+  - generic [ref=e95]:
+    - generic [ref=e97]:
+      - button "전체 게임" [ref=e98]
+      - button "액션 / 아케이드" [ref=e99]
+      - button "퍼즐 / 보드" [ref=e100]
+      - button "캐주얼 / 타이밍" [ref=e101]
+    - generic [ref=e102]:
+      - generic [ref=e103] [cursor=pointer]:
+        - img "탱크 온라인" [ref=e105]
+        - generic:
+          - generic:
+            - heading "탱크 온라인" [level=3]
+            - generic:
+              - paragraph: 액션 대전
+              - paragraph: 1,510 plays
+      - generic [ref=e108] [cursor=pointer]:
+        - img "솔리테어" [ref=e110]
+        - generic:
+          - generic:
+            - heading "솔리테어" [level=3]
+            - generic:
+              - paragraph: 퍼즐
+              - paragraph: 208 plays
+      - generic [ref=e113] [cursor=pointer]:
+        - img "2048" [ref=e115]
+        - generic:
+          - generic:
+            - heading "2048" [level=3]
+            - generic:
+              - paragraph: 퍼즐
+              - paragraph: 175 plays
+      - generic [ref=e118] [cursor=pointer]:
+        - img "지뢰찾기" [ref=e120]
+        - generic:
+          - generic:
+            - heading "지뢰찾기" [level=3]
+            - generic:
+              - paragraph: 퍼즐
+              - paragraph: 106 plays
+      - generic [ref=e123] [cursor=pointer]:
+        - img "지그재그" [ref=e125]
+        - generic:
+          - generic:
+            - heading "지그재그" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 96 plays
+      - generic [ref=e128] [cursor=pointer]:
+        - img "스택" [ref=e130]
+        - generic:
+          - generic:
+            - heading "스택" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 93 plays
+      - generic [ref=e133] [cursor=pointer]:
+        - img "점프" [ref=e135]
+        - generic:
+          - generic:
+            - heading "점프" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 61 plays
+      - generic [ref=e138] [cursor=pointer]:
+        - img "스웜 클래시" [ref=e140]
+        - generic:
+          - generic:
+            - heading "스웜 클래시" [level=3]
+            - generic:
+              - paragraph: 전략
+              - paragraph: 61 plays
+      - generic [ref=e143] [cursor=pointer]:
+        - img "헬릭스 점프" [ref=e145]
+        - generic:
+          - generic:
+            - heading "헬릭스 점프" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 60 plays
+      - generic [ref=e148] [cursor=pointer]:
+        - img "장난감 도미노" [ref=e150]
+        - generic:
+          - generic:
+            - heading "장난감 도미노" [level=3]
+            - generic:
+              - paragraph: 퍼즐
+              - paragraph: 47 plays
+      - generic [ref=e153] [cursor=pointer]:
+        - img "총알 피하기" [ref=e155]
+        - generic:
+          - generic:
+            - heading "총알 피하기" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 44 plays
+      - generic [ref=e158] [cursor=pointer]:
+        - img "스피드 러시" [ref=e160]
+        - generic:
+          - generic:
+            - heading "스피드 러시" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 43 plays
+      - generic [ref=e163] [cursor=pointer]:
+        - img "벽돌깨기" [ref=e165]
+        - generic:
+          - generic:
+            - heading "벽돌깨기" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 41 plays
+  - contentinfo [ref=e168]:
+    - generic [ref=e170]:
+      - heading "WCGames" [level=2] [ref=e171]
+      - paragraph [ref=e172]: 언제 어디서나 무료로 즐기는 WCGames.
+    - paragraph [ref=e174]: © 2026 WCGames. All rights reserved.

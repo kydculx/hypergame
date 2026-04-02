@@ -157,8 +157,8 @@ export const useGameStore = create<GameState>()(
           gameUrl: 'games/voxel-tank/index.html',
           categoryId: 'action',
           orientation: 'landscape',
-          width: 1920,
-          height: 1080
+          width: 1280,
+          height: 720
         },
       ],
 

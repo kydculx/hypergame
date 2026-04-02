@@ -1,0 +1,156 @@
+- generic [ref=e4]:
+  - banner [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13] [cursor=pointer]:
+        - img "WCGames" [ref=e15]
+        - generic [ref=e16]: WCGames
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e22]: 접속 중
+          - generic [ref=e23]: "1"
+        - button "KO" [ref=e25]:
+          - img [ref=e26]
+          - generic [ref=e29]: KO
+        - button "로그인" [ref=e32]:
+          - img [ref=e34]
+          - generic [ref=e38] [cursor=pointer]: 로그인
+  - generic [ref=e39]:
+    - generic [ref=e42]: 매주 새로운 게임 추가
+    - heading "언제 어디서든, 가볍게 무료로 즐기는 게임" [level=1] [ref=e43]:
+      - text: 언제 어디서든,
+      - text: 가볍게 무료로 즐기는 게임
+    - paragraph [ref=e44]: 복잡한 설치 없이 브라우저에서 즉시 시작하는 다채로운 무료 웹 게임의 세상을 만나보세요.
+    - generic [ref=e45]:
+      - link "커뮤니티" [ref=e46] [cursor=pointer]:
+        - /url: "#/community"
+        - img [ref=e47]
+        - text: 커뮤니티
+      - link "리더보드" [ref=e49] [cursor=pointer]:
+        - /url: "#/leaderboard"
+        - img [ref=e50]
+        - text: 리더보드
+      - link "자유 채팅" [ref=e56] [cursor=pointer]:
+        - /url: "#/chat"
+        - img [ref=e57]
+        - text: 자유 채팅
+  - generic [ref=e62]:
+    - img [ref=e64]
+    - generic [ref=e66]:
+      - generic [ref=e67]: 최정상 등급
+      - generic [ref=e68]: 명예의 전당
+  - generic [ref=e95]:
+    - generic [ref=e97]:
+      - button "전체 게임" [ref=e98]
+      - button "액션 / 아케이드" [ref=e99]
+      - button "퍼즐 / 보드" [ref=e100]
+      - button "캐주얼 / 타이밍" [ref=e101]
+    - generic [ref=e102]:
+      - generic [ref=e103] [cursor=pointer]:
+        - img "탱크 온라인" [ref=e105]
+        - generic:
+          - generic:
+            - heading "탱크 온라인" [level=3]
+            - generic:
+              - paragraph: 액션 대전
+              - paragraph: 1,510 plays
+      - generic [ref=e108] [cursor=pointer]:
+        - img "솔리테어" [ref=e110]
+        - generic:
+          - generic:
+            - heading "솔리테어" [level=3]
+            - generic:
+              - paragraph: 퍼즐
+              - paragraph: 208 plays
+      - generic [ref=e113] [cursor=pointer]:
+        - img "2048" [ref=e115]
+        - generic:
+          - generic:
+            - heading "2048" [level=3]
+            - generic:
+              - paragraph: 퍼즐
+              - paragraph: 175 plays
+      - generic [ref=e118] [cursor=pointer]:
+        - img "지뢰찾기" [ref=e120]
+        - generic:
+          - generic:
+            - heading "지뢰찾기" [level=3]
+            - generic:
+              - paragraph: 퍼즐
+              - paragraph: 106 plays
+      - generic [ref=e123] [cursor=pointer]:
+        - img "지그재그" [ref=e125]
+        - generic:
+          - generic:
+            - heading "지그재그" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 96 plays
+      - generic [ref=e128] [cursor=pointer]:
+        - img "스택" [ref=e130]
+        - generic:
+          - generic:
+            - heading "스택" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 93 plays
+      - generic [ref=e133] [cursor=pointer]:
+        - img "점프" [ref=e135]
+        - generic:
+          - generic:
+            - heading "점프" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 61 plays
+      - generic [ref=e138] [cursor=pointer]:
+        - img "스웜 클래시" [ref=e140]
+        - generic:
+          - generic:
+            - heading "스웜 클래시" [level=3]
+            - generic:
+              - paragraph: 전략
+              - paragraph: 61 plays
+      - generic [ref=e143] [cursor=pointer]:
+        - img "헬릭스 점프" [ref=e145]
+        - generic:
+          - generic:
+            - heading "헬릭스 점프" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 60 plays
+      - generic [ref=e148] [cursor=pointer]:
+        - img "장난감 도미노" [ref=e150]
+        - generic:
+          - generic:
+            - heading "장난감 도미노" [level=3]
+            - generic:
+              - paragraph: 퍼즐
+              - paragraph: 47 plays
+      - generic [ref=e153] [cursor=pointer]:
+        - img "총알 피하기" [ref=e155]
+        - generic:
+          - generic:
+            - heading "총알 피하기" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 44 plays
+      - generic [ref=e158] [cursor=pointer]:
+        - img "스피드 러시" [ref=e160]
+        - generic:
+          - generic:
+            - heading "스피드 러시" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 43 plays
+      - generic [ref=e163] [cursor=pointer]:
+        - img "벽돌깨기" [ref=e165]
+        - generic:
+          - generic:
+            - heading "벽돌깨기" [level=3]
+            - generic:
+              - paragraph: 액션
+              - paragraph: 41 plays
+  - contentinfo [ref=e168]:
+    - generic [ref=e170]:
+      - heading "WCGames" [level=2] [ref=e171]
+      - paragraph [ref=e172]: 언제 어디서나 무료로 즐기는 WCGames.
+    - paragraph [ref=e174]: © 2026 WCGames. All rights reserved.
